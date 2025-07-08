@@ -63,8 +63,8 @@ struct MemoryDashboardView: View {
                             showingDetailedMetrics = true
                         }
                         
-                        Button("Export Data", systemImage: "square.and.arrow.up") {
-                            exportAnalyticsData()
+                        NavigationLink(destination: DataExportView(modelContext: modelContext)) {
+                            Label("Export Data", systemImage: "square.and.arrow.up")
                         }
                         
                         Button("Force Refresh", systemImage: "arrow.clockwise") {
@@ -158,26 +158,22 @@ struct MemoryDashboardView: View {
     }
     
     private func refreshData() async {
-        await analyticsService.collectMemorySnapshot()
+        _ = await analyticsService.collectMemorySnapshot()
     }
     
     private func forceRefresh() {
         refreshTask?.cancel()
         refreshTask = Task {
-            await analyticsService.collectMemorySnapshot()
+            _ = await analyticsService.collectMemorySnapshot()
         }
     }
     
     private func updateForTimeRange(_ range: TimeRange) async {
         let timeRange = range.dateInterval
-        let trends = await analyticsService.getMemoryTrends(timeRange: timeRange)
+        _ = await analyticsService.getMemoryTrends(timeRange: timeRange)
         // Update UI based on time range data
     }
     
-    private func exportAnalyticsData() {
-        // TODO: Implement data export functionality
-        print("Exporting analytics data...")
-    }
 }
 
 // MARK: - Memory Overview Card
