@@ -24,7 +24,7 @@ final class Entity {
     
     // Entity attributes
     var attributes: [String: String] // Key-value pairs for additional entity info
-    var description: String? // User-provided or AI-generated description
+    var entityDescription: String? // User-provided or AI-generated description
     var tags: [String] // User-assigned tags
     
     // Semantic information
@@ -45,7 +45,7 @@ final class Entity {
         self.lastMentioned = Date()
         self.relationships = []
         self.attributes = [:]
-        self.description = nil
+        self.entityDescription = nil
         self.tags = []
         self.semanticEmbedding = nil
         self.importance = 0.0
@@ -197,7 +197,7 @@ extension Entity {
         }
         
         // Check description
-        if let description = description, description.lowercased().contains(lowercaseQuery) {
+        if let description = entityDescription, description.lowercased().contains(lowercaseQuery) {
             return true
         }
         
@@ -221,7 +221,7 @@ extension Entity {
             suggestions.append("This entity is only mentioned once - may be noise")
         }
         
-        if description == nil {
+        if entityDescription == nil {
             suggestions.append("Add a description to provide more context")
         }
         

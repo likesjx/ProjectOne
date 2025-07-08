@@ -11,6 +11,10 @@ struct ContentView: View {
                     MemoryDashboardView(modelContext: modelContext)
                 }
                 
+                NavigationLink("Knowledge Graph") {
+                    KnowledgeGraphView(modelContext: modelContext)
+                }
+                
                 NavigationLink("Data Management") {
                     DataExportView(modelContext: modelContext)
                 }

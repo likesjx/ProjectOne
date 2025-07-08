@@ -76,6 +76,11 @@ final class Relationship {
         return max(0.0, 1.0 - (daysSinceLastMention / 30.0)) // Decays over 30 days
     }
     
+    /// Efficiency score based on relationship strength and confidence
+    var efficiency: Double {
+        return (strength + confidence) / 2.0
+    }
+    
     /// Overall relationship score combining multiple factors
     var relationshipScore: Double {
         let mentionScore = min(1.0, Double(mentions) / 5.0) // Normalize mentions

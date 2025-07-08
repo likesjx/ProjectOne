@@ -83,7 +83,7 @@ struct EntityTooltipView: View {
                     .foregroundColor(.secondary)
             }
             
-            if let description = entity.description {
+            if let description = entity.entityDescription {
                 Text(description)
                     .font(.caption)
                     .lineLimit(3)
@@ -200,7 +200,7 @@ struct ClusteredEntityNodeView: View {
         
         EntityTooltipView(entity: {
             let entity = Entity(name: "Machine Learning", type: .concept)
-            entity.description = "Artificial intelligence technique for pattern recognition"
+            entity.entityDescription = "Artificial intelligence technique for pattern recognition"
             entity.mentions = 15
             entity.aliases = ["ML", "AI Learning"]
             return entity

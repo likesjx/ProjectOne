@@ -100,54 +100,16 @@ struct KnowledgeGraphView: View {
     private var graphCanvas: some View {
         GeometryReader { geometry in
             ZStack {
-                // Relationships (edges)
-                ForEach(graphService.filteredRelationships, id: \.id) { relationship in
-                    if let subject = graphService.getEntity(relationship.subjectEntityId),
-                       let object = graphService.getEntity(relationship.objectEntityId),
-                       let subjectPosition = graphService.getNodePosition(subject.id),
-                       let objectPosition = graphService.getNodePosition(object.id) {
-                        
-                        RelationshipEdgeView(
-                            relationship: relationship,
-                            startPosition: subjectPosition,
-                            endPosition: objectPosition,
-                            isSelected: selectedRelationship?.id == relationship.id
-                        )
-                        .onTapGesture {
-                            selectedRelationship = relationship
-                            selectedEntity = nil
-                            showingRelationshipDetails = true
-                        }
-                    }
-                }
-                
-                // Entities (nodes)
-                ForEach(graphService.filteredEntities, id: \.id) { entity in
-                    if let position = graphService.getNodePosition(entity.id) {
-                        EntityNodeView(
-                            entity: entity,
-                            position: position,
-                            isSelected: selectedEntity?.id == entity.id
-                        )
-                        .onTapGesture {
-                            selectedEntity = entity
-                            selectedRelationship = nil
-                            showingEntityDetails = true
-                        }
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    graphService.updateNodePosition(entity.id, position: CGPoint(
-                                        x: position.x + value.translation.x,
-                                        y: position.y + value.translation.y
-                                    ))
-                                }
-                        )
-                    }
-                }
+                relationshipEdgesView
+                entityNodesView
             }
             .scaleEffect(zoomScale)
             .offset(viewOffset)
+            .clipped()
+            .onTapGesture { location in
+                selectedEntity = nil
+                selectedRelationship = nil
+            }
             .gesture(
                 MagnificationGesture()
                     .onChanged { value in
@@ -168,6 +130,54 @@ struct KnowledgeGraphView: View {
             }
         }
     }
+    
+    private var relationshipEdgesView: some View {
+        ForEach(graphService.filteredRelationships, id: \.id) { relationship in
+            if let subject = graphService.getEntity(relationship.subjectEntityId),
+               let object = graphService.getEntity(relationship.objectEntityId),
+               let subjectPosition = graphService.getNodePosition(subject.id),
+               let objectPosition = graphService.getNodePosition(object.id) {
+                
+                RelationshipEdgeView(
+                    relationship: relationship,
+                    startPosition: subjectPosition,
+                    endPosition: objectPosition,
+                    isSelected: selectedRelationship?.id == relationship.id
+                        )
+                        .onTapGesture {
+                            selectedRelationship = relationship
+                            selectedEntity = nil
+                            showingRelationshipDetails = true
+                        }
+                }
+            }
+        }
+    
+    private var entityNodesView: some View {
+        ForEach(graphService.filteredEntities, id: \.id) { entity in
+            if let position = graphService.getNodePosition(entity.id) {
+                EntityNodeView(
+                    entity: entity,
+                    position: position,
+                    isSelected: selectedEntity?.id == entity.id
+                )
+                .onTapGesture {
+                    selectedEntity = entity
+                    selectedRelationship = nil
+                    showingEntityDetails = true
+                }
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            graphService.updateNodePosition(entity.id, position: CGPoint(
+                                x: position.x + value.translation.x,
+                                y: position.y + value.translation.y
+                            ))
+                        }
+                        )
+                    }
+                }
+        }
     
     // MARK: - Top Toolbar
     
@@ -223,7 +233,7 @@ struct KnowledgeGraphView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        if let description = entity.description {
+                        if let description = entity.entityDescription {
                             Text(description)
                                 .font(.caption)
                                 .lineLimit(2)

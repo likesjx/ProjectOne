@@ -7,7 +7,9 @@ struct ProjectOneApp: App {
         let schema = Schema([
             MemoryAnalytics.self,
             ConsolidationEvent.self,
-            MemoryPerformanceMetric.self
+            MemoryPerformanceMetric.self,
+            Entity.self,
+            Relationship.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
