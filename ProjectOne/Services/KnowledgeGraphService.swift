@@ -274,8 +274,8 @@ final class KnowledgeGraphService: ObservableObject {
         
         for (index, entity) in filteredEntities.enumerated() {
             let angle = 2 * Double.pi * Double(index) / Double(filteredEntities.count)
-            let x = center.x + radius * cos(angle)
-            let y = center.y + radius * sin(angle)
+            let x = center.x + radius * CoreGraphics.cos(angle)
+            let y = center.y + radius * CoreGraphics.sin(angle)
             nodePositions[entity.id] = CGPoint(x: x, y: y)
         }
     }
@@ -333,8 +333,8 @@ final class KnowledgeGraphService: ObservableObject {
             let radius = CGFloat(ring + 1) * 80
             
             let angle = 2 * Double.pi * Double(positionInRing) / Double(min(entitiesPerRing, otherEntities.count - ring * entitiesPerRing))
-            let x = center.x + radius * cos(angle)
-            let y = center.y + radius * sin(angle)
+            let x = center.x + radius * CoreGraphics.cos(angle)
+            let y = center.y + radius * CoreGraphics.sin(angle)
             
             nodePositions[entity.id] = CGPoint(x: x, y: y)
         }

@@ -132,7 +132,7 @@ struct KnowledgeGraphView: View {
     }
     
     private var relationshipEdgesView: some View {
-        ForEach(graphService.filteredRelationships, id: \.id) { relationship in
+        ForEach(Array(graphService.filteredRelationships.enumerated()), id: \.element.id) { index, relationship in
             if let subject = graphService.getEntity(relationship.subjectEntityId),
                let object = graphService.getEntity(relationship.objectEntityId),
                let subjectPosition = graphService.getNodePosition(subject.id),
@@ -143,18 +143,18 @@ struct KnowledgeGraphView: View {
                     startPosition: subjectPosition,
                     endPosition: objectPosition,
                     isSelected: selectedRelationship?.id == relationship.id
-                        )
-                        .onTapGesture {
-                            selectedRelationship = relationship
-                            selectedEntity = nil
-                            showingRelationshipDetails = true
-                        }
+                )
+                .onTapGesture {
+                    selectedRelationship = relationship
+                    selectedEntity = nil
+                    showingRelationshipDetails = true
                 }
             }
         }
+    }
     
     private var entityNodesView: some View {
-        ForEach(graphService.filteredEntities, id: \.id) { entity in
+        ForEach(Array(graphService.filteredEntities.enumerated()), id: \.element.id) { index, entity in
             if let position = graphService.getNodePosition(entity.id) {
                 EntityNodeView(
                     entity: entity,
@@ -170,14 +170,14 @@ struct KnowledgeGraphView: View {
                     DragGesture()
                         .onChanged { value in
                             graphService.updateNodePosition(entity.id, position: CGPoint(
-                                x: position.x + value.translation.x,
-                                y: position.y + value.translation.y
+                                x: position.x + value.translation.width,
+                                y: position.y + value.translation.height
                             ))
                         }
-                        )
-                    }
-                }
+                )
+            }
         }
+    }
     
     // MARK: - Top Toolbar
     

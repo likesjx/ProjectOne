@@ -2,7 +2,9 @@ import Foundation
 import SwiftData
 import UniformTypeIdentifiers
 import Combine
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// Service for exporting and importing ProjectOne data in various formats
 @MainActor
@@ -270,11 +272,19 @@ class DataExportService: ObservableObject {
     }
     
     private func createExportMetadata() -> ExportMetadata {
+        #if canImport(UIKit)
+        let platform = "iOS"
+        let deviceModel = UIDevice.current.model
+        #else
+        let platform = "macOS"
+        let deviceModel = "Mac"
+        #endif
+        
         return ExportMetadata(
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
             exportVersion: "1.0",
-            platform: "iOS",
-            deviceModel: UIDevice.current.model
+            platform: platform,
+            deviceModel: deviceModel
         )
     }
     
