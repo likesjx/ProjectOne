@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import AppKit
 
 /// View for managing data export and import operations
 struct DataExportView: View {
@@ -43,7 +44,6 @@ struct DataExportView: View {
                 .padding()
             }
             .navigationTitle("Data Management")
-            .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingImportPicker) {
                 importDocumentPicker
             }
@@ -115,7 +115,7 @@ struct DataExportView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(Color(NSColor.systemGray))
                     .cornerRadius(8)
                 }
                 .sheet(isPresented: $showingTimeRangePicker) {
@@ -479,33 +479,26 @@ extension ImportDataType {
 
 // MARK: - Document Picker
 
-struct DocumentPicker: UIViewControllerRepresentable {
+struct DocumentPicker: View {
     let allowedContentTypes: [UTType]
     let onDocumentPicked: (URL) -> Void
+    @State private var isPresented = false
     
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: allowedContentTypes)
-        picker.delegate = context.coordinator
-        picker.allowsMultipleSelection = false
-        return picker
-    }
-    
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let parent: DocumentPicker
-        
-        init(_ parent: DocumentPicker) {
-            self.parent = parent
+    var body: some View {
+        Button("Import") {
+            showOpenPanel()
         }
+    }
+    
+    private func showOpenPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = allowedContentTypes
         
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            guard let url = urls.first else { return }
-            parent.onDocumentPicked(url)
+        if panel.runModal() == .OK, let url = panel.url {
+            onDocumentPicked(url)
         }
     }
 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import AppKit
 
 // MARK: - Memory Distribution Chart
 
@@ -60,7 +61,7 @@ struct MemoryDistributionChart: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -127,7 +128,7 @@ struct ConsolidationActivityCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -219,7 +220,7 @@ struct PerformanceMetricsGrid: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -257,7 +258,7 @@ struct PerformanceMetricCard: View {
             // Performance bar
             GeometryReader { geometry in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(.systemGray5))
+                    .fill(Color(NSColor.systemGray))
                     .frame(height: 3)
                     .overlay(
                         HStack {
@@ -271,7 +272,7 @@ struct PerformanceMetricCard: View {
             .frame(height: 3)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color(NSColor.systemGray))
         .cornerRadius(8)
     }
     
@@ -334,7 +335,7 @@ struct QuickActionsCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -395,9 +396,8 @@ struct DetailedMetricsView: View {
                 }
             }
             .navigationTitle("Detailed Metrics")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Done") {
                         dismiss()
                     }

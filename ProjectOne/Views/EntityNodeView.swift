@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// View for displaying entity nodes in the knowledge graph
 struct EntityNodeView: View {
@@ -67,7 +68,7 @@ struct EntityNodeView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.green)
-                    .background(Color(.systemBackground))
+                    .background(Color(NSColor.controlBackgroundColor))
                     .clipShape(Circle())
                     .offset(x: nodeSize / 2 - 4, y: -nodeSize / 2 + 4)
             }
@@ -123,7 +124,7 @@ struct EntityNameLabel: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Color(.systemBackground).opacity(0.9))
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.9))
         .cornerRadius(6)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -247,7 +248,7 @@ struct ConceptIndicator: View {
 
 #Preview {
     ZStack {
-        Color(.systemGray6)
+        Color(NSColor.systemGray)
             .ignoresSafeArea()
         
         VStack(spacing: 50) {
