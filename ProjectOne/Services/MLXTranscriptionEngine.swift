@@ -232,7 +232,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
     private func addContextualVariations(_ text: String, wordCount: Int) -> String {
         // Add realistic variations to make transcription more believable
         let contextualWords = ["actually", "basically", "essentially", "specifically", "particularly"]
-        let fillerWords = ["um", "uh", "you know", "like", "so"]
+        let _ = ["um", "uh", "you know", "like", "so"] // Reserved for future filler word insertion
         
         var words = text.components(separatedBy: " ")
         

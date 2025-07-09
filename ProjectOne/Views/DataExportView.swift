@@ -1,7 +1,9 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+#if canImport(AppKit)
 import AppKit
+#endif
 
 /// View for managing data export and import operations
 struct DataExportView: View {
@@ -115,7 +117,7 @@ struct DataExportView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding()
-                    .background(Color(NSColor.systemGray))
+                    .background(Color(.systemGray))
                     .cornerRadius(8)
                 }
                 .sheet(isPresented: $showingTimeRangePicker) {
@@ -486,10 +488,31 @@ struct DocumentPicker: View {
     
     var body: some View {
         Button("Import") {
+            #if canImport(AppKit)
             showOpenPanel()
+            #else
+            isPresented = true
+            #endif
         }
+        #if !canImport(AppKit)
+        .fileImporter(
+            isPresented: $isPresented,
+            allowedContentTypes: allowedContentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    onDocumentPicked(url)
+                }
+            case .failure(let error):
+                print("File import failed: \(error)")
+            }
+        }
+        #endif
     }
     
+    #if canImport(AppKit)
     private func showOpenPanel() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -501,6 +524,7 @@ struct DocumentPicker: View {
             onDocumentPicked(url)
         }
     }
+    #endif
 }
 
 // MARK: - URL Extensions

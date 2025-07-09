@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(AppKit)
 import AppKit
+#endif
 
 /// View for displaying relationship edges in the knowledge graph
 struct RelationshipEdgeView: View {
@@ -154,7 +156,13 @@ struct RelationshipLabel: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background({
+            #if canImport(AppKit)
+            return Color(NSColor.controlBackgroundColor)
+            #else
+            return Color(.systemBackground)
+            #endif
+        }())
         .cornerRadius(4)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         .position(position)
@@ -165,7 +173,13 @@ struct RelationshipLabel: View {
 
 #Preview {
     ZStack {
-        Color(NSColor.systemGray)
+        {
+            #if canImport(AppKit)
+            return Color(NSColor.systemGray)
+            #else
+            return Color(.systemGray)
+            #endif
+        }()
             .ignoresSafeArea()
         
         RelationshipEdgeView(

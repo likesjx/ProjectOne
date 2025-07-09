@@ -53,7 +53,6 @@ struct MemoryDashboardView: View {
                 .padding()
             }
             .navigationTitle("Memory Analytics")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     timeRangeMenu
