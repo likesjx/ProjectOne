@@ -5,8 +5,8 @@ A sophisticated SwiftUI iOS/macOS personal AI knowledge system that combines aud
 ## Quick Start
 
 ### Prerequisites
-- Xcode 16+ 
-- iOS 18.4+ / macOS 15.4+
+- Xcode 16+ (Beta)
+- iOS 19.0+ (Beta) / macOS 15.4+
 - Swift 6.0+
 
 ### Setup
@@ -31,10 +31,12 @@ ProjectOne is built around the **Gemma3nCore** AI reasoning engine and uses a Ti
 
 ### Core Features
 - 🎙️ **Audio Recording & Transcription** - Real-time voice-to-text with entity extraction
+- 🧠 **Memory System** - STM, LTM, Working Memory, and Episodic Memory architecture
 - 🕸️ **Knowledge Graph** - Interactive visualization of entities and relationships  
 - 📊 **Memory Analytics** - Dashboard for memory usage and system insights
-- 🧠 **AI Integration** - Placeholder engine with future MLX Swift support
-- 💾 **Data Export** - Export knowledge graph data in multiple formats
+- 🔧 **Transcription Correction** - User correction system for improving accuracy
+- 💾 **Data Export/Import** - Export/import data in JSON, CSV, and Markdown formats
+- ⚙️ **AI Integration** - Placeholder engine with planned MLX Swift support
 
 ### Architecture Layers
 - **UI Layer**: SwiftUI views and interactive components
@@ -103,22 +105,27 @@ ProjectOne/
 **Phase 3 Complete**: Knowledge Graph Visualization  
 **Next**: Phase 4 - Advanced AI Integration with MLX Swift
 
-### Recent Updates
-- Memory analytics dashboard implementation
-- Knowledge graph visualization system
-- SwiftData persistence improvements
-- MLX Swift integration planning
+### Recent Updates (2025-07-10)
+- ✅ **Legacy Code Integration** - Successfully merged old ProjectOne components
+- ✅ **Memory System Complete** - STM, LTM, Working Memory, and Episodic Memory
+- ✅ **Knowledge Graph Models** - Entity, Relationship, TemporalEvent, ConceptNode
+- ✅ **Audio Pipeline** - AudioRecorder with transcription capabilities
+- ✅ **Analytics Dashboard** - Memory analytics and performance tracking
+- ✅ **Data Export/Import** - Comprehensive data management system
+- ✅ **GitHub Integration** - Issues, labels, and project tracking setup
+- ✅ **iOS 19.0 Beta** - Updated for latest iOS beta targeting
 
 ## Contributing
 
-1. Check the [specifications](docs/specifications/) for planned features
-2. Review [architecture docs](docs/architecture/) to understand the system
-3. Follow the [implementation guides](docs/guides/) for best practices
-4. Create issues for bugs or feature requests
+1. Check [GitHub Issues](https://github.com/likesjx/ProjectOne/issues) for current bugs and features
+2. Review [specifications](docs/specifications/) for planned features
+3. Review [architecture docs](docs/architecture/) to understand the system
+4. Follow the [implementation guides](docs/guides/) for best practices
+5. Check [DEFECTS.md](docs/DEFECTS.md) for technical debt and bug tracking
 
 ## Technology Stack
 
-- **Frontend**: SwiftUI, iOS 18.4+, macOS 15.4+
+- **Frontend**: SwiftUI, iOS 19.0+ (Beta), macOS 15.4+
 - **Backend Services**: Swift 6.0, Gemma3nCore AI engine
 - **Database**: SwiftData with 11 data models
 - **Audio**: AVFoundation for recording and processing
