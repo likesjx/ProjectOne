@@ -26,6 +26,18 @@ Practical guides, troubleshooting, and session logs
 ### 🔌 [API Documentation](api/)
 Code-level documentation and API references *(Coming Soon)*
 
+### 🐛 [Defects & Technical Debt](DEFECTS.md)
+Bug tracking and technical debt management
+- Current bugs with severity and status
+- Technical debt prioritization
+- Point estimation and resolution tracking
+
+### 📝 [TODO Scratchpad](TODO.md)
+Session-persistent TODO tracking and development context
+- Active TODOs with priority levels
+- Session handoff notes and context
+- Development state and next priorities
+
 ## Quick Navigation
 
 ### For New Developers

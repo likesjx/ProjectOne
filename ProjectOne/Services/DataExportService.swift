@@ -590,8 +590,8 @@ struct MemoryAnalyticsData: Codable {
 struct ConsolidationEventData: Codable {
     let id: UUID
     let timestamp: Date
-    let sourceType: MemoryType
-    let targetType: MemoryType
+    let sourceType: ConsolidationMemoryType
+    let targetType: ConsolidationMemoryType
     let itemsProcessed: Int
     let successfulConsolidations: Int
     let failedConsolidations: Int

@@ -8,8 +8,8 @@ final class ConsolidationEvent {
     var timestamp: Date
     
     // Consolidation flow details
-    var sourceType: MemoryType
-    var targetType: MemoryType
+    var sourceType: ConsolidationMemoryType
+    var targetType: ConsolidationMemoryType
     var itemsProcessed: Int
     var successfulConsolidations: Int
     var failedConsolidations: Int
@@ -25,7 +25,7 @@ final class ConsolidationEvent {
     var userInitiated: Bool // Whether user manually triggered consolidation
     var systemLoad: Double // System load at time of consolidation (0.0-1.0)
     
-    init(sourceType: MemoryType, targetType: MemoryType, triggerReason: ConsolidationTrigger = .automatic) {
+    init(sourceType: ConsolidationMemoryType, targetType: ConsolidationMemoryType, triggerReason: ConsolidationTrigger = .automatic) {
         self.id = UUID()
         self.timestamp = Date()
         self.sourceType = sourceType
@@ -79,9 +79,9 @@ final class ConsolidationEvent {
 
 // MARK: - Supporting Enums
 
-enum MemoryType: String, CaseIterable, Codable {
+enum ConsolidationMemoryType: String, CaseIterable, Codable {
     case shortTerm = "STM"
-    case longTerm = "LTM"
+    case longTerm = "LTM" 
     case working = "Working"
     case episodic = "Episodic"
     

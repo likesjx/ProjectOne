@@ -47,8 +47,8 @@ class MemoryAnalyticsService: ObservableObject {
         
         do {
             // Collect memory counts by type
-            analytics.stmCount = try await getMemoryCount(type: .shortTerm)
-            analytics.ltmCount = try await getMemoryCount(type: .longTerm)
+            analytics.stmCount = try await getMemoryCount(type: .working) // Working memory = STM
+            analytics.ltmCount = try await getMemoryCount(type: .semantic) // Semantic memory = LTM
             analytics.workingMemoryCount = try await getMemoryCount(type: .working)
             analytics.episodicMemoryCount = try await getMemoryCount(type: .episodic)
             
@@ -224,12 +224,12 @@ class MemoryAnalyticsService: ObservableObject {
         // TODO: Implement actual memory counting based on SwiftData models
         // Placeholder implementation until memory models are created
         switch type {
-        case .shortTerm:
-            return 0 // TODO: Replace with STMEntry count when model is available
-        case .longTerm:
-            return 0 // TODO: Replace with LTMEntry count when model is available
         case .working:
             return 0 // TODO: Replace with WorkingMemoryEntry count when model is available
+        case .semantic:
+            return 0 // TODO: Replace with semantic memory count when model is available
+        case .procedural:
+            return 0 // TODO: Replace with procedural memory count when model is available
         case .episodic:
             return 0 // TODO: Replace with EpisodicMemoryEntry count when model is available
         }

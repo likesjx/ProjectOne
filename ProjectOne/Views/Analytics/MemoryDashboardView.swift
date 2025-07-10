@@ -54,7 +54,13 @@ struct MemoryDashboardView: View {
             }
             .navigationTitle("Memory Analytics")
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: {
+                    #if os(iOS)
+                    .navigationBarTrailing
+                    #else
+                    .automatic
+                    #endif
+                }()) {
                     timeRangeMenu
                     
                     Menu {
@@ -144,7 +150,7 @@ struct MemoryDashboardView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color(.systemGray6))
+            .background(Color.secondary.opacity(0.1))
             .cornerRadius(6)
         }
     }
@@ -292,7 +298,7 @@ struct MemoryOverviewCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -336,7 +342,7 @@ struct MemoryTypeCard: View {
             // Progress bar
             GeometryReader { geometry in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(.systemGray5))
+                    .fill(Color.secondary.opacity(0.2))
                     .frame(height: 4)
                     .overlay(
                         HStack {
@@ -350,7 +356,7 @@ struct MemoryTypeCard: View {
             .frame(height: 4)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
     }
 }
@@ -422,7 +428,7 @@ struct MemoryHealthCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }

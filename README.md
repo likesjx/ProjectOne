@@ -52,6 +52,7 @@ ProjectOne is built around the **Gemma3nCore** AI reasoning engine and uses a Ti
 ### 📋 For Planning
 - **[Feature Specifications](docs/specifications/)** - Detailed feature requirements and designs
 - **[Integration Plans](docs/specifications/)** - MLX Swift and future AI capabilities
+- **[Defects & Technical Debt](docs/DEFECTS.md)** - Bug tracking and technical debt management
 
 ### 🚀 Quick References
 - **[Development Workflow](#development-workflow)** - Build, test, and deployment

@@ -20,7 +20,7 @@ struct ContentView: View {
                 }
                 
                 NavigationLink("Settings") {
-                    SettingsView()
+                    SettingsView(gemmaCore: Gemma3nCore.shared)
                 }
             }
             .navigationTitle("ProjectOne")
@@ -47,21 +47,6 @@ struct ContentView: View {
     }
 }
 
-struct SettingsView: View {
-    var body: some View {
-        VStack {
-            Text("Settings")
-                .font(.title)
-            
-            Text("App settings will be available here")
-                .foregroundColor(.secondary)
-                .padding()
-            
-            Spacer()
-        }
-        .padding()
-    }
-}
 
 
 #Preview {

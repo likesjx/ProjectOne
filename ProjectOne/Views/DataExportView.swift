@@ -150,7 +150,7 @@ struct DataExportView: View {
             .disabled(exportService.isExporting)
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -192,7 +192,7 @@ struct DataExportView: View {
             .disabled(exportService.isImporting)
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -231,7 +231,7 @@ struct DataExportView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.secondary.opacity(0.1))
         .cornerRadius(12)
     }
     
@@ -264,7 +264,7 @@ struct DataExportView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.secondary.opacity(0.1))
         .cornerRadius(12)
     }
     
@@ -291,9 +291,17 @@ struct DataExportView: View {
                 }
             }
             .navigationTitle("Select Time Range")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: {
+                    #if os(iOS)
+                    .navigationBarTrailing
+                    #else
+                    .automatic
+                    #endif
+                }()) {
                     Button("Cancel") {
                         showingTimeRangePicker = false
                     }
@@ -365,12 +373,17 @@ struct DataExportView: View {
     }
     
     private func shareFile(url: URL) {
+        #if os(iOS)
         let activityController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
             window.rootViewController?.present(activityController, animated: true)
         }
+        #else
+        // On macOS, copy file to desktop or show in Finder
+        print("File exported to: \(url.path)")
+        #endif
     }
 }
 
@@ -399,6 +412,7 @@ enum ExportType: String, CaseIterable {
 enum ExportFormat: String, CaseIterable {
     case json = "json"
     case csv = "csv"
+    case markdown = "markdown"
     
     var displayName: String {
         switch self {
@@ -406,6 +420,8 @@ enum ExportFormat: String, CaseIterable {
             return "JSON"
         case .csv:
             return "CSV"
+        case .markdown:
+            return "Markdown"
         }
     }
     
@@ -415,6 +431,8 @@ enum ExportFormat: String, CaseIterable {
             return "doc.text"
         case .csv:
             return "tablecells"
+        case .markdown:
+            return "doc.richtext"
         }
     }
 }

@@ -60,7 +60,7 @@ struct MemoryDistributionChart: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -127,7 +127,7 @@ struct ConsolidationActivityCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -219,7 +219,7 @@ struct PerformanceMetricsGrid: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -334,7 +334,7 @@ struct QuickActionsCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
