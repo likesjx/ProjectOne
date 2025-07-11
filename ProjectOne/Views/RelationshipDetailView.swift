@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Detailed view for exploring and editing relationship information
 struct RelationshipDetailView: View {
@@ -56,9 +59,11 @@ struct RelationshipDetailView: View {
                 .padding()
             }
             .navigationTitle("Relationship Details")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .cancellationAction) {
                     Button("Done") {
                         if isEditing {
                             saveChanges()
@@ -67,7 +72,7 @@ struct RelationshipDetailView: View {
                     }
                 }
                 
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .confirmationAction) {
                     if isEditing {
                         Button("Save") {
                             saveChanges()
@@ -151,7 +156,13 @@ struct RelationshipDetailView: View {
             RelationshipScoreView(relationship: relationship)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
     }
     
@@ -193,7 +204,13 @@ struct RelationshipDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -256,13 +273,25 @@ struct RelationshipDetailView: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color(.systemGray6))
+                        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
                         .cornerRadius(6)
                 }
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -342,7 +371,13 @@ struct RelationshipDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -388,14 +423,26 @@ struct RelationshipDetailView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(Color(.systemGray6))
+                        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
                         .cornerRadius(8)
                     }
                 }
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -453,7 +500,13 @@ struct RelationshipDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -484,7 +537,13 @@ struct RelationshipDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -547,7 +606,13 @@ struct RelationshipScoreView: View {
             
             ZStack {
                 Circle()
-                    .stroke(Color(.systemGray5), lineWidth: 8)
+                    .stroke(({
+#if canImport(AppKit)
+                    Color(NSColor.separatorColor)
+#else
+                    Color(.separator)
+#endif
+                }()), lineWidth: 8)
                     .frame(width: 60, height: 60)
                 
                 Circle()
@@ -591,7 +656,13 @@ struct EntityButton: View {
                 } else {
                     ZStack {
                         Circle()
-                            .fill(Color(.systemGray4))
+                            .fill(({
+#if canImport(AppKit)
+                    Color(NSColor.separatorColor)
+#else
+                    Color(.separator)
+#endif
+                }()))
                             .frame(width: 50, height: 50)
                         
                         Image(systemName: "questionmark")

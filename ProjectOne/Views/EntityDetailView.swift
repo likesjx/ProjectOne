@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Detailed view for exploring and editing entity information
 struct EntityDetailView: View {
@@ -53,9 +56,11 @@ struct EntityDetailView: View {
                 .padding()
             }
             .navigationTitle("Entity Details")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .cancellationAction) {
                     Button("Done") {
                         if isEditing {
                             saveChanges()
@@ -64,7 +69,7 @@ struct EntityDetailView: View {
                     }
                 }
                 
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .confirmationAction) {
                     if isEditing {
                         Button("Save") {
                             saveChanges()
@@ -139,7 +144,13 @@ struct EntityDetailView: View {
             EntityScoreView(entity: entity)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
     }
     
@@ -235,7 +246,13 @@ struct EntityDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -317,7 +334,13 @@ struct EntityDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -361,7 +384,13 @@ struct EntityDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -397,7 +426,13 @@ struct EntityDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -428,7 +463,13 @@ struct EntityDetailView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -492,7 +533,13 @@ struct EntityScoreView: View {
             
             ZStack {
                 Circle()
-                    .stroke(Color(.systemGray5), lineWidth: 8)
+                    .stroke(({
+#if canImport(AppKit)
+                    Color(NSColor.separatorColor)
+#else
+                    Color(.separator)
+#endif
+                }()), lineWidth: 8)
                     .frame(width: 60, height: 60)
                 
                 Circle()
@@ -576,7 +623,13 @@ struct RelationshipRowView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(8)
     }
 }
@@ -607,7 +660,13 @@ struct ConnectedEntityRowView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(({
+#if canImport(AppKit)
+                    Color(NSColor.controlBackgroundColor)
+#else
+                    Color(.systemGray6)
+#endif
+                }()))
         .cornerRadius(8)
     }
 }

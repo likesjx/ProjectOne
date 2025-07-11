@@ -300,7 +300,7 @@ struct QuickActionsCard: View {
                 GridItem(.flexible()),
                 GridItem(.flexible())
             ], spacing: 12) {
-                QuickActionButton(
+                AnalyticsActionButton(
                     title: "Force Consolidation",
                     icon: "arrow.triangle.merge",
                     color: .blue
@@ -308,7 +308,7 @@ struct QuickActionsCard: View {
                     // TODO: Trigger manual consolidation
                 }
                 
-                QuickActionButton(
+                AnalyticsActionButton(
                     title: "Optimize Memory",
                     icon: "speedometer",
                     color: .green
@@ -316,7 +316,7 @@ struct QuickActionsCard: View {
                     // TODO: Trigger memory optimization
                 }
                 
-                QuickActionButton(
+                AnalyticsActionButton(
                     title: "Clear Cache",
                     icon: "trash",
                     color: .orange
@@ -324,7 +324,7 @@ struct QuickActionsCard: View {
                     // TODO: Clear system cache
                 }
                 
-                QuickActionButton(
+                AnalyticsActionButton(
                     title: "Export Report",
                     icon: "square.and.arrow.up",
                     color: .purple
@@ -340,7 +340,7 @@ struct QuickActionsCard: View {
     }
 }
 
-struct QuickActionButton: View {
+struct AnalyticsActionButton: View {
     let title: String
     let icon: String
     let color: Color
