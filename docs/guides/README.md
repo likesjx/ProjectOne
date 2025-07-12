@@ -32,6 +32,14 @@ Session log from MLX Swift integration work:
 - Configuration steps and setup
 - Testing and validation results
 
+### 🎵 [Audio Recording Implementation](AUDIO_RECORDING_IMPLEMENTATION.md)
+Complete implementation guide for the audio recording system:
+- AudioPlayer and AppleSpeechEngine architecture
+- Cross-platform audio session management
+- SwiftData integration for recording metadata
+- UI components and playback controls
+- Testing and troubleshooting guide
+
 ## Navigation
 
 - **← Back to [Main Documentation](../README.md)**
@@ -44,6 +52,7 @@ Session log from MLX Swift integration work:
 - **SwiftData Crashes**: See [SwiftData Crash Fixes](SWIFTDATA_CRASH_FIXES.md)
 - **Memory Issues**: Check [Sentry Issues Fixes](SENTRY_ISSUES_FIXES.md)
 - **MLX Integration**: Refer to [MLX Integration Session](MLX_SWIFT_INTEGRATION_SESSION.md)
+- **Audio Recording**: Check [Audio Recording Implementation](AUDIO_RECORDING_IMPLEMENTATION.md)
 
 ### Development Workflow
 1. Check implementation guides for best practices

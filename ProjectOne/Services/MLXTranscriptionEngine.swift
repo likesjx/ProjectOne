@@ -4,7 +4,6 @@ import AVFoundation
 #if canImport(MLX)
 import MLX
 import MLXNN
-import MLXOptimizers
 import MLXRandom
 #endif
 
@@ -362,7 +361,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
         // Initialize MLX speech recognition model
         // This is a placeholder for actual model loading
         // In a real implementation, you would load a pre-trained speech model
-        return Linear(inputCount: 1024, outputCount: 512)
+        return Linear(1024, 512)
     }
     #endif
     
@@ -370,7 +369,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
     private func loadEntityExtractionModel() async throws -> Module {
         // Initialize MLX entity extraction model
         // This would be a NER (Named Entity Recognition) model
-        return Linear(inputCount: 512, outputCount: 256)
+        return Linear(512, 256)
     }
     #endif
     
@@ -378,7 +377,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
     private func loadRelationshipModel() async throws -> Module {
         // Initialize MLX relationship detection model
         // This would be a relationship extraction model
-        return Linear(inputCount: 256, outputCount: 128)
+        return Linear(256, 128)
     }
     #endif
     
@@ -388,7 +387,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
         let audioFeatures = try preprocessAudioForMLX(audioData)
         
         // Run MLX inference for speech recognition
-        let logits = model(audioFeatures)
+        let logits = (model as! UnaryLayer)(audioFeatures)
         
         // Post-process MLX output to text
         let transcriptionText = try postprocessMLXOutput(logits)
@@ -411,7 +410,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
             let textEmbedding = try tokenizeTextForMLX(text)
             
             // Run MLX inference for entity extraction
-            let entityLogits = model(textEmbedding)
+            let entityLogits = (model as! UnaryLayer)(textEmbedding)
             
             // Post-process to extract entities
             return try extractEntitiesFromMLXOutput(entityLogits, originalText: text)
@@ -435,7 +434,7 @@ class MLXTranscriptionEngine: TranscriptionEngine {
                     let pairEmbedding = try createEntityPairEmbedding(entity1, entity2, text)
                     
                     // Run MLX inference for relationship detection
-                    let relationshipLogits = model(pairEmbedding)
+                    let relationshipLogits = (model as! UnaryLayer)(pairEmbedding)
                     
                     // Extract relationship if confidence is high enough
                     if let relationship = try extractRelationshipFromMLXOutput(relationshipLogits, entity1: entity1, entity2: entity2) {

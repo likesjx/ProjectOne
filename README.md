@@ -31,18 +31,20 @@ open ProjectOne.xcodeproj
 ProjectOne is built around the **Gemma3nCore** AI reasoning engine and uses a Titans-inspired memory architecture for intelligent knowledge management.
 
 ### Core Features
-- 🎙️ **Voice Memo System** - Glass-enhanced audio recording with placeholder transcription
+- 🎙️ **Complete Audio Pipeline** - Recording, playback, and Apple Speech Recognition transcription
+- 🎵 **Audio Playback System** - Cross-platform audio player with progress tracking and seek controls
+- 🗣️ **Apple Speech Integration** - Real Apple Speech Recognition with proper permission handling
 - 🧠 **Memory System** - STM, LTM, Working Memory, and Episodic Memory architecture
 - 🕸️ **Knowledge Graph** - Interactive visualization of entities and relationships  
 - 📊 **Memory Analytics** - Dashboard for memory usage and system insights
-- 🔧 **Transcription Framework** - Extensible engine architecture ready for AI integration
+- 🔧 **Transcription Framework** - Dual-engine architecture (Apple Speech + Placeholder simulation)
 - 💾 **Data Export/Import** - Export/import data in JSON, CSV, and Markdown formats
-- ⚙️ **AI Integration** - PlaceholderEngine simulation with MLX Swift framework ready
+- 📱 **Enhanced Recording UI** - Liquid Glass recording rows with playback controls
 - ✨ **Liquid Glass UI** - iOS 26 Glass design language throughout the interface
 
 ### Architecture Layers
 - **UI Layer**: SwiftUI with Liquid Glass design language, NavigationStack, TabView
-- **Service Layer**: Gemma3nCore, audio processing, placeholder transcription
+- **Service Layer**: Gemma3nCore, complete audio pipeline, Apple Speech Recognition
 - **Data Layer**: SwiftData persistence with 11 data models
 - **AI/ML Layer**: PlaceholderEngine, future MLX integration
 - **Design Layer**: iOS 26 Glass effects, interactive materials, adaptive UI
@@ -109,6 +111,13 @@ ProjectOne/
 **Next**: Phase 4 - Advanced AI Integration with MLX Swift
 
 ### Recent Updates (2025-07-11)
+- 🎉 **Complete Audio Recording System** - Full implementation with Apple Speech Recognition
+- 🎵 **AudioPlayer Integration** - Cross-platform playback with AVAudioPlayer and progress controls
+- 🗣️ **AppleSpeechEngine** - Real Apple Speech Recognition replacing placeholder transcription
+- 📱 **Enhanced Recording UI** - Interactive playback controls in LiquidGlassRecordingRow
+- 💾 **RecordingItem Model** - SwiftData persistence for audio metadata and transcriptions
+- 🔧 **Dual Engine Architecture** - Toggle between Apple Speech and Placeholder engines
+- ✅ **Build System Fixed** - All compilation errors resolved, project builds successfully
 - ✅ **Liquid Glass Integration** - Complete iOS 26 Glass design language implementation
 - ✅ **Voice Memo UI Redesign** - Glass-enhanced audio recording interface
 - ✅ **NavigationStack Migration** - Proper iOS 26 navigation architecture
@@ -117,13 +126,11 @@ ProjectOne/
 - ✅ **Legacy Code Integration** - Successfully merged old ProjectOne components
 - ✅ **Memory System Complete** - STM, LTM, Working Memory, and Episodic Memory
 - ✅ **Knowledge Graph Models** - Entity, Relationship, TemporalEvent, ConceptNode
-- ✅ **Audio Pipeline** - AudioRecorder with placeholder transcription simulation
 - ✅ **Analytics Dashboard** - Memory analytics and performance tracking
 - ✅ **Data Export/Import** - Comprehensive data management system
 - ✅ **GitHub Integration** - Issues, labels, and project tracking setup
 - ✅ **iOS 26 Beta** - Updated for latest iOS 26 beta with Glass support
 - ✅ **Cross-Platform Build** - Fixed iOS/macOS compatibility with Xcode Beta 3
-- ✅ **Transcription Architecture** - Complete TranscriptionEngine framework with PlaceholderEngine
 
 ## Contributing
 

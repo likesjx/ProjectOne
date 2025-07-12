@@ -12,12 +12,24 @@ struct VoiceMemoView: View {
     let modelContext: ModelContext
     
     @StateObject private var audioRecorder: AudioRecorder
+    @StateObject private var audioPlayer = AudioPlayer()
     @State private var hasRequestedPermission = false
     @State private var showingNoteCreation = false
     
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-        self._audioRecorder = StateObject(wrappedValue: AudioRecorder(modelContext: modelContext))
+        
+        // Configure speech engine for automatic best-available strategy
+        let speechConfig = SpeechEngineConfiguration(
+            strategy: .automatic,
+            enableFallback: true,
+            preferredLanguage: "en-US"
+        )
+        
+        self._audioRecorder = StateObject(wrappedValue: AudioRecorder(
+            modelContext: modelContext,
+            speechEngineConfiguration: speechConfig
+        ))
     }
     
     var body: some View {
@@ -30,7 +42,7 @@ struct VoiceMemoView: View {
                             LiquidGlassIcon(
                                 icon: "mic.fill",
                                 size: 48,
-                                color: .blue,
+                                color: audioRecorder.isRecording ? .red : .blue,
                                 isAnimated: audioRecorder.isRecording
                             )
                             
@@ -67,7 +79,10 @@ struct VoiceMemoView: View {
                     
                     // Recent Recordings with Liquid Glass
                     if !audioRecorder.recordings.isEmpty {
-                        LiquidGlassRecentRecordings(recordings: audioRecorder.recordings)
+                        LiquidGlassRecentRecordings(
+                            recordings: audioRecorder.recordings,
+                            audioPlayer: audioPlayer
+                        )
                     }
                 }
                 .padding(.horizontal, 20)
@@ -168,7 +183,7 @@ struct LiquidGlassQuickActionBar: View {
             HStack(spacing: 16) {
                 // Primary record button
                 LiquidGlassRecordButton(
-                    isRecording: audioRecorder.isRecording,
+                    audioRecorder: audioRecorder,
                     isEnabled: hasRequestedPermission || !audioRecorder.isRecording
                 ) {
                     handleAudioButtonTap()
@@ -182,7 +197,9 @@ struct LiquidGlassQuickActionBar: View {
                         color: .purple,
                         style: .secondary
                     ) {
+                        print("🟣 [ViewButton] Tapped - opening transcription view")
                         showingTranscriptionView = true
+                        print("🟣 [ViewButton] showingTranscriptionView set to: \(showingTranscriptionView)")
                     }
                 }
                 
@@ -194,7 +211,9 @@ struct LiquidGlassQuickActionBar: View {
                     color: .green,
                     style: .secondary
                 ) {
+                    print("🟢 [NoteButton] Tapped - opening note creation")
                     showingNoteCreation = true
+                    print("🟢 [NoteButton] showingNoteCreation set to: \(showingNoteCreation)")
                 }
             }
         }
@@ -238,11 +257,16 @@ struct LiquidGlassQuickActionBar: View {
     }
     
     private func requestMicrophonePermission() {
+        print("🎤 [Permission] Requesting microphone permission...")
         audioRecorder.requestPermission { granted in
             DispatchQueue.main.async {
+                print("🎤 [Permission] Permission granted: \(granted)")
                 hasRequestedPermission = true
                 if granted {
+                    print("🎤 [Permission] Starting recording after permission granted")
                     audioRecorder.startRecording()
+                } else {
+                    print("🎤 [Permission] Permission denied, not starting recording")
                 }
             }
         }
@@ -250,9 +274,13 @@ struct LiquidGlassQuickActionBar: View {
 }
 
 struct LiquidGlassRecordButton: View {
-    let isRecording: Bool
+    @ObservedObject var audioRecorder: AudioRecorder
     let isEnabled: Bool
     let action: () -> Void
+    
+    private var isRecording: Bool {
+        audioRecorder.isRecording
+    }
     
     @State private var isPressed = false
     @State private var pulseScale: CGFloat = 1.0
@@ -274,7 +302,9 @@ struct LiquidGlassRecordButton: View {
                     .overlay { isRecording ? Color.red.opacity(0.3) : Color.blue.opacity(0.3) }
                     .frame(width: 80, height: 80)
                     .overlay {
-                        Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                        let icon = isRecording ? "stop.fill" : "mic.fill"
+                        let _ = print("🔴 [RecordButton] isRecording: \(isRecording), icon: \(icon)")
+                        Image(systemName: icon)
                             .font(.system(size: 32, weight: .medium))
                             .foregroundStyle(isRecording ? .red : .blue)
                             .symbolEffect(.bounce, value: isPressed)
@@ -323,7 +353,10 @@ struct LiquidGlassActionButton: View {
     @State private var isPressed = false
     
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            print("🔘 [ActionButton] \(label) button tapped!")
+            action()
+        }) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .medium))
@@ -352,7 +385,7 @@ struct LiquidGlassActionButton: View {
 }
 
 struct LiquidGlassStatusCard: View {
-    let audioRecorder: AudioRecorder
+    @ObservedObject var audioRecorder: AudioRecorder
     let hasRequestedPermission: Bool
     
     private var statusInfo: (icon: String, title: String, subtitle: String, color: Color, isAnimated: Bool, showProgress: Bool) {
@@ -363,19 +396,22 @@ struct LiquidGlassStatusCard: View {
         } else if audioRecorder.isTranscribing {
             return ("brain", "Processing", "Generating transcription...", .blue, false, true)
         } else {
-            return ("checkmark.circle", "Ready", "Ready to record", .green, false, false)
+            return ("checkmark.circle", "Ready to Record", "Ready to record", .green, false, false)
         }
     }
     
     var body: some View {
         let status = statusInfo
+        let _ = print("🎛️ [StatusCard] hasRequestedPermission: \(hasRequestedPermission), isRecording: \(audioRecorder.isRecording), status: \(status.title)")
         
-        HStack(spacing: 16) {
+        return HStack(spacing: 16) {
             Group {
                 if status.showProgress {
                     ProgressView()
                         .tint(status.color)
                         .scaleEffect(0.9)
+                } else if audioRecorder.isRecording {
+                    SoundWaveVisualization(isActive: true, color: status.color)
                 } else {
                     Image(systemName: status.icon)
                         .font(.system(size: 24, weight: .medium))
@@ -451,6 +487,12 @@ struct LiquidGlassTranscriptionCard: View {
 
 struct LiquidGlassRecentRecordings: View {
     let recordings: [URL]
+    let recordingItems: [RecordingItem]
+    let audioPlayer: AudioPlayer
+    
+    private func findRecordingItem(for url: URL) -> RecordingItem? {
+        return recordingItems.first { $0.fileURL == url }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -461,7 +503,11 @@ struct LiquidGlassRecentRecordings: View {
             
             LazyVStack(spacing: 12) {
                 ForEach(recordings.prefix(5), id: \.self) { recording in
-                    LiquidGlassRecordingRow(recording: recording)
+                    LiquidGlassRecordingRow(
+                        recording: recording,
+                        audioPlayer: audioPlayer,
+                        recordingItem: findRecordingItem(for: recording)
+                    )
                 }
             }
         }
@@ -470,31 +516,131 @@ struct LiquidGlassRecentRecordings: View {
 
 struct LiquidGlassRecordingRow: View {
     let recording: URL
+    let audioPlayer: AudioPlayer
+    let recordingItem: RecordingItem?
+    
+    @State private var isHovered = false
+    
+    var isCurrentlyPlaying: Bool {
+        audioPlayer.currentURL == recording && audioPlayer.isPlaying
+    }
+    
+    var isCurrentlyLoaded: Bool {
+        audioPlayer.currentURL == recording
+    }
     
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: "waveform.circle.fill")
-                .font(.system(size: 20))
-                .foregroundStyle(.blue)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(recording.lastPathComponent)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
+        VStack(spacing: 12) {
+            // Main recording info and controls
+            HStack(spacing: 16) {
+                Image(systemName: isCurrentlyPlaying ? "waveform.circle.fill" : "waveform.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(isCurrentlyLoaded ? .blue : .secondary)
+                    .symbolEffect(.variableColor.iterative, isActive: isCurrentlyPlaying)
                 
-                Text("Just now")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(formatRecordingName(recording.lastPathComponent))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    
+                    HStack(spacing: 8) {
+                        Text(formatRecordingDate(from: recording.lastPathComponent))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        if isCurrentlyLoaded && audioPlayer.duration > 0 {
+                            Text("•")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            Text(audioPlayer.formattedDuration)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                // Playback controls
+                HStack(spacing: 12) {
+                    if isCurrentlyLoaded && audioPlayer.duration > 0 {
+                        Text(audioPlayer.formattedCurrentTime)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Button {
+                        handlePlaybackTap()
+                    } label: {
+                        Image(systemName: playbackButtonIcon)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.blue)
+                            .symbolEffect(.bounce, value: isCurrentlyPlaying)
+                    }
+                    .disabled(audioPlayer.isLoaded && !isCurrentlyLoaded && audioPlayer.isPlaying)
+                }
             }
             
-            Spacer()
+            // Transcription text if available
+            if let transcription = recordingItem?.transcriptionText, !transcription.isEmpty {
+                VStack(spacing: 8) {
+                    HStack {
+                        Image(systemName: "text.bubble")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Text("Transcription")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        if let confidence = recordingItem?.transcriptionConfidence, confidence > 0 {
+                            Text("\(Int(confidence * 100))%")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    
+                    Text(transcription)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(4)
+                }
+                .padding(.top, 4)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .move(edge: .bottom).combined(with: .opacity)
+                ))
+            }
             
-            Button {
-                // Play recording
-            } label: {
-                Image(systemName: "play.circle")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.blue)
+            // Progress bar when playing current recording
+            if isCurrentlyLoaded && audioPlayer.duration > 0 {
+                VStack(spacing: 8) {
+                    ProgressView(value: audioPlayer.playbackProgress)
+                        .tint(.blue)
+                        .background(.secondary.opacity(0.3))
+                        .scaleEffect(y: 0.5)
+                    
+                    HStack {
+                        Text("0:00")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        
+                        Spacer()
+                        
+                        Text(audioPlayer.formattedDuration)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .move(edge: .bottom).combined(with: .opacity)
+                ))
             }
         }
         .padding(.horizontal, 16)
@@ -502,8 +648,82 @@ struct LiquidGlassRecordingRow: View {
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.regularMaterial)
-                .overlay { Color.primary.opacity(0.05) }
+                .overlay { 
+                    if isCurrentlyLoaded {
+                        Color.blue.opacity(0.1)
+                    } else {
+                        Color.primary.opacity(0.05)
+                    }
+                }
         }
+        .scaleEffect(isHovered ? 1.02 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+        .animation(.smooth(duration: 0.3), value: isCurrentlyLoaded)
+        .animation(.smooth(duration: 0.3), value: isCurrentlyPlaying)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+    
+    private var playbackButtonIcon: String {
+        if isCurrentlyPlaying {
+            return "pause.circle.fill"
+        } else if isCurrentlyLoaded {
+            return "play.circle.fill"
+        } else {
+            return "play.circle"
+        }
+    }
+    
+    private func handlePlaybackTap() {
+        if isCurrentlyLoaded {
+            audioPlayer.togglePlayback()
+        } else {
+            audioPlayer.loadAudio(from: recording)
+            audioPlayer.play()
+        }
+    }
+    
+    private func formatRecordingName(_ filename: String) -> String {
+        // Remove file extension
+        let nameWithoutExtension = filename.replacingOccurrences(of: ".m4a", with: "")
+        
+        // Try to parse as date format (dd-MM-YY_HH-mm-ss)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd-MM-yy_HH-mm-ss"
+        
+        if let date = dateFormatter.date(from: nameWithoutExtension) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .none
+            displayFormatter.timeStyle = .short
+            return "Recording \(displayFormatter.string(from: date))"
+        }
+        
+        return nameWithoutExtension
+    }
+    
+    private func formatRecordingDate(from filename: String) -> String {
+        let nameWithoutExtension = filename.replacingOccurrences(of: ".m4a", with: "")
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd-MM-yy_HH-mm-ss"
+        
+        if let date = dateFormatter.date(from: nameWithoutExtension) {
+            let now = Date()
+            let calendar = Calendar.current
+            
+            if calendar.isDate(date, inSameDayAs: now) {
+                return "Today"
+            } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: now) ?? now) {
+                return "Yesterday"
+            } else {
+                let displayFormatter = DateFormatter()
+                displayFormatter.dateStyle = .short
+                return displayFormatter.string(from: date)
+            }
+        }
+        
+        return "Unknown date"
     }
 }
 
@@ -775,6 +995,62 @@ struct GlassTranscriptionPreview: View {
             .glassEffect(.regular.tint(.blue.opacity(0.1)).interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct SoundWaveVisualization: View {
+    let isActive: Bool
+    let color: Color
+    
+    @State private var animationValues: [Double] = Array(repeating: 0.3, count: 5)
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<5, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(color.gradient)
+                    .frame(width: 3, height: 24 * animationValues[index])
+                    .animation(
+                        .easeInOut(duration: Double.random(in: 0.3...0.8))
+                        .repeatForever(autoreverses: true)
+                        .delay(Double(index) * 0.1),
+                        value: animationValues[index]
+                    )
+            }
+        }
+        .onAppear {
+            if isActive {
+                startAnimation()
+            }
+        }
+        .onChange(of: isActive) { _, newValue in
+            if newValue {
+                startAnimation()
+            } else {
+                stopAnimation()
+            }
+        }
+    }
+    
+    private func startAnimation() {
+        for i in 0..<animationValues.count {
+            animationValues[i] = Double.random(in: 0.4...1.0)
+        }
+        
+        // Continue updating values while active
+        if isActive {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if self.isActive {
+                    self.startAnimation()
+                }
+            }
+        }
+    }
+    
+    private func stopAnimation() {
+        for i in 0..<animationValues.count {
+            animationValues[i] = 0.3
+        }
     }
 }
 

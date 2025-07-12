@@ -5,7 +5,6 @@ import Combine
 #if canImport(MLX)
 import MLX
 import MLXNN
-import MLXOptimizers
 import MLXRandom
 #endif
 
@@ -133,13 +132,13 @@ class MLXIntegrationService: ObservableObject {
         // Create a speech recognition model using MLX
         // This is a simplified model structure for demonstration
         // In production, you would load pre-trained weights
-        let model = Sequential(
-            Linear(inputCount: 1024, outputCount: 512),
+        let model = Sequential(layers: [
+            Linear(1024, 512),
             ReLU(),
-            Linear(inputCount: 512, outputCount: 256),
+            Linear(512, 256),
             ReLU(),
-            Linear(inputCount: 256, outputCount: 128) // Output vocabulary size
-        )
+            Linear(256, 128) // Output vocabulary size
+        ])
         
         print("Speech recognition model created with MLX")
         return model
@@ -148,13 +147,13 @@ class MLXIntegrationService: ObservableObject {
     private func loadEntityExtractionModel() async throws -> Module {
         // Create a Named Entity Recognition model using MLX
         // This would typically be a BERT-based or transformer model
-        let model = Sequential(
-            Linear(inputCount: 768, outputCount: 256), // BERT-like embedding size
+        let model = Sequential(layers: [
+            Linear(768, 256), // BERT-like embedding size
             ReLU(),
-            Linear(inputCount: 256, outputCount: 128),
+            Linear(256, 128),
             ReLU(),
-            Linear(inputCount: 128, outputCount: 5) // 5 entity types
-        )
+            Linear(128, 5) // 5 entity types
+        ])
         
         print("Entity extraction model created with MLX")
         return model
@@ -163,13 +162,13 @@ class MLXIntegrationService: ObservableObject {
     private func loadRelationshipModel() async throws -> Module {
         // Create a relationship detection model using MLX
         // This would classify relationships between entity pairs
-        let model = Sequential(
-            Linear(inputCount: 512, outputCount: 256), // Concatenated entity embeddings
+        let model = Sequential(layers: [
+            Linear(512, 256), // Concatenated entity embeddings
             ReLU(),
-            Linear(inputCount: 256, outputCount: 128),
+            Linear(256, 128),
             ReLU(),
-            Linear(inputCount: 128, outputCount: 25) // Number of relationship types
-        )
+            Linear(128, 25) // Number of relationship types
+        ])
         
         print("Relationship detection model created with MLX")
         return model
@@ -178,13 +177,13 @@ class MLXIntegrationService: ObservableObject {
     private func loadEmbeddingModel() async throws -> Module {
         // Create a text embedding model using MLX
         // This would generate sentence/document embeddings
-        let model = Sequential(
-            Linear(inputCount: 512, outputCount: 256), // Token embeddings input
+        let model = Sequential(layers: [
+            Linear(512, 256), // Token embeddings input
             ReLU(),
-            Linear(inputCount: 256, outputCount: 128),
+            Linear(256, 128),
             ReLU(),
-            Linear(inputCount: 128, outputCount: 64) // Final embedding size
-        )
+            Linear(128, 64) // Final embedding size
+        ])
         
         print("Text embedding model created with MLX")
         return model

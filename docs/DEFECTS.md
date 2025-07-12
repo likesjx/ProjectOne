@@ -1,5 +1,16 @@
 # ProjectOne Defects & Technical Debt Tracking
 
+## Recently Resolved
+
+### 2025-07-11 - UI Enhancement Fixes
+| ID | Description | Resolution | Points | Location |
+|----|-------------|------------|--------|----------|
+| UI001 | Recording button stuck on red stop icon | Fixed button state management and UI flow | 2 | VoiceMemoView.swift |
+| UI002 | Status banner showing "Ready" instead of "Recording" | Updated status logic priority in LiquidGlassStatusCard | 1 | VoiceMemoView.swift:366 |
+| UI003 | Missing visual feedback during recording | Added SoundWaveVisualization component | 3 | VoiceMemoView.swift |
+
+**Total Story Points Resolved: 6**
+
 ## Current Bugs
 
 ### 🔴 High Priority
@@ -10,36 +21,37 @@
 
 ### 🟡 Medium Priority
 
-| ID | Description | Status | Severity | Points | Location | Date Added |
-|----|-------------|--------|----------|--------|----------|------------|
-| B001 | Missing note recording UI implementation | Open | Medium | 8 | ContentView.swift | 2025-07-09 |
+| ID | Description | Status | Severity | Points | Location | Date Added | GitHub Issue |
+|----|-------------|--------|----------|--------|----------|------------|--------------|
+| B001 | Missing note recording UI implementation | Open | Medium | 8 | ContentView.swift | 2025-07-09 | [#7](https://github.com/likesjx/ProjectOne/issues/7) |
 
 ### 🟢 Low Priority
 
-| ID | Description | Status | Severity | Points | Location | Date Added |
-|----|-------------|--------|----------|--------|----------|------------|
-| - | No low priority bugs currently tracked | - | - | - | - | - |
+| ID | Description | Status | Severity | Points | Location | Date Added | GitHub Issue |
+|----|-------------|--------|----------|--------|----------|------------|--------------|
+| B002 | PlaceholderEngine unused variable warning | Open | Low | 1 | PlaceholderEngine.swift:235 | 2025-07-11 | [#8](https://github.com/likesjx/ProjectOne/issues/8) |
 
 ## Technical Debt
 
 ### 🔴 High Priority
 
-| ID | Description | Status | Points | Location | Date Added | Target Resolution |
-|----|-------------|--------|--------|----------|------------|-------------------|
-| TD001 | PlaceholderEngine needs replacement with MLX Swift | In Progress | 13 | Services/PlaceholderEngine.swift | 2025-07-09 | Phase 4 |
+| ID | Description | Status | Points | Location | Date Added | Target Resolution | GitHub Issue |
+|----|-------------|--------|--------|----------|------------|-------------------|--------------|
+| TD001 | PlaceholderEngine needs replacement with MLX Swift | In Progress | 13 | Services/PlaceholderEngine.swift | 2025-07-09 | Phase 4 | [#9](https://github.com/likesjx/ProjectOne/issues/9) |
+| TD005 | Audio recording implementation documentation needs API docs | Open | 3 | AudioPlayer.swift, AppleSpeechEngine.swift | 2025-07-11 | Next sprint | [#10](https://github.com/likesjx/ProjectOne/issues/10) |
 
 ### 🟡 Medium Priority
 
-| ID | Description | Status | Points | Location | Date Added | Target Resolution |
-|----|-------------|--------|--------|----------|------------|-------------------|
-| TD002 | API documentation generation needed | Open | 5 | docs/api/ | 2025-07-09 | Next sprint |
-| TD003 | SwiftData query optimization review | Open | 8 | Multiple Models | 2025-07-09 | TBD |
+| ID | Description | Status | Points | Location | Date Added | Target Resolution | GitHub Issue |
+|----|-------------|--------|--------|----------|------------|-------------------|--------------|
+| TD002 | API documentation generation needed | Open | 5 | docs/api/ | 2025-07-09 | Next sprint | [#10](https://github.com/likesjx/ProjectOne/issues/10) |
+| TD003 | SwiftData query optimization review | Open | 8 | Multiple Models | 2025-07-09 | TBD | [#11](https://github.com/likesjx/ProjectOne/issues/11) |
 
 ### 🟢 Low Priority
 
-| ID | Description | Status | Points | Location | Date Added | Target Resolution |
-|----|-------------|--------|--------|----------|------------|-------------------|
-| TD004 | Code documentation coverage improvement | Open | 3 | Codebase-wide | 2025-07-09 | Ongoing |
+| ID | Description | Status | Points | Location | Date Added | Target Resolution | GitHub Issue |
+|----|-------------|--------|--------|----------|------------|-------------------|--------------|
+| TD004 | Code documentation coverage improvement | Open | 3 | Codebase-wide | 2025-07-09 | Ongoing | [#12](https://github.com/likesjx/ProjectOne/issues/12) |
 
 ## Bug Status Definitions
 
@@ -86,12 +98,13 @@
 
 ## Quick Stats
 
-- **Total Open Bugs**: 1
-- **Total Technical Debt Items**: 4
+- **Total Open Bugs**: 2
+- **Total Technical Debt Items**: 5
 - **High Priority Items**: 1
-- **Total Story Points**: 37
+- **Total Story Points**: 41
+- **Recently Resolved Points**: 6 (UI Enhancements)
 
 ---
 
-**Last Updated**: 2025-07-09  
+**Last Updated**: 2025-07-11  
 **Next Review**: Weekly during sprint planning

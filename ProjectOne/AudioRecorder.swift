@@ -16,30 +16,32 @@ class AudioRecorder: NSObject, ObservableObject {
     
     @Published var isRecording = false
     @Published var recordings: [URL] = []
+    @Published var recordingItems: [RecordingItem] = []
     @Published var transcriptionStatus: TranscriptionStatus = .idle
     @Published var currentTranscription: TranscriptionResult?
     @Published var isTranscribing = false
     
-    // Transcription engine
-    private let transcriptionEngine: TranscriptionEngine
+    // Speech transcription factory
+    private let speechEngineFactory: SpeechEngineFactory
     private let modelContext: ModelContext
     
     // Real-time transcription support
     @Published var realtimeTranscription = ""
     private var transcriptionTimer: Timer?
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, speechEngineConfiguration: SpeechEngineConfiguration = .default) {
         print("🎤 [Performance] Initializing AudioRecorder...")
         let startTime = CFAbsoluteTimeGetCurrent()
         
         // Initialize transcription components
         self.modelContext = modelContext
-        self.transcriptionEngine = PlaceholderEngine(modelContext: modelContext)
+        self.speechEngineFactory = SpeechEngineFactory(configuration: speechEngineConfiguration)
         
         super.init()
         
         print("📁 [Performance] Fetching existing recordings...")
         fetchRecordings()
+        fetchRecordingItems()
         
         let endTime = CFAbsoluteTimeGetCurrent()
         print("✅ [Performance] AudioRecorder initialized in \(String(format: "%.2f", endTime - startTime))s")
@@ -124,8 +126,15 @@ class AudioRecorder: NSObject, ObservableObject {
         // Get the last recorded file and transcribe it
         if let lastRecordingURL = audioRecorder?.url {
             print("🛑 [Debug] Starting transcription for: \(lastRecordingURL.lastPathComponent)")
-            Task {
-                await transcribeRecording(url: lastRecordingURL)
+            
+            // Create recording item for the new recording
+            if let recordingItem = createRecordingItem(for: lastRecordingURL) {
+                recordingItem.isTranscribing = true
+                try? modelContext.save()
+                
+                Task {
+                    await transcribeRecording(url: lastRecordingURL, recordingItem: recordingItem)
+                }
             }
         }
         
@@ -147,10 +156,61 @@ class AudioRecorder: NSObject, ObservableObject {
         }
     }
     
+    func fetchRecordingItems() {
+        do {
+            let descriptor = FetchDescriptor<RecordingItem>(
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            recordingItems = try modelContext.fetch(descriptor)
+            print("📁 [AudioRecorder] Fetched \(recordingItems.count) recording items from database")
+        } catch {
+            print("📁 [AudioRecorder] Failed to fetch recording items: \(error.localizedDescription)")
+            recordingItems = []
+        }
+    }
+    
+    func createRecordingItem(for url: URL) -> RecordingItem? {
+        do {
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = fileAttributes[.size] as? Int64 ?? 0
+            
+            let recordingItem = RecordingItem(
+                filename: url.lastPathComponent,
+                fileURL: url,
+                fileSizeBytes: fileSize,
+                duration: 0, // Will be updated after transcription
+                format: url.pathExtension
+            )
+            
+            modelContext.insert(recordingItem)
+            
+            do {
+                try modelContext.save()
+                print("💾 [AudioRecorder] Created recording item: \(url.lastPathComponent)")
+                return recordingItem
+            } catch {
+                print("💾 [AudioRecorder] Failed to save recording item: \(error.localizedDescription)")
+                return nil
+            }
+        } catch {
+            print("📁 [AudioRecorder] Failed to get file attributes: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
     func deleteRecording(at url: URL) {
         do {
+            // Delete file from disk
             try FileManager.default.removeItem(at: url)
+            
+            // Delete from database
+            if let recordingItem = recordingItems.first(where: { $0.fileURL == url }) {
+                modelContext.delete(recordingItem)
+                try modelContext.save()
+            }
+            
             fetchRecordings()
+            fetchRecordingItems()
         } catch {
             print("File could not be deleted: \(error.localizedDescription)")
         }
@@ -158,7 +218,7 @@ class AudioRecorder: NSObject, ObservableObject {
     
     // MARK: - Transcription Methods
     
-    func transcribeRecording(url: URL) async {
+    func transcribeRecording(url: URL, recordingItem: RecordingItem? = nil) async {
         print("🎤 [Debug] Starting transcription process for: \(url.lastPathComponent)")
         
         await MainActor.run {
@@ -168,15 +228,75 @@ class AudioRecorder: NSObject, ObservableObject {
         }
         
         do {
-            print("🎤 [Debug] Calling transcriptionEngine.transcribe()")
-            let audioData = try Data(contentsOf: url)
-            let result = try await transcriptionEngine.transcribeAudio(audioData)
+            print("🎤 [Debug] Loading audio data and creating AudioData object")
+            
+            // Load audio file as AVAudioFile
+            let audioFile = try AVAudioFile(forReading: url)
+            let audioFormat = audioFile.processingFormat
+            let frameCount = UInt32(audioFile.length)
+            
+            guard let audioBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount) else {
+                throw SpeechTranscriptionError.audioFormatUnsupported
+            }
+            
+            try audioFile.read(into: audioBuffer)
+            
+            // Create AudioData object
+            let duration = Double(audioFile.length) / audioFormat.sampleRate
+            let audioData = AudioData(buffer: audioBuffer, format: audioFormat, duration: duration)
+            
+            // Create transcription configuration
+            let configuration = TranscriptionConfiguration(
+                language: "en-US",
+                requiresOnDeviceRecognition: true,
+                enablePartialResults: false
+            )
+            
+            print("🎤 [Debug] Calling speechEngineFactory.transcribe()")
+            let result = try await speechEngineFactory.transcribe(audio: audioData, configuration: configuration)
             print("🎤 [Debug] Transcription completed: \(result.text.prefix(50))...")
             
             await MainActor.run {
-                currentTranscription = result
+                // Convert SpeechTranscriptionResult to legacy TranscriptionResult for compatibility
+                let legacyResult = TranscriptionResult(
+                    text: result.text,
+                    confidence: Double(result.confidence),
+                    segments: result.segments.map { segment in
+                        TranscriptionSegment(
+                            text: segment.text,
+                            confidence: Double(segment.confidence),
+                            startTime: segment.startTime,
+                            endTime: segment.endTime,
+                            isComplete: true
+                        )
+                    },
+                    processingTime: result.processingTime,
+                    language: result.language ?? "en-US"
+                )
+                
+                currentTranscription = legacyResult
                 transcriptionStatus = .completed
                 isTranscribing = false
+                
+                // Update recording item with transcription results
+                if let recordingItem = recordingItem {
+                    recordingItem.updateWithTranscription(legacyResult, engine: result.method.displayName)
+                    
+                    // Update duration from audio file
+                    recordingItem.duration = duration
+                    
+                    // TODO: Implement entity extraction with new architecture
+                    // This will be enhanced in future phases to use the protocol-based system
+                    
+                    do {
+                        try modelContext.save()
+                        print("💾 [AudioRecorder] Saved transcription from \(result.method.displayName)")
+                    } catch {
+                        print("💾 [AudioRecorder] Failed to save transcription data: \(error.localizedDescription)")
+                    }
+                    
+                    fetchRecordingItems()
+                }
             }
             
             print("🎤 [Debug] Transcription result saved to currentTranscription")
@@ -185,6 +305,13 @@ class AudioRecorder: NSObject, ObservableObject {
             await MainActor.run {
                 transcriptionStatus = .failed(error)
                 isTranscribing = false
+                
+                // Mark recording item as failed
+                if let recordingItem = recordingItem {
+                    recordingItem.markTranscriptionFailed(error: error.localizedDescription)
+                    try? modelContext.save()
+                    fetchRecordingItems()
+                }
             }
             print("🎤 [Error] Transcription failed: \(error.localizedDescription)")
         }
@@ -224,6 +351,18 @@ class AudioRecorder: NSObject, ObservableObject {
     func getTranscriptionConfidence(for text: String) -> Double {
         // Return confidence from last transcription result
         return currentTranscription?.confidence ?? 0.0
+    }
+    
+    /// Get current speech engine status for diagnostics
+    func getSpeechEngineStatus() -> String {
+        let status = speechEngineFactory.getEngineStatus()
+        return status.statusMessage
+    }
+    
+    /// Configure speech engine strategy
+    func configureSpeechEngine(_ configuration: SpeechEngineConfiguration) {
+        // Note: This would require factory reconfiguration in future implementation
+        print("🎤 [AudioRecorder] Speech engine reconfiguration requested - restart required")
     }
 }
 
