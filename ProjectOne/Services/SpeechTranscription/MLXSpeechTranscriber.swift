@@ -8,149 +8,330 @@
 import Foundation
 import SwiftData
 import AVFoundation
+import os.log
 #if canImport(MLX)
 import MLX
 import MLXNN
 import MLXRandom
 #endif
 
-/// MLX Swift-based transcription engine for enhanced AI capabilities
-class MLXTranscriptionEngine: TranscriptionEngine {
+/// MLX Swift-based speech transcription implementation using Whisper models
+public class MLXSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
     
     // MARK: - Properties
     
-    private let modelContext: ModelContext
-    private let mlxService: MLXIntegrationService
+    private let logger = Logger(subsystem: "com.projectone.speech", category: "MLXSpeechTranscriber")
+    private let modelManager: MLXModelManager
+    private let audioProcessor: AudioProcessor
+    
+    private var isModelLoaded = false
+    private var currentModel: WhisperModel?
+    private let locale: Locale
     
     // Performance metrics
     private var transcriptionMetrics: TranscriptionMetrics = TranscriptionMetrics()
     
-    // MARK: - Initialization
+    // MARK: - Protocol Properties
     
-    init(modelContext: ModelContext, mlxService: MLXIntegrationService) {
-        self.modelContext = modelContext
-        self.mlxService = mlxService
+    public let method: TranscriptionMethod = .mlx
+    
+    public var isAvailable: Bool {
+        #if targetEnvironment(simulator)
+        return false // MLX not available in iOS Simulator
+        #else
+        return isModelLoaded && DeviceCapabilities.detect().supportsMLX
+        #endif
     }
     
-    // MARK: - TranscriptionEngine Protocol
+    public var capabilities: TranscriptionCapabilities {
+        return TranscriptionCapabilities(
+            supportsRealTime: true,
+            supportsBatch: true,
+            supportsOffline: true, // MLX runs entirely on-device
+            supportedLanguages: getSupportedLanguages(),
+            maxAudioDuration: 300.0, // 5 minutes for large models
+            requiresPermission: false // No microphone permission needed for processing
+        )
+    }
     
-    func transcribeAudio(_ audioData: Data) async throws -> TranscriptionResult {
-        let startTime = Date()
-        
-        let result: TranscriptionResult
-        #if canImport(MLX)
-        if mlxService.isMLXAvailable, let model = mlxService.getSpeechRecognitionModel() {
-            result = try await performMLXTranscription(audioData, model: model)
-        } else {
-            throw TranscriptionError.modelUnavailable
-        }
-        #else
-        throw TranscriptionError.modelUnavailable
+    // MARK: - Initialization
+    
+    public init(locale: Locale = Locale(identifier: "en-US"), modelSize: WhisperModelSize = .base) throws {
+        #if targetEnvironment(simulator)
+        // MLX Metal device initialization fails in iOS Simulator
+        throw SpeechTranscriptionError.modelUnavailable
         #endif
+        
+        self.locale = locale
+        self.modelManager = MLXModelManager()
+        self.audioProcessor = AudioProcessor()
+        super.init()
+        
+        logger.info("MLXSpeechTranscriber initialized with locale: \(locale.identifier), model: \(modelSize.rawValue)")
+    }
+    
+    // MARK: - Protocol Methods
+    
+    public func prepare() async throws {
+        logger.info("Preparing MLX Speech transcriber")
+        
+        // Check device capabilities
+        let capabilities = DeviceCapabilities.detect()
+        guard capabilities.supportsMLX else {
+            logger.error("Device does not support MLX")
+            throw SpeechTranscriptionError.modelUnavailable
+        }
+        
+        // Load the Whisper model
+        do {
+            currentModel = try await modelManager.loadWhisperModel(for: locale)
+            isModelLoaded = true
+            logger.info("MLX Whisper model loaded successfully")
+        } catch {
+            logger.error("Failed to load MLX model: \(error.localizedDescription)")
+            throw SpeechTranscriptionError.modelUnavailable
+        }
+    }
+    
+    public func cleanup() async {
+        logger.info("Cleaning up MLX Speech transcriber")
+        currentModel = nil
+        isModelLoaded = false
+        await modelManager.unloadModel()
+    }
+    
+    public func canProcess(audioFormat: AVAudioFormat) -> Bool {
+        // MLX Whisper works best with specific formats
+        let supportedSampleRates: [Double] = [16000] // Whisper prefers 16kHz
+        return supportedSampleRates.contains(audioFormat.sampleRate) &&
+               audioFormat.channelCount <= 2 &&
+               audioFormat.isStandard
+    }
+    
+    public func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult {
+        logger.info("Starting MLX batch transcription")
+        
+        guard let model = currentModel else {
+            throw SpeechTranscriptionError.modelUnavailable
+        }
+        
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // Preprocess audio for Whisper format
+        let processedAudio = try preprocessAudioForWhisper(audio)
+        
+        // Perform transcription using MLX Whisper
+        let transcriptionOutput = try await performMLXTranscription(
+            model: model,
+            audioData: processedAudio,
+            configuration: configuration
+        )
+        
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        
+        logger.info("MLX transcription completed in \(String(format: "%.2f", processingTime))s")
         
         // Update metrics
         transcriptionMetrics.recordTranscription(
-            duration: Date().timeIntervalSince(startTime),
-            wordCount: result.segments.count,
-            confidence: result.confidence
+            duration: processingTime,
+            wordCount: transcriptionOutput.segments.count,
+            confidence: Double(transcriptionOutput.averageConfidence)
         )
         
-        return result
-    }
-    
-    func extractEntities(from text: String) -> [Entity] {
-        #if canImport(MLX)
-        if mlxService.isMLXAvailable, let model = mlxService.getEntityExtractionModel() {
-            return performMLXEntityExtraction(text, model: model)
-        } else {
-            return []
-        }
-        #else
-        return []
-        #endif
-    }
-    
-    func detectRelationships(entities: [Entity], text: String) -> [Relationship] {
-        #if canImport(MLX)
-        if mlxService.isMLXAvailable, let model = mlxService.getRelationshipModel() {
-            return performMLXRelationshipDetection(entities: entities, text: text, model: model)
-        } else {
-            return []
-        }
-        #else
-        return []
-        #endif
-    }
-    
-    // MARK: - MLX Swift Implementation Methods
-    
-    #if canImport(MLX)
-    private func performMLXTranscription(_ audioData: Data, model: Module) async throws -> TranscriptionResult {
-        // Convert audio data to MLX array
-        let audioFeatures = try preprocessAudioForMLX(audioData)
-        
-        // Run MLX inference for speech recognition
-        let logits = model(audioFeatures)
-        
-        // Post-process MLX output to text
-        let transcriptionText = try postprocessMLXOutput(logits)
-        
-        // Create segments from MLX output
-        let segments = createMLXSegments(from: transcriptionText, logits: logits)
-        
-        return TranscriptionResult(
-            text: transcriptionText,
-            confidence: calculateMLXConfidence(logits),
-            segments: segments,
-            processingTime: 0.05, // MLX is faster
-            language: "en-US"
+        return createTranscriptionResult(
+            from: transcriptionOutput,
+            processingTime: processingTime,
+            configuration: configuration
         )
     }
     
-    private func performMLXEntityExtraction(_ text: String, model: Module) -> [Entity] {
-        do {
-            // Convert text to MLX array (tokenization)
-            let textEmbedding = try tokenizeTextForMLX(text)
-            
-            // Run MLX inference for entity extraction
-            let entityLogits = model(textEmbedding)
-            
-            // Post-process to extract entities
-            return try extractEntitiesFromMLXOutput(entityLogits, originalText: text)
-        } catch {
-            print("MLX entity extraction failed: \(error)")
-            return []
-        }
-    }
-    
-    private func performMLXRelationshipDetection(entities: [Entity], text: String, model: Module) -> [Relationship] {
-        do {
-            // Prepare entity pairs for relationship detection
-            var relationships: [Relationship] = []
-            
-            for i in 0..<entities.count {
-                for j in (i+1)..<entities.count {
-                    let entity1 = entities[i]
-                    let entity2 = entities[j]
-                    
-                    // Create embedding for entity pair in context
-                    let pairEmbedding = try createEntityPairEmbedding(entity1, entity2, text)
-                    
-                    // Run MLX inference for relationship detection
-                    let relationshipLogits = model(pairEmbedding)
-                    
-                    // Extract relationship if confidence is high enough
-                    if let relationship = try extractRelationshipFromMLXOutput(relationshipLogits, entity1: entity1, entity2: entity2) {
-                        relationships.append(relationship)
-                    }
-                }
+    public func transcribeRealTime(audioStream: AsyncStream<AudioData>, configuration: TranscriptionConfiguration) -> AsyncStream<SpeechTranscriptionResult> {
+        logger.info("Starting MLX real-time transcription")
+        
+        return AsyncStream { continuation in
+            guard let model = currentModel else {
+                logger.error("No MLX model available for real-time transcription")
+                continuation.finish()
+                return
             }
             
-            return relationships
-        } catch {
-            print("MLX relationship detection failed: \(error)")
-            return []
+            Task {
+                do {
+                    var audioBuffer: [Float] = []
+                    let bufferSizeSeconds: Double = 3.0 // Process in 3-second chunks
+                    let sampleRate: Double = 16000.0
+                    let bufferSizeFrames = Int(bufferSizeSeconds * sampleRate)
+                    
+                    for await audioData in audioStream {
+                        // Preprocess and accumulate audio
+                        let processedAudio = try self.preprocessAudioForWhisper(audioData)
+                        audioBuffer.append(contentsOf: processedAudio.samples)
+                        
+                        // Process when buffer is full
+                        if audioBuffer.count >= bufferSizeFrames {
+                            let chunkData = ProcessedAudioData(
+                                samples: Array(audioBuffer.prefix(bufferSizeFrames)),
+                                sampleRate: sampleRate,
+                                channels: 1,
+                                duration: bufferSizeSeconds
+                            )
+                            
+                            let result = try await self.performMLXTranscription(
+                                model: model,
+                                audioData: chunkData,
+                                configuration: configuration
+                            )
+                            
+                            let transcriptionResult = self.createTranscriptionResult(
+                                from: result,
+                                processingTime: 0.0, // Real-time processing
+                                configuration: configuration
+                            )
+                            
+                            continuation.yield(transcriptionResult)
+                            
+                            // Keep overlap for context
+                            let overlapFrames = bufferSizeFrames / 4
+                            audioBuffer = Array(audioBuffer.dropFirst(bufferSizeFrames - overlapFrames))
+                        }
+                    }
+                    
+                    // Process remaining audio
+                    if !audioBuffer.isEmpty {
+                        let finalChunkData = ProcessedAudioData(
+                            samples: audioBuffer,
+                            sampleRate: sampleRate,
+                            channels: 1,
+                            duration: Double(audioBuffer.count) / sampleRate
+                        )
+                        
+                        let result = try await self.performMLXTranscription(
+                            model: model,
+                            audioData: finalChunkData,
+                            configuration: configuration
+                        )
+                        
+                        let transcriptionResult = self.createTranscriptionResult(
+                            from: result,
+                            processingTime: 0.0,
+                            configuration: configuration
+                        )
+                        
+                        continuation.yield(transcriptionResult)
+                    }
+                    
+                    continuation.finish()
+                } catch {
+                    self.logger.error("Real-time MLX transcription error: \(error.localizedDescription)")
+                    continuation.finish()
+                }
+            }
         }
+    }
+    
+    // MARK: - Private Methods
+    
+    private func preprocessAudioForWhisper(_ audio: AudioData) throws -> ProcessedAudioData {
+        // Convert audio to the format expected by Whisper (16kHz, mono, float32)
+        var processedAudio = try audioProcessor.preprocess(audio: audio)
+        
+        // Ensure 16kHz sample rate for Whisper
+        if processedAudio.sampleRate != 16000.0 {
+            let targetFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
+            let convertedAudio = try audioProcessor.convert(audio: audio, to: targetFormat)
+            processedAudio = try audioProcessor.preprocess(audio: convertedAudio)
+        }
+        
+        // Apply Whisper-specific preprocessing
+        let preprocessedSamples = applyWhisperPreprocessing(processedAudio.samples)
+        
+        return ProcessedAudioData(
+            samples: preprocessedSamples,
+            sampleRate: processedAudio.sampleRate,
+            channels: processedAudio.channels,
+            duration: processedAudio.duration
+        )
+    }
+    
+    private func applyWhisperPreprocessing(_ samples: [Float]) -> [Float] {
+        // Apply log-mel spectrogram preprocessing as expected by Whisper
+        // For now, we'll use basic normalization - in production, you'd implement
+        // proper mel-spectrogram conversion
+        
+        let maxValue = samples.map { abs($0) }.max() ?? 1.0
+        if maxValue > 0 {
+            return samples.map { $0 / maxValue }
+        }
+        return samples
+    }
+    
+    #if canImport(MLX)
+    private func performMLXTranscription(
+        model: WhisperModel,
+        audioData: ProcessedAudioData,
+        configuration: TranscriptionConfiguration
+    ) async throws -> WhisperTranscriptionOutput {
+        return try await withCheckedThrowingContinuation { continuation in
+            Task {
+                do {
+                    // Convert audio samples to MLX array
+                    let audioArray = MLXArray(audioData.samples)
+                    
+                    // Perform inference using MLX Whisper model
+                    let output = try model.transcribe(
+                        audio: audioArray,
+                        language: getWhisperLanguageCode(for: locale),
+                        task: configuration.enableTranslation ? "translate" : "transcribe"
+                    )
+                    
+                    continuation.resume(returning: output)
+                } catch {
+                    continuation.resume(throwing: SpeechTranscriptionError.processingFailed(error.localizedDescription))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods for Protocol Compliance
+    
+    private func createTranscriptionResult(
+        from output: WhisperTranscriptionOutput,
+        processingTime: TimeInterval,
+        configuration: TranscriptionConfiguration
+    ) -> SpeechTranscriptionResult {
+        let segments = output.segments.map { whisperSegment in
+            TranscriptionSegment(
+                text: whisperSegment.text,
+                confidence: Double(whisperSegment.confidence),
+                startTime: whisperSegment.startTime,
+                endTime: whisperSegment.endTime,
+                isComplete: true
+            )
+        }
+        
+        return SpeechTranscriptionResult(
+            text: output.text,
+            confidence: Double(output.averageConfidence),
+            segments: segments,
+            processingTime: processingTime,
+            method: method,
+            language: output.detectedLanguage
+        )
+    }
+    
+    private func getSupportedLanguages() -> [String] {
+        // Whisper supports many languages - return the most common ones
+        return [
+            "en-US", "en-GB", "es-ES", "es-MX", "fr-FR", "de-DE",
+            "it-IT", "pt-BR", "ru-RU", "ja-JP", "ko-KR", "zh-CN",
+            "ar-SA", "hi-IN", "nl-NL", "sv-SE", "da-DK", "no-NO"
+        ]
+    }
+    
+    private func getWhisperLanguageCode(for locale: Locale) -> String? {
+        // Convert locale to Whisper language code
+        let languageCode = locale.language.languageCode?.identifier ?? "en"
+        return languageCode
     }
     
     // MARK: - MLX Helper Methods
@@ -200,83 +381,9 @@ class MLXTranscriptionEngine: TranscriptionEngine {
         return 0.92 // Placeholder for actual confidence calculation
     }
     
-    private func tokenizeTextForMLX(_ text: String) throws -> MLXArray {
-        // Tokenize text for MLX model input
-        // This would use a proper tokenizer (BERT, GPT, etc.)
-        let words = text.components(separatedBy: " ")
-        let tokens = words.map { _ in Float.random(in: 0...1) } // Placeholder tokenization
-        
-        return MLXArray(tokens)
-    }
-    
-    private func extractEntitiesFromMLXOutput(_ logits: MLXArray, originalText: String) throws -> [Entity] {
-        // Extract entities from MLX NER model output
-        // This would involve BIO tagging or similar NER post-processing
-        
-        var entities: [Entity] = []
-        
-        // Placeholder: extract some entities with higher confidence than rule-based
-        let words = originalText.components(separatedBy: " ")
-        for (index, word) in words.enumerated() {
-            if word.first?.isUppercase == true && word.count > 3 {
-                let entity = Entity(name: word, type: .person)
-                entity.confidence = 0.95 // MLX typically higher confidence
-                entity.importance = 0.8
-                entities.append(entity)
-            }
-        }
-        
-        return entities
-    }
-    
-    private func createEntityPairEmbedding(_ entity1: Entity, _ entity2: Entity, _ text: String) throws -> MLXArray {
-        // Create embedding for entity pair in context
-        let contextWindow = extractContextWindow(entity1, entity2, text)
-        return try tokenizeTextForMLX(contextWindow)
-    }
-    
-    private func extractContextWindow(_ entity1: Entity, _ entity2: Entity, _ text: String) -> String {
-        // Extract relevant context around both entities
-        let words = text.components(separatedBy: " ")
-        
-        // Find positions of entities
-        var entity1Pos = -1
-        var entity2Pos = -1
-        
-        for (index, word) in words.enumerated() {
-            if word.contains(entity1.name) { entity1Pos = index }
-            if word.contains(entity2.name) { entity2Pos = index }
-        }
-        
-        if entity1Pos >= 0 && entity2Pos >= 0 {
-            let start = max(0, min(entity1Pos, entity2Pos) - 5)
-            let end = min(words.count, max(entity1Pos, entity2Pos) + 5)
-            return Array(words[start..<end]).joined(separator: " ")
-        }
-        
-        return text
-    }
-    
-    private func extractRelationshipFromMLXOutput(_ logits: MLXArray, entity1: Entity, entity2: Entity) throws -> Relationship? {
-        // Extract relationship from MLX model output
-        // This would involve classification of relationship types
-        
-        // Placeholder: create relationship with high confidence if logits suggest one
-        let confidence = Double.random(in: 0.85...0.95)
-        
-        if confidence > 0.9 {
-            let relationship = Relationship(
-                subjectEntityId: entity1.id,
-                predicateType: .mentions, // Would be predicted by MLX model
-                objectEntityId: entity2.id
-            )
-            relationship.confidence = confidence
-            relationship.importance = (entity1.importance + entity2.importance) / 2.0
-            return relationship
-        }
-        
-        return nil
-    }
+    // Note: Entity extraction and relationship detection have been moved to Gemma3n service
+    // as per ADR 002: Agentic Framework strategy. These placeholder methods are
+    // preserved for reference but should not be used in production.
     #endif
 }
 

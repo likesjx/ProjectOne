@@ -18,7 +18,7 @@ We will adopt a formal **Perception-Reasoning-Action** agent framework. The core
     *   HealthKit data (with explicit user permission).
     *   The existing Knowledge Graph (the agent's memory).
 
-*   **Reasoning Layer (`Gemma3nCore`)**: The on-device Gemma model will act as the central **reasoning and routing engine**. Its primary responsibilities are:
+*   **Reasoning Layer (Memory Agent)**: The Memory Agent will act as the central **reasoning and routing engine**, owning the knowledge graph and deciding which models to interact with. Its primary responsibilities are:
     *   **Intent Recognition**: Analyzing user requests to understand the goal.
     *   **Data Fusion**: Correlating data from different sources (e.g., linking a stressful event in a transcript to poor sleep data from HealthKit).
     *   **Tool Selection**: Generating a structured plan (e.g., in JSON) that specifies which tool(s) to use to fulfill the request.
@@ -34,10 +34,10 @@ We will adopt a formal **Perception-Reasoning-Action** agent framework. The core
 
 The agent will seamlessly switch between two types of AI models based on the task's requirements:
 
-*   **On-Device Expert (`Gemma3nCore`)**: 
-    *   **Scope**: All personal data, including transcripts, HealthKit info, and the knowledge graph.
-    *   **Function**: Handles all queries related to the user's personal life. Acts as the primary router for all incoming requests.
-    *   **Characteristics**: Private, fast, offline-capable.
+*   **Memory Agent with On-Device Gemma**: 
+    *   **Scope**: Owns and manages all personal data, including transcripts, HealthKit info, and the knowledge graph.
+    *   **Function**: Central intelligence that handles personal queries and routes between on-device Gemma model and external APIs based on context and privacy requirements.
+    *   **Characteristics**: Private, fast, offline-capable, memory-owning.
 
 *   **Remote Expert (`externalQASearch` tool)**:
     *   **Scope**: General-purpose knowledge, creative tasks, complex reasoning beyond the on-device model's capabilities.
@@ -46,7 +46,7 @@ The agent will seamlessly switch between two types of AI models based on the tas
 
 ### 3. Privacy and Transparency
 
-*   **The Golden Rule**: The system will be designed to **never** send personal, private data from the knowledge graph or HealthKit to a remote LLM API. The `Gemma3nCore` router is responsible for enforcing this boundary.
+*   **The Golden Rule**: The system will be designed to **never** send personal, private data from the knowledge graph or HealthKit to a remote LLM API. The Memory Agent is responsible for enforcing this privacy boundary through intelligent routing decisions.
 *   **User Transparency**: The UI will provide a clear, subtle indicator when a query is being answered by the remote expert, ensuring the user is aware that a request is being sent over the internet.
 
 ## Consequences
