@@ -12,13 +12,37 @@ import AVFoundation
 
 /// Represents audio data for processing
 public struct AudioData {
-    let audioBuffer: AVAudioBuffer
+    let audioBuffer: AVAudioBuffer?
+    let samples: [Float]
     let format: AVAudioFormat
     let duration: TimeInterval
     let sampleRate: Double
     
     init(buffer: AVAudioBuffer, format: AVAudioFormat, duration: TimeInterval) {
         self.audioBuffer = buffer
+        self.format = format
+        self.duration = duration
+        self.sampleRate = format.sampleRate
+        
+        // Extract samples from buffer if possible
+        if let pcmBuffer = buffer as? AVAudioPCMBuffer,
+           let channelData = pcmBuffer.floatChannelData {
+            let frameLength = Int(pcmBuffer.frameLength)
+            var extractedSamples: [Float] = []
+            extractedSamples.reserveCapacity(frameLength)
+            
+            for i in 0..<frameLength {
+                extractedSamples.append(channelData[0][i])
+            }
+            self.samples = extractedSamples
+        } else {
+            self.samples = []
+        }
+    }
+    
+    init(samples: [Float], format: AVAudioFormat, duration: TimeInterval) {
+        self.audioBuffer = nil
+        self.samples = samples
         self.format = format
         self.duration = duration
         self.sampleRate = format.sampleRate
@@ -72,6 +96,7 @@ public enum TranscriptionMethod {
     case appleSpeech
     case appleFoundation
     case mlx
+    case whisperKit
     case hybrid
     
     public var displayName: String {
@@ -82,6 +107,8 @@ public enum TranscriptionMethod {
             return "Apple Foundation"
         case .mlx:
             return "MLX"
+        case .whisperKit:
+            return "WhisperKit"
         case .hybrid:
             return "Hybrid"
         }

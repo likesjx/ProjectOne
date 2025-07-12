@@ -129,62 +129,47 @@ class MLXIntegrationService: ObservableObject {
     
     #if canImport(MLX)
     private func loadSpeechRecognitionModel() async throws -> Module {
-        // Create a speech recognition model using MLX
-        // This is a simplified model structure for demonstration
-        // In production, you would load pre-trained weights
-        let model = Sequential(layers: [
-            Linear(1024, 512),
-            ReLU(),
-            Linear(512, 256),
-            ReLU(),
-            Linear(256, 128) // Output vocabulary size
-        ])
-        
+        // This would typically load a pre-trained model like Whisper.
+        // For now, we'll define a more realistic, albeit still simplified, model.
+        let model = AudioTransformer(
+            embeddingDim: 256,
+            numHeads: 4,
+            numLayers: 3,
+            numClasses: 50362 // Example vocab size for Whisper
+        )
         print("Speech recognition model created with MLX")
         return model
     }
-    
+
     private func loadEntityExtractionModel() async throws -> Module {
-        // Create a Named Entity Recognition model using MLX
-        // This would typically be a BERT-based or transformer model
-        let model = Sequential(layers: [
-            Linear(768, 256), // BERT-like embedding size
-            ReLU(),
-            Linear(256, 128),
-            ReLU(),
-            Linear(128, 5) // 5 entity types
-        ])
-        
+        // A simplified BERT-like model for NER
+        let model = BERTNERModel(
+            embeddingDim: 256,
+            numHeads: 4,
+            numLayers: 2,
+            numClasses: 9 // B-PER, I-PER, B-ORG, I-ORG, etc.
+        )
         print("Entity extraction model created with MLX")
         return model
     }
-    
+
     private func loadRelationshipModel() async throws -> Module {
-        // Create a relationship detection model using MLX
-        // This would classify relationships between entity pairs
-        let model = Sequential(layers: [
-            Linear(512, 256), // Concatenated entity embeddings
-            ReLU(),
-            Linear(256, 128),
-            ReLU(),
-            Linear(128, 25) // Number of relationship types
-        ])
-        
+        // A model for classifying relationships between two entities
+        let model = RelationshipClassifier(
+            embeddingDim: 256,
+            numClasses: 25 // Number of relationship types
+        )
         print("Relationship detection model created with MLX")
         return model
     }
-    
+
     private func loadEmbeddingModel() async throws -> Module {
-        // Create a text embedding model using MLX
-        // This would generate sentence/document embeddings
-        let model = Sequential(layers: [
-            Linear(512, 256), // Token embeddings input
-            ReLU(),
-            Linear(256, 128),
-            ReLU(),
-            Linear(128, 64) // Final embedding size
-        ])
-        
+        // A model for generating text embeddings
+        let model = SentenceTransformer(
+            embeddingDim: 256,
+            numHeads: 4,
+            numLayers: 2
+        )
         print("Text embedding model created with MLX")
         return model
     }
@@ -364,3 +349,82 @@ class MLXEntityModel: MLXModelWrapper {
     }
 }
 */
+
+#if canImport(MLX)
+// MARK: - Model Architectures
+
+class AudioTransformer: Module {
+    let embedding: Embedding
+    let attention: MultiHeadAttention
+    let linear1: Linear
+    let linear2: Linear
+
+    init() {
+        self.embedding = Embedding(embeddingCount: 1024, dimensions: 256)
+        self.attention = MultiHeadAttention(dimensions: 256, numHeads: 4)
+        self.linear1 = Linear(256, 512)
+        self.linear2 = Linear(512, 50362)
+        super.init()
+    }
+
+    func callAsFunction(_ x: MLXArray) -> MLXArray {
+        var x = embedding(x)
+        x = attention(x, keys: x, values: x, mask: nil)
+        x = relu(linear1(x))
+        return linear2(x)
+    }
+}
+
+class BERTNERModel: Module {
+    let embedding: Embedding
+    let linear1: Linear
+    let linear2: Linear
+
+    init() {
+        self.embedding = Embedding(embeddingCount: 30522, dimensions: 256)
+        self.linear1 = Linear(256, 256)
+        self.linear2 = Linear(256, 9)
+        super.init()
+    }
+
+    func callAsFunction(_ x: MLXArray) -> MLXArray {
+        let y = embedding(x)
+        let z = relu(linear1(y))
+        return linear2(z)
+    }
+}
+
+class RelationshipClassifier: Module {
+    let linear1: Linear
+    let linear2: Linear
+
+    init() {
+        self.linear1 = Linear(256 * 2, 512)
+        self.linear2 = Linear(512, 25)
+        super.init()
+    }
+
+    func callAsFunction(_ x: MLXArray) -> MLXArray {
+        let x = relu(linear1(x))
+        return linear2(x)
+    }
+}
+
+class SentenceTransformer: Module {
+    let embedding: Embedding
+    let linear: Linear
+
+    init() {
+        self.embedding = Embedding(embeddingCount: 30522, dimensions: 256)
+        self.linear = Linear(256, 256)
+        super.init()
+    }
+
+    func callAsFunction(_ x: MLXArray) -> MLXArray {
+        let y = embedding(x)
+        let z = relu(linear(y))
+        // Mean pooling
+        return z.mean(axis: 1)
+    }
+}
+#endif

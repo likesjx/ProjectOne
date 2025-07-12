@@ -81,6 +81,7 @@ struct VoiceMemoView: View {
                     if !audioRecorder.recordings.isEmpty {
                         LiquidGlassRecentRecordings(
                             recordings: audioRecorder.recordings,
+                            recordingItems: audioRecorder.recordingItems,
                             audioPlayer: audioPlayer
                         )
                     }

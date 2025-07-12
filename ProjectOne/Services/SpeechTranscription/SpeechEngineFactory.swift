@@ -85,8 +85,10 @@ public enum EngineSelectionStrategy {
     case automatic
     case preferApple
     case preferMLX
+    case preferWhisperKit
     case appleOnly
     case mlxOnly
+    case whisperKitOnly
     
     public var description: String {
         switch self {
@@ -96,10 +98,14 @@ public enum EngineSelectionStrategy {
             return "Prefer Apple Speech"
         case .preferMLX:
             return "Prefer MLX"
+        case .preferWhisperKit:
+            return "Prefer WhisperKit"
         case .appleOnly:
             return "Apple Speech only"
         case .mlxOnly:
             return "MLX only"
+        case .whisperKitOnly:
+            return "WhisperKit only"
         }
     }
 }
@@ -358,13 +364,17 @@ public class SpeechEngineFactory {
         case .automatic:
             return try await selectOptimalEngine()
         case .preferApple:
-            return try await selectPreferredEngine(preferMLX: false)
+            return try await selectPreferredEngine(preference: .appleSpeech)
         case .preferMLX:
-            return try await selectPreferredEngine(preferMLX: true)
+            return try await selectPreferredEngine(preference: .mlx)
+        case .preferWhisperKit:
+            return try await selectPreferredEngine(preference: .whisperKit)
         case .appleOnly:
             return try await createAppleEngine()
         case .mlxOnly:
             return try await createMLXEngine()
+        case .whisperKitOnly:
+            return try await createWhisperKitEngine()
         }
     }
     
@@ -374,6 +384,10 @@ public class SpeechEngineFactory {
         
         // Apple Speech always available as baseline
         scores.append((createAppleEngine, 50, "Apple Speech"))
+        
+        // WhisperKit gets higher score for offline capabilities and accuracy
+        let whisperKitScore = calculateWhisperKitScore()
+        scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
         
         // MLX gets higher score on capable devices
         if deviceCapabilities.supportsMLX {
@@ -401,36 +415,87 @@ public class SpeechEngineFactory {
         throw SpeechTranscriptionError.modelUnavailable
     }
     
-    private func selectPreferredEngine(preferMLX: Bool) async throws -> SpeechTranscriptionProtocol {
-        if preferMLX && deviceCapabilities.supportsMLX {
+    private func selectPreferredEngine(preference: TranscriptionMethod) async throws -> SpeechTranscriptionProtocol {
+        // Try preferred engine first
+        switch preference {
+        case .mlx:
+            if deviceCapabilities.supportsMLX {
+                do {
+                    let mlxEngine = try await createMLXEngine()
+                    if mlxEngine.isAvailable {
+                        return mlxEngine
+                    }
+                } catch {
+                    logger.warning("Preferred MLX engine unavailable: \(error.localizedDescription)")
+                }
+            }
+        case .whisperKit:
             do {
-                let mlxEngine = try await createMLXEngine()
-                if mlxEngine.isAvailable {
-                    return mlxEngine
+                let whisperKitEngine = try await createWhisperKitEngine()
+                if whisperKitEngine.isAvailable {
+                    return whisperKitEngine
                 }
             } catch {
-                logger.warning("Preferred MLX engine unavailable: \(error.localizedDescription)")
+                logger.warning("Preferred WhisperKit engine unavailable: \(error.localizedDescription)")
             }
+        case .appleSpeech:
+            // Apple Speech is the fallback, so we'll handle it below
+            break
+        default:
+            break
         }
         
-        // Fall back to Apple
+        // Fall back to Apple Speech as it's always available
         return try await createAppleEngine()
     }
     
     private func selectFallbackEngine(primary: SpeechTranscriptionProtocol?) async throws -> SpeechTranscriptionProtocol? {
         guard let primary = primary else { return nil }
         
-        // If primary is Apple, try MLX as fallback
-        if case .appleSpeech = primary.method, deviceCapabilities.supportsMLX {
+        // If primary is Apple, try WhisperKit first, then MLX as fallback
+        if case .appleSpeech = primary.method {
+            // Try WhisperKit first
             do {
-                return try await createMLXEngine()
+                let whisperKitEngine = try await createWhisperKitEngine()
+                if whisperKitEngine.isAvailable {
+                    return whisperKitEngine
+                }
             } catch {
-                logger.info("MLX fallback unavailable: \(error.localizedDescription)")
+                logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
+            }
+            
+            // Try MLX if WhisperKit failed and device supports it
+            if deviceCapabilities.supportsMLX {
+                do {
+                    return try await createMLXEngine()
+                } catch {
+                    logger.info("MLX fallback unavailable: \(error.localizedDescription)")
+                }
             }
         }
         
-        // If primary is MLX, use Apple as fallback
+        // If primary is WhisperKit, use Apple as fallback
+        if case .whisperKit = primary.method {
+            do {
+                return try await createAppleEngine()
+            } catch {
+                logger.warning("Apple fallback unavailable: \(error.localizedDescription)")
+            }
+        }
+        
+        // If primary is MLX, use WhisperKit first, then Apple as fallback
         if case .mlx = primary.method {
+            // Try WhisperKit first
+            do {
+                let whisperKitEngine = try await createWhisperKitEngine()
+                if whisperKitEngine.isAvailable {
+                    return whisperKitEngine
+                }
+            } catch {
+                logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
+            }
+            
+            // Fall back to Apple
             do {
                 return try await createAppleEngine()
             } catch {
@@ -460,6 +525,38 @@ public class SpeechEngineFactory {
         if let maxMemory = configuration.maxMemoryUsage, 
            deviceCapabilities.availableMemory < maxMemory {
             score -= 30
+        }
+        
+        return score
+    }
+    
+    private func calculateWhisperKitScore() -> Int {
+        var score = 70 // Base score for WhisperKit (higher than Apple Speech for better accuracy)
+        
+        // Bonus for more memory (larger models available)
+        if deviceCapabilities.totalMemory > 8 * 1024 * 1024 * 1024 { // 8GB+
+            score += 15
+        } else if deviceCapabilities.totalMemory > 4 * 1024 * 1024 * 1024 { // 4GB+
+            score += 10
+        }
+        
+        // Bonus for available memory
+        if deviceCapabilities.availableMemory > 2 * 1024 * 1024 * 1024 { // 2GB+ available
+            score += 10
+        }
+        
+        // Offline capability bonus
+        score += 5
+        
+        // Apple Silicon bonus (optimized CoreML models)
+        if deviceCapabilities.hasAppleSilicon {
+            score += 10
+        }
+        
+        // Memory constraint penalty
+        if let maxMemory = configuration.maxMemoryUsage,
+           deviceCapabilities.availableMemory < maxMemory {
+            score -= 20
         }
         
         return score
@@ -518,6 +615,28 @@ public class SpeechEngineFactory {
         return transcriber
     }
     
+    private func createWhisperKitEngine() async throws -> SpeechTranscriptionProtocol {
+        logger.info("Creating WhisperKit Speech transcriber")
+        
+        // Determine optimal locale
+        let locale: Locale
+        if let preferredLanguage = configuration.preferredLanguage {
+            locale = Locale(identifier: preferredLanguage)
+        } else {
+            locale = Locale.current
+        }
+        
+        // Determine optimal model size based on available memory
+        let modelSize = selectOptimalWhisperKitModelSize()
+        
+        // Create and prepare WhisperKit transcriber
+        let transcriber = try WhisperKitTranscriber(locale: locale, modelSize: modelSize)
+        try await transcriber.prepare()
+        
+        logger.info("WhisperKit Speech transcriber created successfully with model: \(modelSize.rawValue)")
+        return transcriber
+    }
+    
     private func selectOptimalMLXModelSize() -> WhisperModelSize {
         let availableMemory = deviceCapabilities.availableMemory
         
@@ -529,6 +648,28 @@ public class SpeechEngineFactory {
         } else if availableMemory > 1 * 1024 * 1024 * 1024 { // 1GB+
             return .small
         } else if availableMemory > 500 * 1024 * 1024 { // 500MB+
+            return .base
+        } else {
+            return .tiny
+        }
+    }
+    
+    private func selectOptimalWhisperKitModelSize() -> WhisperKitModelSize {
+        let availableMemory = deviceCapabilities.availableMemory
+        
+        // Account for memory constraints if specified
+        let effectiveMemory = configuration.maxMemoryUsage.map { min(availableMemory, $0) } ?? availableMemory
+        
+        // Select WhisperKit model size based on available memory
+        // WhisperKit models have different memory requirements than MLX models
+        if effectiveMemory > 4 * 1024 * 1024 * 1024 { // 4GB+
+            // Large models for high-memory devices
+            return deviceCapabilities.hasAppleSilicon ? .largeV3 : .large
+        } else if effectiveMemory > 2 * 1024 * 1024 * 1024 { // 2GB+
+            return .medium
+        } else if effectiveMemory > 1 * 1024 * 1024 * 1024 { // 1GB+
+            return .small
+        } else if effectiveMemory > 400 * 1024 * 1024 { // 400MB+
             return .base
         } else {
             return .tiny
