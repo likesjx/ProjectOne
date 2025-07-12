@@ -97,9 +97,9 @@ class WhisperKitTest {
             
             let config = TranscriptionConfiguration(
                 language: "en-US",
-                enableTranslation: false,
-                enablePunctuation: true,
-                enableDiarization: false
+                requiresOnDeviceRecognition: true,
+                enablePartialResults: true,
+                enableTranslation: false
             )
             
             let result = try await transcriber.transcribe(audio: audioData, configuration: config)

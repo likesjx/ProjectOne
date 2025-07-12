@@ -16,11 +16,11 @@ class TestRunner {
         
         // Test 1: Basic WhisperKit functionality
         await WhisperKitTest.runBasicTest()
-        print("\n" + "="*50 + "\n")
+        print("\n" + String(repeating: "=", count: 50) + "\n")
         
         // Test 2: SpeechTranscriber integration
         await WhisperKitTest.testSpeechTranscriberIntegration()
-        print("\n" + "="*50 + "\n")
+        print("\n" + String(repeating: "=", count: 50) + "\n")
         
         print("🏁 [TestRunner] All tests completed!")
     }
