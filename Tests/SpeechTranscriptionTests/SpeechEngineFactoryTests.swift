@@ -164,7 +164,7 @@ extension SpeechEngineFactory {
             }
             
             override func createMLXEngine() async throws -> SpeechTranscriptionProtocol {
-                return MockSpeechTranscriber(method: .mlx(modelName: "test-model"))
+                return MockSpeechTranscriber(method: .mlx)
             }
         }
         

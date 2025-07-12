@@ -101,6 +101,12 @@ struct VoiceMemoView: View {
                 NoteCreationView()
             }
         }
+        .onAppear {
+            // Run WhisperKit integration tests on first appearance
+            Task {
+                await TestRunner.runAllTests()
+            }
+        }
     }
 }
 

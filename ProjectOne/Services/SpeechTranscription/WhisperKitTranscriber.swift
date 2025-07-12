@@ -9,6 +9,7 @@ import Foundation
 import AVFoundation
 import os.log
 import CoreML
+import WhisperKit
 
 /// WhisperKit-based speech transcription implementation using CoreML-optimized Whisper models
 public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
@@ -16,7 +17,7 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     // MARK: - Properties
     
     private let logger = Logger(subsystem: "com.projectone.speech", category: "WhisperKitTranscriber")
-    private var whisperModel: WhisperKitModel?
+    private var whisperKit: WhisperKit?
     private let locale: Locale
     private let modelSize: WhisperKitModelSize
     
@@ -27,7 +28,7 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     public let method: TranscriptionMethod = .whisperKit
     
     public var isAvailable: Bool {
-        return isInitialized && whisperModel != nil
+        return isInitialized && whisperKit != nil
     }
     
     public var capabilities: TranscriptionCapabilities {
@@ -57,12 +58,14 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
         logger.info("Preparing WhisperKit transcriber")
         
         do {
-            // Note: WhisperKit is not yet available as a dependency
-            // This is a foundational implementation that prepares for future WhisperKit integration
-            whisperModel = try await WhisperKitModel(modelSize: modelSize)
+            // Initialize WhisperKit with the specified model
+            whisperKit = try await WhisperKit(
+                model: modelSize.modelIdentifier,
+                download: true
+            )
             isInitialized = true
             
-            logger.info("WhisperKit model \(self.modelSize.rawValue) prepared successfully (placeholder implementation)")
+            logger.info("WhisperKit model \(self.modelSize.rawValue) prepared successfully")
         } catch {
             logger.error("Failed to prepare WhisperKit model: \(error.localizedDescription)")
             throw SpeechTranscriptionError.modelUnavailable
@@ -71,7 +74,7 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     
     public func cleanup() async {
         logger.info("Cleaning up WhisperKit transcriber")
-        whisperModel = nil
+        whisperKit = nil
         isInitialized = false
     }
     
@@ -83,23 +86,40 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     public func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult {
         logger.info("Starting WhisperKit batch transcription")
         
-        guard let whisperModel = whisperModel else {
+        guard let whisperKit = whisperKit else {
             throw SpeechTranscriptionError.modelUnavailable
         }
         
         let startTime = CFAbsoluteTimeGetCurrent()
         
-        // Note: WhisperKit is not yet available as a dependency
-        // This is a foundational implementation that generates realistic placeholder transcription
         do {
-            let result = try await whisperModel.transcribe(
-                audio: audio,
-                language: configuration.language ?? locale.identifier,
-                enableTranslation: configuration.enableTranslation
+            // Convert AudioData to format expected by WhisperKit
+            let audioArray = audio.samples
+            
+            // Create transcription options
+            let options = DecodingOptions(
+                task: configuration.enableTranslation ? .translate : .transcribe,
+                language: getWhisperLanguageCode(for: configuration.language ?? locale.identifier),
+                temperature: 0.0,
+                temperatureFallbackCount: 3,
+                sampleLength: 480000, // 30 seconds at 16kHz
+                usePrefillPrompt: true,
+                skipSpecialTokens: true,
+                withoutTimestamps: false
+            )
+            
+            let results = try await whisperKit.transcribe(
+                audioArray: audioArray,
+                decodeOptions: options
             )
             
             let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-            logger.info("WhisperKit transcription completed in \(String(format: "%.2f", processingTime))s (placeholder implementation)")
+            logger.info("WhisperKit transcription completed in \(String(format: "%.2f", processingTime))s")
+            
+            // Use the first result (WhisperKit returns array)
+            guard let result = results.first else {
+                throw SpeechTranscriptionError.processingFailed("No transcription results returned")
+            }
             
             return createTranscriptionResult(
                 from: result,
@@ -117,7 +137,7 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
         logger.info("Starting WhisperKit real-time transcription")
         
         return AsyncStream { continuation in
-            guard let whisperModel = whisperModel else {
+            guard let whisperKit = whisperKit else {
                 logger.error("No WhisperKit model available for real-time transcription")
                 continuation.finish()
                 return
@@ -137,18 +157,30 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
                         
                         // Process when buffer is full
                         if audioBuffer.count >= bufferSizeFrames {
-                            let chunkAudio = AudioData(
+                            _ = AudioData(
                                 samples: Array(audioBuffer.prefix(bufferSizeFrames)),
                                 format: audioData.format,
                                 duration: bufferSizeSeconds
                             )
                             
-                            // Transcribe chunk
-                            let result = try await whisperModel.transcribe(
-                                audio: chunkAudio,
-                                language: configuration.language ?? locale.identifier,
-                                enableTranslation: configuration.enableTranslation
+                            // Transcribe chunk using WhisperKit
+                            let options = DecodingOptions(
+                                task: configuration.enableTranslation ? .translate : .transcribe,
+                                language: getWhisperLanguageCode(for: configuration.language ?? locale.identifier),
+                                temperature: 0.0,
+                                temperatureFallbackCount: 1, // Faster for real-time
+                                sampleLength: Int(bufferSizeFrames),
+                                usePrefillPrompt: false, // Faster for real-time
+                                skipSpecialTokens: true,
+                                withoutTimestamps: false
                             )
+                            
+                            let results = try await whisperKit.transcribe(
+                                audioArray: Array(audioBuffer.prefix(bufferSizeFrames)),
+                                decodeOptions: options
+                            )
+                            
+                            guard let result = results.first else { return }
                             
                             let transcriptionResult = self.createTranscriptionResult(
                                 from: result,
@@ -166,17 +198,29 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
                     
                     // Process remaining audio
                     if !audioBuffer.isEmpty && audioBuffer.count > Int(sampleRate) { // At least 1 second
-                        let finalChunkAudio = AudioData(
+                        _ = AudioData(
                             samples: audioBuffer,
                             format: AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!,
                             duration: Double(audioBuffer.count) / sampleRate
                         )
                         
-                        let result = try await whisperModel.transcribe(
-                            audio: finalChunkAudio,
-                            language: configuration.language ?? locale.identifier,
-                            enableTranslation: configuration.enableTranslation
+                        let finalOptions = DecodingOptions(
+                            task: configuration.enableTranslation ? .translate : .transcribe,
+                            language: getWhisperLanguageCode(for: configuration.language ?? locale.identifier),
+                            temperature: 0.0,
+                            temperatureFallbackCount: 1,
+                            sampleLength: audioBuffer.count,
+                            usePrefillPrompt: false,
+                            skipSpecialTokens: true,
+                            withoutTimestamps: false
                         )
+                        
+                        let results = try await whisperKit.transcribe(
+                            audioArray: audioBuffer,
+                            decodeOptions: finalOptions
+                        )
+                        
+                        guard let result = results.first else { return }
                         
                         let transcriptionResult = self.createTranscriptionResult(
                             from: result,
@@ -204,27 +248,71 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     }
     
     private func createTranscriptionResult(
-        from result: WhisperKitTranscriptionResult,
+        from result: Any,
         processingTime: TimeInterval,
         configuration: TranscriptionConfiguration
     ) -> SpeechTranscriptionResult {
         
-        let segments = result.segments.map { segment in
-            SpeechTranscriptionSegment(
-                text: segment.text,
-                startTime: segment.startTime,
-                endTime: segment.endTime,
-                confidence: Float(segment.confidence)
-            )
+        // Use reflection to access WhisperKit result properties safely
+        let mirror = Mirror(reflecting: result)
+        
+        var text = ""
+        var language = locale.identifier
+        var segments: [SpeechTranscriptionSegment] = []
+        
+        // Extract text
+        if let textValue = mirror.children.first(where: { $0.label == "text" })?.value as? String {
+            text = textValue
+        }
+        
+        // Extract language
+        if let languageValue = mirror.children.first(where: { $0.label == "language" })?.value as? String {
+            language = languageValue
+        }
+        
+        // Extract segments
+        if let segmentsValue = mirror.children.first(where: { $0.label == "segments" })?.value {
+            let segmentsMirror = Mirror(reflecting: segmentsValue)
+            if let segmentsArray = segmentsMirror.children.first?.value {
+                let arrayMirror = Mirror(reflecting: segmentsArray)
+                
+                for (_, segmentValue) in arrayMirror.children {
+                    let segmentMirror = Mirror(reflecting: segmentValue)
+                    
+                    var segmentText = ""
+                    var startTime: TimeInterval = 0.0
+                    var endTime: TimeInterval = 0.0
+                    
+                    for (label, value) in segmentMirror.children {
+                        switch label {
+                        case "text":
+                            segmentText = value as? String ?? ""
+                        case "startTime":
+                            startTime = value as? TimeInterval ?? 0.0
+                        case "endTime":
+                            endTime = value as? TimeInterval ?? 0.0
+                        default:
+                            break
+                        }
+                    }
+                    
+                    segments.append(SpeechTranscriptionSegment(
+                        text: segmentText,
+                        startTime: startTime,
+                        endTime: endTime,
+                        confidence: Float(0.9) // Default confidence for WhisperKit
+                    ))
+                }
+            }
         }
         
         return SpeechTranscriptionResult(
-            text: result.text,
+            text: text,
             confidence: calculateOverallConfidence(from: segments),
             segments: segments,
             processingTime: processingTime,
             method: method,
-            language: result.detectedLanguage ?? locale.identifier
+            language: language
         )
     }
     
@@ -243,6 +331,47 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
             "no-NO", "fi-FI", "pl-PL", "tr-TR", "th-TH", "vi-VN", "uk-UA", "cs-CZ",
             "he-IL", "id-ID", "ms-MY", "sk-SK", "hr-HR", "bg-BG", "ro-RO", "sl-SI"
         ]
+    }
+    
+    private func getWhisperLanguageCode(for languageIdentifier: String) -> String? {
+        // Convert full language identifier to Whisper language code
+        let languageCode = Locale(identifier: languageIdentifier).language.languageCode?.identifier ?? "en"
+        
+        // WhisperKit expects ISO 639-1 language codes
+        switch languageCode {
+        case "en": return "en"
+        case "es": return "es"
+        case "fr": return "fr"
+        case "de": return "de"
+        case "it": return "it"
+        case "pt": return "pt"
+        case "ru": return "ru"
+        case "zh": return "zh"
+        case "ja": return "ja"
+        case "ko": return "ko"
+        case "ar": return "ar"
+        case "hi": return "hi"
+        case "nl": return "nl"
+        case "sv": return "sv"
+        case "da": return "da"
+        case "no": return "no"
+        case "fi": return "fi"
+        case "pl": return "pl"
+        case "tr": return "tr"
+        case "th": return "th"
+        case "vi": return "vi"
+        case "uk": return "uk"
+        case "cs": return "cs"
+        case "he": return "he"
+        case "id": return "id"
+        case "ms": return "ms"
+        case "sk": return "sk"
+        case "hr": return "hr"
+        case "bg": return "bg"
+        case "ro": return "ro"
+        case "sl": return "sl"
+        default: return "en" // Default to English
+        }
     }
 }
 
@@ -280,85 +409,6 @@ public enum WhisperKitModelSize: String, CaseIterable {
     }
 }
 
-/// WhisperKit placeholder model implementation
-public class WhisperKitModel {
-    private let modelSize: WhisperKitModelSize
-    
-    init(modelSize: WhisperKitModelSize) async throws {
-        self.modelSize = modelSize
-        
-        // Simulate model loading delay
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-    }
-    
-    func transcribe(audio: AudioData, language: String, enableTranslation: Bool) async throws -> WhisperKitTranscriptionResult {
-        // Generate realistic mock transcription based on audio characteristics
-        let audioLength = audio.duration
-        let wordCount = max(1, Int(audioLength * 2.5)) // ~2.5 words per second estimate
-        
-        // Create realistic segments based on audio duration
-        var segments: [WhisperKitSegment] = []
-        let words = generateMockWords(count: wordCount)
-        var currentTime: TimeInterval = 0.0
-        let timePerWord = audioLength / Double(wordCount)
-        
-        for (_, word) in words.enumerated() {
-            let startTime = currentTime
-            let endTime = currentTime + timePerWord
-            let confidence = Float.random(in: 0.85...0.98) // Realistic confidence range
-            
-            segments.append(WhisperKitSegment(
-                text: word,
-                startTime: startTime,
-                endTime: endTime,
-                confidence: confidence
-            ))
-            
-            currentTime = endTime
-        }
-        
-        let fullText = words.joined(separator: " ")
-        let averageConfidence = segments.reduce(0.0) { $0 + $1.confidence } / Float(segments.count)
-        
-        return WhisperKitTranscriptionResult(
-            text: fullText,
-            segments: segments,
-            averageConfidence: averageConfidence,
-            detectedLanguage: language
-        )
-    }
-    
-    private func generateMockWords(count: Int) -> [String] {
-        let commonWords = [
-            "hello", "world", "this", "is", "a", "test", "of", "the", "speech",
-            "recognition", "system", "it", "works", "very", "well", "and",
-            "provides", "accurate", "results", "with", "good", "confidence",
-            "the", "audio", "quality", "is", "clear", "and", "easy", "to",
-            "understand", "we", "can", "process", "various", "types", "of",
-            "speech", "patterns", "effectively", "using", "whisper", "kit"
-        ]
-        
-        var words: [String] = []
-        for _ in 0..<count {
-            words.append(commonWords.randomElement() ?? "word")
-        }
-        return words
-    }
-}
-
-/// WhisperKit transcription result
-public struct WhisperKitTranscriptionResult {
-    let text: String
-    let segments: [WhisperKitSegment]
-    let averageConfidence: Float
-    let detectedLanguage: String?
-}
-
-/// WhisperKit segment
-public struct WhisperKitSegment {
-    let text: String
-    let startTime: TimeInterval
-    let endTime: TimeInterval
-    let confidence: Float
-}
+// MARK: - WhisperKit Integration Complete
+// Real WhisperKit implementation is now used directly through the WhisperKit framework
 

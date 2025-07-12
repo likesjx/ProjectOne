@@ -51,7 +51,7 @@ class SpeechTranscriptionProtocolTests: XCTestCase {
     func testTranscriptionMethodDisplayNames() {
         XCTAssertEqual(TranscriptionMethod.appleSpeech.displayName, "Apple Speech")
         XCTAssertEqual(TranscriptionMethod.appleFoundation.displayName, "Apple Foundation")
-        XCTAssertEqual(TranscriptionMethod.mlx(modelName: "whisper-small").displayName, "MLX (whisper-small)")
+        XCTAssertEqual(TranscriptionMethod.mlx.displayName, "MLX")
         XCTAssertEqual(TranscriptionMethod.hybrid.displayName, "Hybrid")
     }
     

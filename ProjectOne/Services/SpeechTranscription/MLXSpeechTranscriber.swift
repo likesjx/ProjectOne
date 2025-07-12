@@ -311,8 +311,15 @@ public class MLXSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
         
         return SpeechTranscriptionResult(
             text: output.text,
-            confidence: Double(output.averageConfidence),
-            segments: segments,
+            confidence: Float(output.averageConfidence),
+            segments: segments.map { segment in
+                SpeechTranscriptionSegment(
+                    text: segment.text,
+                    startTime: segment.startTime,
+                    endTime: segment.endTime,
+                    confidence: Float(segment.confidence)
+                )
+            },
             processingTime: processingTime,
             method: method,
             language: output.detectedLanguage
@@ -465,7 +472,7 @@ public class WhisperModel {
         var currentTime: TimeInterval = 0.0
         let timePerWord = audioLength / Double(wordCount)
         
-        for (index, word) in words.enumerated() {
+        for (_, word) in words.enumerated() {
             let startTime = currentTime
             let endTime = currentTime + timePerWord
             let confidence = Float.random(in: 0.85...0.98) // Realistic confidence range

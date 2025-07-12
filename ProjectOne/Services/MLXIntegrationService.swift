@@ -58,27 +58,10 @@ class MLXIntegrationService: ObservableObject {
         do {
             loadingProgress = 0.0
             
-            #if canImport(MLX)
-            // Load speech recognition model
-            loadingProgress = 0.2
-            let speechModel = try await loadSpeechRecognitionModel()
-            modelCache["speech"] = speechModel
-            
-            // Load entity extraction model
-            loadingProgress = 0.5
-            let nerModel = try await loadEntityExtractionModel()
-            modelCache["ner"] = nerModel
-            
-            // Load relationship detection model
-            loadingProgress = 0.8
-            let relationshipModel = try await loadRelationshipModel()
-            modelCache["relationship"] = relationshipModel
-            
-            // Load embedding model
+            // Note: Model loading has been moved to the Memory Agent implementation.
+            // Speech recognition is now handled by MLXSpeechTranscriber.swift
+            // Entity extraction, relationship detection, and embeddings will be part of the Memory Agent (JAR-50)
             loadingProgress = 1.0
-            let embeddingModel = try await loadEmbeddingModel()
-            modelCache["embedding"] = embeddingModel
-            #endif
             
             modelsLoaded = true
             errorMessage = nil
@@ -127,53 +110,10 @@ class MLXIntegrationService: ObservableObject {
     
     // MARK: - MLX Model Loading Implementation
     
-    #if canImport(MLX)
-    private func loadSpeechRecognitionModel() async throws -> Module {
-        // This would typically load a pre-trained model like Whisper.
-        // For now, we'll define a more realistic, albeit still simplified, model.
-        let model = AudioTransformer(
-            embeddingDim: 256,
-            numHeads: 4,
-            numLayers: 3,
-            numClasses: 50362 // Example vocab size for Whisper
-        )
-        print("Speech recognition model created with MLX")
-        return model
-    }
-
-    private func loadEntityExtractionModel() async throws -> Module {
-        // A simplified BERT-like model for NER
-        let model = BERTNERModel(
-            embeddingDim: 256,
-            numHeads: 4,
-            numLayers: 2,
-            numClasses: 9 // B-PER, I-PER, B-ORG, I-ORG, etc.
-        )
-        print("Entity extraction model created with MLX")
-        return model
-    }
-
-    private func loadRelationshipModel() async throws -> Module {
-        // A model for classifying relationships between two entities
-        let model = RelationshipClassifier(
-            embeddingDim: 256,
-            numClasses: 25 // Number of relationship types
-        )
-        print("Relationship detection model created with MLX")
-        return model
-    }
-
-    private func loadEmbeddingModel() async throws -> Module {
-        // A model for generating text embeddings
-        let model = SentenceTransformer(
-            embeddingDim: 256,
-            numHeads: 4,
-            numLayers: 2
-        )
-        print("Text embedding model created with MLX")
-        return model
-    }
-    #endif
+    // Note: Model loading functions have been removed as they are part of the entity extraction
+    // functionality that has been moved to the Memory Agent implementation (JAR-50).
+    // Speech recognition is now handled by MLXSpeechTranscriber.swift which implements the
+    // proper SpeechTranscriptionProtocol architecture.
     
     // MARK: - Model Management
     
@@ -350,81 +290,6 @@ class MLXEntityModel: MLXModelWrapper {
 }
 */
 
-#if canImport(MLX)
-// MARK: - Model Architectures
-
-class AudioTransformer: Module {
-    let embedding: Embedding
-    let attention: MultiHeadAttention
-    let linear1: Linear
-    let linear2: Linear
-
-    init() {
-        self.embedding = Embedding(embeddingCount: 1024, dimensions: 256)
-        self.attention = MultiHeadAttention(dimensions: 256, numHeads: 4)
-        self.linear1 = Linear(256, 512)
-        self.linear2 = Linear(512, 50362)
-        super.init()
-    }
-
-    func callAsFunction(_ x: MLXArray) -> MLXArray {
-        var x = embedding(x)
-        x = attention(x, keys: x, values: x, mask: nil)
-        x = relu(linear1(x))
-        return linear2(x)
-    }
-}
-
-class BERTNERModel: Module {
-    let embedding: Embedding
-    let linear1: Linear
-    let linear2: Linear
-
-    init() {
-        self.embedding = Embedding(embeddingCount: 30522, dimensions: 256)
-        self.linear1 = Linear(256, 256)
-        self.linear2 = Linear(256, 9)
-        super.init()
-    }
-
-    func callAsFunction(_ x: MLXArray) -> MLXArray {
-        let y = embedding(x)
-        let z = relu(linear1(y))
-        return linear2(z)
-    }
-}
-
-class RelationshipClassifier: Module {
-    let linear1: Linear
-    let linear2: Linear
-
-    init() {
-        self.linear1 = Linear(256 * 2, 512)
-        self.linear2 = Linear(512, 25)
-        super.init()
-    }
-
-    func callAsFunction(_ x: MLXArray) -> MLXArray {
-        let x = relu(linear1(x))
-        return linear2(x)
-    }
-}
-
-class SentenceTransformer: Module {
-    let embedding: Embedding
-    let linear: Linear
-
-    init() {
-        self.embedding = Embedding(embeddingCount: 30522, dimensions: 256)
-        self.linear = Linear(256, 256)
-        super.init()
-    }
-
-    func callAsFunction(_ x: MLXArray) -> MLXArray {
-        let y = embedding(x)
-        let z = relu(linear(y))
-        // Mean pooling
-        return z.mean(axis: 1)
-    }
-}
-#endif
+// Note: MLX model architectures for entity extraction have been moved to the Memory Agent
+// implementation as per the architectural decision to separate transcription concerns from
+// entity extraction. These models will be implemented in the Memory Agent once JAR-50 is completed.
