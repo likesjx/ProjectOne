@@ -22,7 +22,7 @@ class AudioRecorder: NSObject, ObservableObject {
     @Published var isTranscribing = false
     
     // Speech transcription factory
-    private let speechEngineFactory: SpeechEngineFactory
+    private var speechEngineFactory: SpeechEngineFactory
     private let modelContext: ModelContext
     
     // Real-time transcription support
@@ -253,7 +253,34 @@ class AudioRecorder: NSObject, ObservableObject {
             )
             
             print("🎤 [Debug] Calling speechEngineFactory.transcribe()")
-            let result = try await speechEngineFactory.transcribe(audio: audioData, configuration: configuration)
+            
+            // Add timeout wrapper for the entire transcription process
+            let transcriptionTask = Task {
+                try await speechEngineFactory.transcribe(audio: audioData, configuration: configuration)
+            }
+            
+            let timeoutDuration: TimeInterval = 180.0 // 3 minutes total timeout
+            let result = try await withThrowingTaskGroup(of: SpeechTranscriptionResult.self) { group in
+                group.addTask { 
+                    print("🎤 [Debug] Starting transcription task...")
+                    return try await transcriptionTask.value 
+                }
+                
+                group.addTask {
+                    print("🎤 [Debug] Starting timeout task for \(timeoutDuration)s...")
+                    try await Task.sleep(nanoseconds: UInt64(timeoutDuration * 1_000_000_000))
+                    print("🎤 [Error] Transcription timeout reached!")
+                    throw SpeechTranscriptionError.processingFailed("Transcription timeout after \(timeoutDuration) seconds")
+                }
+                
+                for try await result in group {
+                    group.cancelAll()
+                    return result
+                }
+                
+                throw SpeechTranscriptionError.processingFailed("No transcription result received")
+            }
+            
             print("🎤 [Debug] Transcription completed: \(result.text.prefix(50))...")
             
             await MainActor.run {
@@ -361,8 +388,17 @@ class AudioRecorder: NSObject, ObservableObject {
     
     /// Configure speech engine strategy
     func configureSpeechEngine(_ configuration: SpeechEngineConfiguration) {
-        // Note: This would require factory reconfiguration in future implementation
-        print("🎤 [AudioRecorder] Speech engine reconfiguration requested - restart required")
+        print("🎤 [AudioRecorder] Updating speech engine configuration to strategy: \(configuration.strategy.description)")
+        
+        // Clean up existing factory
+        Task {
+            await speechEngineFactory.cleanup()
+        }
+        
+        // Create new factory with updated configuration
+        speechEngineFactory = SpeechEngineFactory(configuration: configuration)
+        
+        print("🎤 [AudioRecorder] Speech engine configuration updated successfully")
     }
 }
 

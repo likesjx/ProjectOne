@@ -13,15 +13,17 @@ struct VoiceMemoView: View {
     
     @StateObject private var audioRecorder: AudioRecorder
     @StateObject private var audioPlayer = AudioPlayer()
+    @StateObject private var modelPreloader = WhisperKitModelPreloader.shared
     @State private var hasRequestedPermission = false
     @State private var showingNoteCreation = false
     
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
         
-        // Configure speech engine for automatic best-available strategy
+        // Configure speech engine based on model preloader results
+        let recommendedStrategy = WhisperKitModelPreloader.shared.getRecommendedStrategy()
         let speechConfig = SpeechEngineConfiguration(
-            strategy: .automatic,
+            strategy: recommendedStrategy,
             enableFallback: true,
             preferredLanguage: "en-US"
         )
@@ -105,6 +107,20 @@ struct VoiceMemoView: View {
             // Run WhisperKit integration tests on first appearance
             Task {
                 await TestRunner.runAllTests()
+            }
+        }
+        .onChange(of: modelPreloader.isReady) { _, isReady in
+            if isReady {
+                // Update speech engine configuration based on preloader results
+                let recommendedStrategy = modelPreloader.getRecommendedStrategy()
+                let updatedConfig = SpeechEngineConfiguration(
+                    strategy: recommendedStrategy,
+                    enableFallback: true,
+                    preferredLanguage: "en-US"
+                )
+                
+                print("🔄 [VoiceMemoView] Model preloader completed, updating to strategy: \(recommendedStrategy.description)")
+                audioRecorder.configureSpeechEngine(updatedConfig)
             }
         }
     }

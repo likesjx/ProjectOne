@@ -385,9 +385,18 @@ public class SpeechEngineFactory {
         // Apple Speech always available as baseline
         scores.append((createAppleEngine, 50, "Apple Speech"))
         
-        // WhisperKit gets higher score for offline capabilities and accuracy
+        // In iOS Simulator, prioritize Apple Speech due to WhisperKit CoreML compatibility issues
+        #if targetEnvironment(simulator)
+        logger.warning("Running in iOS Simulator - prioritizing Apple Speech due to WhisperKit CoreML issues")
+        
+        // Still add WhisperKit but with lower score in simulator
+        let whisperKitScore = 30 // Lower than Apple Speech to prefer Apple Speech
+        scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
+        #else
+        // WhisperKit gets higher score for offline capabilities and accuracy on real devices
         let whisperKitScore = calculateWhisperKitScore()
         scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
+        #endif
         
         // MLX gets higher score on capable devices
         if deviceCapabilities.supportsMLX {
@@ -655,6 +664,12 @@ public class SpeechEngineFactory {
     }
     
     private func selectOptimalWhisperKitModelSize() -> WhisperKitModelSize {
+        // Always use tiny model in iOS Simulator to avoid CoreML compatibility issues
+        #if targetEnvironment(simulator)
+        logger.info("Using tiny model in iOS Simulator for compatibility")
+        return .tiny
+        #endif
+        
         let availableMemory = deviceCapabilities.availableMemory
         
         // Account for memory constraints if specified

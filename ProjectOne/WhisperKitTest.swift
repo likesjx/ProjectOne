@@ -72,7 +72,8 @@ class WhisperKitTest {
         print("🧪 [WhisperKitTest] Testing SpeechTranscriber integration...")
         
         do {
-            // Test WhisperKitTranscriber
+            // Test WhisperKitTranscriber with tiny model for reliability
+            print("🧪 [WhisperKitTest] Creating WhisperKitTranscriber with tiny model...")
             let transcriber = try WhisperKitTranscriber(locale: Locale(identifier: "en-US"), modelSize: .tiny)
             print("✅ [WhisperKitTest] WhisperKitTranscriber created successfully")
             

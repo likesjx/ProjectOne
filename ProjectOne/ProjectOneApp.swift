@@ -24,7 +24,17 @@ struct ProjectOneApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    // Start background WhisperKit model preloading when app launches
+                    await startBackgroundModelPreloading()
+                }
         }
         .modelContainer(sharedModelContainer)
+    }
+    
+    @MainActor
+    private func startBackgroundModelPreloading() async {
+        print("🚀 [ProjectOneApp] Starting background WhisperKit model preloading...")
+        WhisperKitModelPreloader.shared.startPreloading()
     }
 }

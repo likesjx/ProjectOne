@@ -38,7 +38,16 @@ Complete implementation guide for the audio recording system:
 - Cross-platform audio session management
 - SwiftData integration for recording metadata
 - UI components and playback controls
+- iOS Simulator fallback strategy
 - Testing and troubleshooting guide
+
+### 📱 [iOS Simulator Fallback Strategy](IOS_SIMULATOR_FALLBACK_STRATEGY.md)
+Comprehensive guide to the iOS Simulator fallback strategy implementation:
+- WhisperKit CoreML compatibility issues and solutions
+- Multi-layer fallback architecture with Apple Speech prioritization
+- Background model preloading and dynamic configuration updates
+- Enhanced CoreML error detection and graceful degradation
+- Technical deep dive and performance analysis
 
 ## Navigation
 
@@ -53,6 +62,7 @@ Complete implementation guide for the audio recording system:
 - **Memory Issues**: Check [Sentry Issues Fixes](SENTRY_ISSUES_FIXES.md)
 - **MLX Integration**: Refer to [MLX Integration Session](MLX_SWIFT_INTEGRATION_SESSION.md)
 - **Audio Recording**: Check [Audio Recording Implementation](AUDIO_RECORDING_IMPLEMENTATION.md)
+- **iOS Simulator Crashes**: See [iOS Simulator Fallback Strategy](IOS_SIMULATOR_FALLBACK_STRATEGY.md)
 
 ### Development Workflow
 1. Check implementation guides for best practices

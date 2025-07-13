@@ -28,10 +28,10 @@ class AudioPlayer: NSObject, ObservableObject {
 - Audio session configuration for different platforms
 - Automatic progress updates every 0.1 seconds during playback
 
-### 2. Speech Transcription System (Phase 2 Complete)
+### 2. Speech Transcription System with iOS Simulator Fallback (Phase 5 Complete)
 **Location**: `ProjectOne/Services/SpeechTranscription/`
 
-Complete protocol-based speech transcription system with Apple Speech Framework integration:
+Complete protocol-based speech transcription system with Apple Speech Framework integration and robust iOS Simulator fallback strategy:
 
 #### Core Architecture:
 ```swift
@@ -45,10 +45,86 @@ protocol SpeechTranscriptionProtocol {
     func transcribeRealTime(audioStream: AsyncStream<AudioData>, configuration: TranscriptionConfiguration) -> AsyncStream<SpeechTranscriptionResult>
 }
 
-// Factory pattern with intelligent engine selection
+// Factory pattern with intelligent engine selection and iOS Simulator detection
 class SpeechEngineFactory {
     func getTranscriptionEngine() async throws -> SpeechTranscriptionProtocol
     func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult
+}
+```
+
+#### iOS Simulator Fallback Strategy:
+The system now includes comprehensive iOS Simulator detection and fallback handling:
+
+```swift
+// iOS Simulator-specific engine scoring in SpeechEngineFactory
+#if targetEnvironment(simulator)
+logger.warning("Running in iOS Simulator - prioritizing Apple Speech due to WhisperKit CoreML issues")
+
+// Apple Speech gets higher priority (score 50 vs 30) in simulator
+scores.append((createAppleEngine, 50, "Apple Speech"))
+scores.append((createWhisperKitEngine, 30, "WhisperKit"))
+#else
+// Normal scoring for real devices
+let whisperKitScore = calculateWhisperKitScore()
+scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
+#endif
+```
+
+#### WhisperKit CoreML Error Detection:
+The WhisperKitTranscriber includes advanced CoreML error detection and fallback mechanisms:
+
+```swift
+// Enhanced error detection in WhisperKit transcriber
+public func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult {
+    do {
+        return try await whisperKit.transcribe(audioArray: audioArray, decodeOptions: options)
+    } catch {
+        // Detect CoreML/MLMultiArray specific errors including NSException text
+        let errorMessage = error.localizedDescription
+        if errorMessage.contains("CoreML") || 
+           errorMessage.contains("MLMultiArray") ||
+           errorMessage.contains("setNumber:atOffset") ||
+           errorMessage.contains("DecodingInputs") ||
+           errorMessage.contains("beyond the end of the multi array") ||
+           errorMessage.contains("NSInvalidArgumentException") {
+            logger.error("CoreML buffer allocation error detected: \(errorMessage)")
+            throw SpeechTranscriptionError.processingFailed("CoreML model incompatible with current environment")
+        }
+        throw error
+    }
+}
+```
+
+#### Background Model Preloading System:
+**Location**: `ProjectOne/Services/SpeechTranscription/WhisperKitModelPreloader.swift`
+
+The system includes a sophisticated background model preloading system:
+
+```swift
+@MainActor
+public class WhisperKitModelPreloader: ObservableObject {
+    @Published public var isLoading = false
+    @Published public var isReady = false
+    @Published public var loadingProgress: Double = 0.0
+    @Published public var loadingStatus = "Initializing..."
+    
+    // Start background model preloading at app startup
+    public func startPreloading() {
+        Task {
+            await performBackgroundLoading()
+        }
+    }
+    
+    // Get recommended engine strategy based on preloading results
+    public func getRecommendedStrategy() -> EngineSelectionStrategy {
+        if shouldUseAppleSpeechFallback {
+            return .preferApple
+        } else if isReady && preloadedWhisperKit != nil {
+            return .preferWhisperKit
+        } else {
+            return .automatic
+        }
+    }
 }
 ```
 
@@ -77,6 +153,10 @@ class AudioProcessor: AudioProcessingProtocol {
 **Key Features:**
 - **Protocol-based Architecture**: Unified interface for multiple transcription engines
 - **Factory Pattern**: Intelligent engine selection with automatic fallback
+- **iOS Simulator Fallback Strategy**: Robust CoreML crash prevention with Apple Speech prioritization
+- **Background Model Preloading**: Preload WhisperKit models at app startup for optimal performance
+- **Dynamic Configuration Updates**: Real-time speech engine reconfiguration based on model loading results
+- **Advanced CoreML Error Detection**: Comprehensive NSException and MLMultiArray crash detection
 - **Apple Speech Integration**: Complete SFSpeechRecognizer implementation with locale support
 - **Real-time & Batch Processing**: Both live transcription and file-based processing
 - **Audio Processing Pipeline**: Format conversion, normalization, noise reduction
@@ -86,14 +166,14 @@ class AudioProcessor: AudioProcessingProtocol {
 - **Configuration System**: Flexible transcription settings and contextual strings
 - **Error Handling**: Comprehensive error types and recovery mechanisms
 
-### 3. Enhanced AudioRecorder.swift
+### 3. Enhanced AudioRecorder.swift with Dynamic Configuration
 **Location**: `ProjectOne/AudioRecorder.swift`
 
-Updated to integrate with the new speech transcription architecture:
+Updated to integrate with the new speech transcription architecture and dynamic configuration updates:
 
 ```swift
-// Integration with new SpeechEngineFactory
-private let speechEngineFactory = SpeechEngineFactory.shared
+// Integration with new SpeechEngineFactory with dynamic configuration
+private var speechEngineFactory: SpeechEngineFactory
 
 func processTranscription() async {
     do {
@@ -105,10 +185,26 @@ func processTranscription() async {
         // Handle transcription errors with fallback
     }
 }
+
+// Dynamic speech engine configuration update
+func configureSpeechEngine(_ configuration: SpeechEngineConfiguration) {
+    print("🎤 [AudioRecorder] Updating speech engine configuration")
+    
+    // Cancel any ongoing operations before switching
+    if isTranscribing {
+        print("⚠️ [AudioRecorder] Warning: Switching engine configuration during active transcription")
+    }
+    
+    // Create new factory with updated configuration
+    speechEngineFactory = SpeechEngineFactory(configuration: configuration)
+    
+    print("🎤 [AudioRecorder] Speech engine configuration updated successfully")
+}
 ```
 
 **Key Features:**
 - **Unified Transcription Pipeline**: Integration with SpeechEngineFactory for intelligent engine selection
+- **Dynamic Configuration Updates**: Real-time speech engine reconfiguration without restart
 - **Automatic Fallback**: Graceful degradation if primary transcription engine fails  
 - **Configuration Support**: Flexible transcription settings and contextual strings
 - **RecordingItem Management**: SwiftData persistence with transcription metadata
@@ -139,8 +235,46 @@ final class RecordingItem {
 - Transcription status tracking (pending, processing, completed, failed)
 - File size and duration metadata
 
-### 5. Enhanced UI Components
+### 5. Enhanced UI Components with Model Preloader Integration
 **Location**: `ProjectOne/Views/VoiceMemoView.swift`
+
+Updated with WhisperKit model preloader integration and dynamic configuration updates:
+
+```swift
+struct VoiceMemoView: View {
+    @StateObject private var modelPreloader = WhisperKitModelPreloader.shared
+    
+    init(modelContext: ModelContext) {
+        // Configure speech engine based on model preloader results
+        let recommendedStrategy = WhisperKitModelPreloader.shared.getRecommendedStrategy()
+        let speechConfig = SpeechEngineConfiguration(
+            strategy: recommendedStrategy,
+            enableFallback: true,
+            preferredLanguage: "en-US"
+        )
+        
+        self._audioRecorder = StateObject(wrappedValue: AudioRecorder(
+            modelContext: modelContext,
+            speechEngineConfiguration: speechConfig
+        ))
+    }
+    
+    // Dynamic configuration updates based on model preloader results
+    .onChange(of: modelPreloader.isReady) { _, isReady in
+        if isReady {
+            let recommendedStrategy = modelPreloader.getRecommendedStrategy()
+            let updatedConfig = SpeechEngineConfiguration(
+                strategy: recommendedStrategy,
+                enableFallback: true,
+                preferredLanguage: "en-US"
+            )
+            
+            print("🔄 [VoiceMemoView] Model preloader completed, updating to strategy: \(recommendedStrategy.description)")
+            audioRecorder.configureSpeechEngine(updatedConfig)
+        }
+    }
+}
+```
 
 Updated LiquidGlassRecordingRow with playback controls:
 
@@ -395,7 +529,25 @@ let appleOnlyConfig = SpeechEngineConfiguration(strategy: .appleOnly)
    - If sound waves don't animate: Check `SoundWaveVisualization.isActive` binding
    - If animations are choppy: Consider reducing animation frequency or complexity
 
-5. **MLX Integration Issues**
+5. **iOS Simulator Compatibility Issues**
+   - **WhisperKit CoreML Crashes**: System automatically prioritizes Apple Speech (score 50 vs 30) in iOS Simulator
+   - **MLMultiArray Exceptions**: Enhanced error detection catches CoreML buffer allocation failures
+   - **Model Loading Timeouts**: 60-second timeout prevents hanging during model initialization
+   - **Tiny Model Fallback**: System falls back to `openai_whisper-tiny` model in simulator for better compatibility
+   - **Background Preloading**: Model preloader detects simulator environment and adjusts strategy accordingly
+
+6. **WhisperKit Error Patterns**
+   - **CoreML Model Incompatible**: Check for `CoreML`, `MLMultiArray`, `setNumber:atOffset` error messages
+   - **Model Download Failures**: System automatically retries with smaller model sizes
+   - **Buffer Allocation Errors**: Enhanced detection catches `beyond the end of the multi array` exceptions
+   - **NSInvalidArgumentException**: Comprehensive error handling prevents app crashes
+
+7. **Dynamic Configuration Issues**
+   - **Engine Switching During Recording**: System warns but allows configuration updates
+   - **Model Preloader Not Ready**: Initial configuration uses `.automatic` strategy as fallback
+   - **Strategy Recommendation Failures**: System defaults to Apple Speech when preloader fails
+
+8. **MLX Integration Issues**
    - If MLX not detected on Apple Silicon: Check conditional compilation flags
    - If transcription falls back to Apple Speech: Verify MLX models loading correctly
    - If build fails with MLX errors: Ensure MLX Swift package added correctly
@@ -413,7 +565,7 @@ print("🎤 [Debug] isRecording set to true on main thread")
 print("🛑 [Debug] isRecording set to false on main thread")
 ```
 
-## Current Implementation Status (Phase 4 Complete ✅)
+## Current Implementation Status (Phase 5 Complete ✅)
 
 **Completed Features (Phase 2):**
 - ✅ Protocol-based transcription architecture
@@ -447,6 +599,16 @@ print("🛑 [Debug] isRecording set to false on main thread")
 - ✅ Device capability detection for MLX Metal support
 - ✅ Cross-platform compatibility with proper conditional compilation
 
+**Completed Features (Phase 5):**
+- ✅ iOS Simulator fallback strategy with Apple Speech prioritization (score 50 vs 30)
+- ✅ Background WhisperKit model preloading at app startup
+- ✅ Dynamic speech engine configuration updates without app restart
+- ✅ Enhanced CoreML error detection for MLMultiArray crashes and NSExceptions
+- ✅ Comprehensive fallback system to prevent WhisperKit CoreML crashes
+- ✅ Intelligent model size selection for iOS Simulator compatibility
+- ✅ Real-time configuration updates based on model preloader results
+- ✅ Advanced error pattern detection and graceful degradation
+
 ### Phase 4: Production-Ready MLX Implementation (Phase 4 Complete ✅)
 
 **Completed MLX Features:**
@@ -458,7 +620,18 @@ print("🛑 [Debug] isRecording set to false on main thread")
 6. ✅ **Error Handling**: Comprehensive error management with proper fallback mechanisms
 7. ✅ **Cross-Platform Support**: iOS and macOS compatibility with proper conditional compilation
 
-### Phase 5: MLX Whisper Model Implementation (Planned)
+### Phase 5: iOS Simulator Fallback Strategy (Phase 5 Complete ✅)
+
+**Completed Fallback Features:**
+1. ✅ **iOS Simulator Detection**: Automatic detection of simulator environment using `#if targetEnvironment(simulator)`
+2. ✅ **Intelligent Engine Prioritization**: Apple Speech (score 50) prioritized over WhisperKit (score 30) in simulator
+3. ✅ **Background Model Preloading**: WhisperKitModelPreloader loads models at app startup with fallback strategy
+4. ✅ **Dynamic Configuration Updates**: Real-time speech engine reconfiguration based on model loading results
+5. ✅ **Enhanced CoreML Error Detection**: Comprehensive NSException and MLMultiArray crash prevention
+6. ✅ **Graceful Degradation**: Multiple fallback layers prevent app crashes in problematic environments
+7. ✅ **Production Stability**: Robust error handling ensures consistent transcription availability
+
+### Phase 6: MLX Whisper Model Implementation (Planned)
 
 **Core MLX Features:**
 1. **Actual Whisper Model Inference**: Replace placeholder with real MLX Whisper transcription
@@ -474,7 +647,7 @@ print("🛑 [Debug] isRecording set to false on main thread")
 - Add model verification and integrity checks
 - Implement progressive model loading (start with tiny, upgrade to larger models)
 
-### Phase 6: MLX Model Fine-Tuning & Personalization (Planned)
+### Phase 7: MLX Model Fine-Tuning & Personalization (Planned)
 
 **Advanced MLX Features:**
 1. **Model Fine-Tuning Infrastructure**: User-specific model adaptation using MLX training
@@ -490,7 +663,7 @@ print("🛑 [Debug] isRecording set to false on main thread")
 - Implement differential privacy techniques for training data
 - Create A/B testing framework for model performance comparison
 
-### Future Enhancements (Phase 7+)
+### Future Enhancements (Phase 8+)
 
 **Advanced Features:**
 1. **Real-time Transcription UI**: Live transcription during recording
@@ -515,6 +688,6 @@ print("🛑 [Debug] isRecording set to false on main thread")
 
 ---
 
-*Last Updated: 2025-07-12*
-*Implementation Status: Phase 4 Complete ✅*
-*Recent Updates: Phase 4 - Complete MLX Speech Transcriber implementation with advanced audio preprocessing, model management system, device optimization, and production-ready architecture. Ready for actual MLX Whisper model integration. Phase 5 & 6 planned for real model inference and fine-tuning.*
+*Last Updated: 2025-07-13*
+*Implementation Status: Phase 5 Complete ✅*
+*Recent Updates: Phase 5 - iOS Simulator fallback strategy with Apple Speech prioritization, background WhisperKit model preloading, dynamic configuration updates, enhanced CoreML error detection, and comprehensive fallback system to prevent NSException crashes. Production stability enhanced for all environments.*

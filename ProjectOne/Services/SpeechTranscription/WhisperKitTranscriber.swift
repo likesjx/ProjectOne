@@ -57,17 +57,87 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     public func prepare() async throws {
         logger.info("Preparing WhisperKit transcriber")
         
-        do {
-            // Initialize WhisperKit with the specified model
-            whisperKit = try await WhisperKit(
-                model: modelSize.modelIdentifier,
-                download: true
-            )
+        // First, try to use preloaded model from the model preloader
+        if let preloadedWhisperKit = await WhisperKitModelPreloader.shared.getPreloadedWhisperKit() {
+            logger.info("Using preloaded WhisperKit model")
+            whisperKit = preloadedWhisperKit
             isInitialized = true
+            return
+        }
+        
+        // If no preloaded model available, fall back to on-demand loading
+        logger.warning("No preloaded model available, loading on-demand")
+        
+        // Check if running in iOS Simulator and use defensive approach
+        #if targetEnvironment(simulator)
+        logger.warning("Running in iOS Simulator - WhisperKit CoreML models may have compatibility issues")
+        #endif
+        
+        do {
+            // Start with tiny model in simulator to avoid CoreML issues
+            let modelToUse: String
+            #if targetEnvironment(simulator)
+            modelToUse = "openai_whisper-tiny"
+            logger.info("Using tiny model in simulator for compatibility")
+            #else
+            modelToUse = modelSize.modelIdentifier
+            #endif
             
-            logger.info("WhisperKit model \(self.modelSize.rawValue) prepared successfully")
+            // Initialize WhisperKit with timeout to prevent hanging
+            let task = Task {
+                try await WhisperKit(
+                    model: modelToUse,
+                    download: true
+                )
+            }
+            
+            // Add 60 second timeout for model initialization/download
+            let timeoutDuration: TimeInterval = 60.0
+            
+            whisperKit = try await withThrowingTaskGroup(of: WhisperKit?.self) { group in
+                group.addTask { 
+                    return try await task.value 
+                }
+                
+                group.addTask {
+                    try await Task.sleep(nanoseconds: UInt64(timeoutDuration * 1_000_000_000))
+                    throw SpeechTranscriptionError.processingFailed("WhisperKit initialization timeout after \(timeoutDuration)s")
+                }
+                
+                for try await result in group {
+                    group.cancelAll()
+                    return result!
+                }
+                
+                throw SpeechTranscriptionError.processingFailed("WhisperKit initialization failed")
+            }
+            
+            isInitialized = true
+            logger.info("WhisperKit model \(modelToUse) prepared successfully")
+            
         } catch {
             logger.error("Failed to prepare WhisperKit model: \(error.localizedDescription)")
+            
+            // If it's a timeout, download, or CoreML error, try smaller model as fallback
+            if error.localizedDescription.contains("timeout") || 
+               error.localizedDescription.contains("download") ||
+               error.localizedDescription.contains("CoreML") ||
+               error.localizedDescription.contains("MLMultiArray") {
+                logger.info("Attempting fallback to tiny model due to initialization failure")
+                
+                do {
+                    whisperKit = try await WhisperKit(
+                        model: "openai_whisper-tiny",
+                        download: true
+                    )
+                    isInitialized = true
+                    logger.info("WhisperKit tiny model prepared as fallback")
+                    return
+                } catch {
+                    logger.error("Fallback to tiny model also failed: \(error.localizedDescription)")
+                }
+            }
+            
             throw SpeechTranscriptionError.modelUnavailable
         }
     }
@@ -108,10 +178,46 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
                 withoutTimestamps: false
             )
             
-            let results = try await whisperKit.transcribe(
-                audioArray: audioArray,
-                decodeOptions: options
-            )
+            // Add timeout for transcription to prevent hanging and handle CoreML crashes
+            let transcriptionTask = Task {
+                do {
+                    return try await whisperKit.transcribe(
+                        audioArray: audioArray,
+                        decodeOptions: options
+                    )
+                } catch {
+                    // Check for CoreML/MLMultiArray specific errors including NSException text
+                    let errorMessage = error.localizedDescription
+                    if errorMessage.contains("CoreML") || 
+                       errorMessage.contains("MLMultiArray") ||
+                       errorMessage.contains("setNumber:atOffset") ||
+                       errorMessage.contains("DecodingInputs") ||
+                       errorMessage.contains("beyond the end of the multi array") ||
+                       errorMessage.contains("NSInvalidArgumentException") {
+                        logger.error("CoreML buffer allocation error detected: \(errorMessage)")
+                        throw SpeechTranscriptionError.processingFailed("CoreML model incompatible with current environment")
+                    }
+                    throw error
+                }
+            }
+            
+            let transcriptionTimeout: TimeInterval = 120.0 // 2 minutes for transcription
+            
+            let results = try await withThrowingTaskGroup(of: [Any].self) { group in
+                group.addTask { try await transcriptionTask.value }
+                
+                group.addTask {
+                    try await Task.sleep(nanoseconds: UInt64(transcriptionTimeout * 1_000_000_000))
+                    throw SpeechTranscriptionError.processingFailed("WhisperKit transcription timeout after \(transcriptionTimeout)s")
+                }
+                
+                for try await result in group {
+                    group.cancelAll()
+                    return result
+                }
+                
+                throw SpeechTranscriptionError.processingFailed("No transcription result received")
+            }
             
             let processingTime = CFAbsoluteTimeGetCurrent() - startTime
             logger.info("WhisperKit transcription completed in \(String(format: "%.2f", processingTime))s")
