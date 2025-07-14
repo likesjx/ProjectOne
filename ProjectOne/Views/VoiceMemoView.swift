@@ -768,17 +768,290 @@ struct LiquidGlassSheet<Content: View>: View {
 }
 
 struct NoteCreationView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var markdownText: String = ""
+    @State private var showingPreview: Bool = false
+    @State private var isKeyboardVisible: Bool = false
+    @FocusState private var isTextEditorFocused: Bool
+    
     var body: some View {
-        VStack(spacing: 24) {
-            Text("Create Note")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.primary)
-            
-            // Note creation form would go here
-            Text("Note creation interface")
-                .foregroundStyle(.secondary)
+        NavigationStack {
+            LiquidGlassView {
+                VStack(spacing: 0) {
+                    // Header with mode toggle
+                    LiquidGlassHeader {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Quick Note")
+                                    .font(.title2.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                
+                                Text("Markdown supported")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            // Preview toggle
+                            Button {
+                                showingPreview.toggle()
+                                if showingPreview {
+                                    isTextEditorFocused = false
+                                }
+                            } label: {
+                                Image(systemName: showingPreview ? "pencil" : "eye")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(.mint)
+                                    .frame(width: 32, height: 32)
+                                    .background {
+                                        Circle()
+                                            .fill(.regularMaterial)
+                                            .overlay { Color.mint.opacity(0.15) }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 20)
+                    }
+                    
+                    // Editor content
+                    ZStack {
+                        if showingPreview {
+                            // Markdown preview
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    if markdownText.isEmpty {
+                                        Text("Preview will appear here...")
+                                            .foregroundStyle(.secondary)
+                                            .italic()
+                                    } else {
+                                        MarkdownPreview(text: markdownText)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(24)
+                            }
+                        } else {
+                            // Markdown editor
+                            VStack(spacing: 0) {
+                                TextEditor(text: $markdownText)
+                                    .focused($isTextEditorFocused)
+                                    .font(.system(.body, design: .monospaced))
+                                    .lineSpacing(4)
+                                    .padding(24)
+                                    .background(Color.clear)
+                                    .overlay(alignment: .topLeading) {
+                                        if markdownText.isEmpty {
+                                            Text("Start typing your note...\n\n# Markdown supported\n- **Bold** and *italic*\n- Lists and links\n- Code blocks")
+                                                .foregroundStyle(.secondary.opacity(0.6))
+                                                .font(.system(.body, design: .monospaced))
+                                                .padding(24)
+                                                .padding(.top, 8)
+                                                .allowsHitTesting(false)
+                                        }
+                                    }
+                                
+                                // Quick formatting toolbar
+                                if isTextEditorFocused && !isKeyboardVisible {
+                                    MarkdownToolbar(text: $markdownText)
+                                }
+                            }
+                        }
+                    }
+                    .background {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(.regularMaterial)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(.mint.opacity(0.3), lineWidth: 1)
+                            }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
+            }
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveNote()
+                    }
+                    .foregroundStyle(.mint)
+                    .fontWeight(.semibold)
+                    .disabled(markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
-        .padding()
+        .onAppear {
+            // Auto-focus when view appears
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isTextEditorFocused = true
+            }
+        }
+    }
+    
+    private func saveNote() {
+        let trimmedText = markdownText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
+        // Create our new NoteItem
+        let note = NoteItem(
+            timestamp: Date(),
+            markdownContent: trimmedText
+        )
+        
+        // Save to model context
+        modelContext.insert(note)
+        
+        do {
+            try modelContext.save()
+            
+            // Trigger the TextIngestionAgent in a background task
+            Task { @MainActor in
+                let textIngestionAgent = TextIngestionAgent(modelContext: modelContext)
+                await textIngestionAgent.process(note: note)
+            }
+            
+            dismiss()
+        } catch {
+            print("Error saving note: \(error)")
+        }
+    }
+    
+    private func generateQuickSummary(from text: String) -> String {
+        // Extract first meaningful line as summary
+        let lines = text.components(separatedBy: .newlines)
+        let meaningfulLines = lines.compactMap { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty || trimmed.hasPrefix("#") ? nil : trimmed
+        }
+        
+        return meaningfulLines.first?.prefix(100).description ?? "Quick note"
+    }
+    
+    private func extractTopics(from text: String) -> [String] {
+        // Simple topic extraction from markdown headers
+        let lines = text.components(separatedBy: .newlines)
+        return lines.compactMap { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("#") {
+                return String(trimmed.dropFirst().trimmingCharacters(in: .whitespaces))
+            }
+            return nil
+        }
+    }
+}
+
+// MARK: - Markdown Components
+
+struct MarkdownPreview: View {
+    let text: String
+    
+    var body: some View {
+        // Simple markdown preview using AttributedString
+        Text(parseMarkdown(text))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private func parseMarkdown(_ text: String) -> AttributedString {
+        do {
+            return try AttributedString(markdown: text)
+        } catch {
+            return AttributedString(text)
+        }
+    }
+}
+
+struct MarkdownToolbar: View {
+    @Binding var text: String
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ToolbarButton(icon: "bold", title: "Bold") {
+                    insertMarkdown("**", "**")
+                }
+                
+                ToolbarButton(icon: "italic", title: "Italic") {
+                    insertMarkdown("*", "*")
+                }
+                
+                ToolbarButton(icon: "list.bullet", title: "List") {
+                    insertMarkdown("- ", "")
+                }
+                
+                ToolbarButton(icon: "link", title: "Link") {
+                    insertMarkdown("[", "](url)")
+                }
+                
+                ToolbarButton(icon: "number", title: "Header") {
+                    insertMarkdown("# ", "")
+                }
+                
+                ToolbarButton(icon: "code", title: "Code") {
+                    insertMarkdown("`", "`")
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+        .padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(.mint.opacity(0.2), lineWidth: 1)
+                }
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 16)
+    }
+    
+    private func insertMarkdown(_ prefix: String, _ suffix: String) {
+        text += prefix + suffix
+    }
+}
+
+struct ToolbarButton: View {
+    let icon: String
+    let title: String
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundStyle(.mint)
+            .frame(width: 60, height: 48)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.regularMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(.mint.opacity(0.2), lineWidth: 1)
+                    }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

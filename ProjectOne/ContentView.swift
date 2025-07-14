@@ -3,17 +3,31 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var urlHandler: URLHandler
     @State private var selectedTab = 0
+    @State private var showingQuickNote = false
     
     var body: some View {
+        #if os(macOS)
+        ContentView_macOS()
+            .environmentObject(urlHandler)
+        #else
         NavigationStack {
             LiquidGlassTabContainer(selectedTab: $selectedTab) {
                 TabView(selection: $selectedTab) {
+                    ContentListView()
+                        .tabItem {
+                            Label("All Content", systemImage: "list.bullet")
+                        }
+                        .tag(0)
+                        .background { Color.indigo.opacity(0.15) }
+                        .glassEffect(.regular)
+                    
                     VoiceMemoView(modelContext: modelContext)
                         .tabItem {
                             Label("Voice Memos", systemImage: "mic.circle.fill")
                         }
-                        .tag(0)
+                        .tag(1)
                         .background { Color.blue.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -21,7 +35,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Memory", systemImage: "brain.head.profile")
                         }
-                        .tag(1)
+                        .tag(2)
                         .background { Color.purple.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -29,15 +43,23 @@ struct ContentView: View {
                         .tabItem {
                             Label("Knowledge", systemImage: "network")
                         }
-                        .tag(2)
+                        .tag(3)
                         .background { Color.green.opacity(0.15) }
+                        .glassEffect(.regular)
+                    
+                    MarkdownNotesView(modelContext: modelContext)
+                        .tabItem {
+                            Label("Notes", systemImage: "doc.text.fill")
+                        }
+                        .tag(4)
+                        .background { Color.mint.opacity(0.15) }
                         .glassEffect(.regular)
                     
                     DataExportView(modelContext: modelContext)
                         .tabItem {
                             Label("Data", systemImage: "externaldrive.fill")
                         }
-                        .tag(3)
+                        .tag(5)
                         .background { Color.orange.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -45,7 +67,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Settings", systemImage: "gearshape.fill")
                         }
-                        .tag(4)
+                        .tag(6)
                         .background { Color.gray.opacity(0.15) }
                         .glassEffect(.regular)
                 }
@@ -58,12 +80,12 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     LiquidGlassToolbarGroup {
-                        QuickActionButton(icon: "plus.circle.fill", color: .blue) {
-                            // Quick note action
+                        QuickActionButton(icon: "plus.circle.fill", color: .mint) {
+                            showingQuickNote = true
                         }
                         
                         QuickActionButton(icon: "mic.badge.plus", color: .red) {
-                            // Quick voice memo
+                            selectedTab = 1 // Switch to Voice Memos tab
                         }
                     }
                 }
@@ -71,6 +93,18 @@ struct ContentView: View {
             .liquidGlassToolbar()
         }
         .liquidGlassContainer()
+        .sheet(isPresented: $showingQuickNote) {
+            NoteCreationView()
+        }
+        .alert("Note Imported", isPresented: $urlHandler.showingImportedNote) {
+            Button("View Notes") {
+                selectedTab = 4 // Switch to Notes tab (updated index)
+            }
+            Button("OK") { }
+        } message: {
+            Text("Successfully imported note from external app")
+        }
+        #endif
     }
 }
 
@@ -98,12 +132,14 @@ struct LiquidGlassBackgroundExtension: View {
     
     private var activeColor: Color {
         switch selectedTab {
-        case 0: return .blue
-        case 1: return .purple
-        case 2: return .green
-        case 3: return .orange
-        case 4: return .gray
-        default: return .blue
+        case 0: return .indigo
+        case 1: return .blue
+        case 2: return .purple
+        case 3: return .green
+        case 4: return .mint
+        case 5: return .orange
+        case 6: return .gray
+        default: return .indigo
         }
     }
     

@@ -28,7 +28,12 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     public let method: TranscriptionMethod = .whisperKit
     
     public var isAvailable: Bool {
+        #if targetEnvironment(simulator)
+        // WhisperKit is not available in iOS Simulator due to CoreML limitations
+        return false
+        #else
         return isInitialized && whisperKit != nil
+        #endif
     }
     
     public var capabilities: TranscriptionCapabilities {
@@ -57,6 +62,14 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     public func prepare() async throws {
         logger.info("Preparing WhisperKit transcriber")
         
+        // Check if running in iOS Simulator and skip initialization
+        #if targetEnvironment(simulator)
+        logger.warning("Skipping WhisperKit preparation in iOS Simulator due to CoreML limitations")
+        logger.info("WhisperKit transcription will not be available in simulator - use physical device for WhisperKit testing")
+        isInitialized = false
+        return
+        #endif
+        
         // First, try to use preloaded model from the model preloader
         if let preloadedWhisperKit = await WhisperKitModelPreloader.shared.getPreloadedWhisperKit() {
             logger.info("Using preloaded WhisperKit model")
@@ -68,27 +81,33 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
         // If no preloaded model available, fall back to on-demand loading
         logger.warning("No preloaded model available, loading on-demand")
         
-        // Check if running in iOS Simulator and use defensive approach
-        #if targetEnvironment(simulator)
-        logger.warning("Running in iOS Simulator - WhisperKit CoreML models may have compatibility issues")
-        #endif
-        
         do {
-            // Start with tiny model in simulator to avoid CoreML issues
-            let modelToUse: String
-            #if targetEnvironment(simulator)
-            modelToUse = "openai_whisper-tiny"
-            logger.info("Using tiny model in simulator for compatibility")
-            #else
-            modelToUse = modelSize.modelIdentifier
-            #endif
+            let modelToUse = modelSize.modelIdentifier
+            
+            logger.info("Attempting to download WhisperKit model: \(modelToUse)")
+            logger.info("Model download enabled: true")
+            logger.info("Expected model repository: argmaxinc/whisperkit-coreml")
             
             // Initialize WhisperKit with timeout to prevent hanging
             let task = Task {
-                try await WhisperKit(
-                    model: modelToUse,
-                    download: true
-                )
+                do {
+                    logger.info("Starting WhisperKit initialization...")
+                    let whisperKit = try await WhisperKit(
+                        model: modelToUse,
+                        download: true
+                    )
+                    logger.info("WhisperKit initialization completed successfully")
+                    return whisperKit
+                } catch {
+                    logger.error("WhisperKit initialization failed with error: \(error)")
+                    logger.error("Error type: \(type(of: error))")
+                    if let nsError = error as NSError? {
+                        logger.error("Error domain: \(nsError.domain)")
+                        logger.error("Error code: \(nsError.code)")
+                        logger.error("Error userInfo: \(nsError.userInfo)")
+                    }
+                    throw error
+                }
             }
             
             // Add 60 second timeout for model initialization/download
@@ -155,6 +174,12 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
     
     public func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult {
         logger.info("Starting WhisperKit batch transcription")
+        
+        // Check if running in iOS Simulator and provide clear error message
+        #if targetEnvironment(simulator)
+        logger.warning("WhisperKit transcription attempted in iOS Simulator - this is not supported due to CoreML limitations")
+        throw SpeechTranscriptionError.processingFailed("WhisperKit CoreML models are not compatible with iOS Simulator. Please test on a physical device or use an alternative transcription method.")
+        #endif
         
         guard let whisperKit = whisperKit else {
             throw SpeechTranscriptionError.modelUnavailable
@@ -243,6 +268,13 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
         logger.info("Starting WhisperKit real-time transcription")
         
         return AsyncStream { continuation in
+            // Check if running in iOS Simulator and provide clear error message
+            #if targetEnvironment(simulator)
+            logger.warning("WhisperKit real-time transcription attempted in iOS Simulator - this is not supported due to CoreML limitations")
+            continuation.finish()
+            return
+            #endif
+            
             guard let whisperKit = whisperKit else {
                 logger.error("No WhisperKit model available for real-time transcription")
                 continuation.finish()

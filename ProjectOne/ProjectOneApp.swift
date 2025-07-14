@@ -3,6 +3,8 @@ import SwiftData
 
 @main
 struct ProjectOneApp: App {
+    @State private var urlHandler = URLHandler()
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             MemoryAnalytics.self,
@@ -10,7 +12,9 @@ struct ProjectOneApp: App {
             MemoryPerformanceMetric.self,
             Entity.self,
             Relationship.self,
-            RecordingItem.self
+            RecordingItem.self,
+            ProcessedNote.self,
+            NoteItem.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -24,12 +28,23 @@ struct ProjectOneApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(urlHandler)
+                .onOpenURL { url in
+                    Task {
+                        await urlHandler.handleURL(url, with: sharedModelContainer.mainContext)
+                    }
+                }
                 .task {
                     // Start background WhisperKit model preloading when app launches
                     await startBackgroundModelPreloading()
                 }
         }
         .modelContainer(sharedModelContainer)
+        #if os(macOS)
+        .commands {
+            AppCommands()
+        }
+        #endif
     }
     
     @MainActor

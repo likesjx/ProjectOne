@@ -2,6 +2,19 @@
 
 ## Recently Resolved
 
+### 2025-07-14 - Note Visibility & UI Fixes
+| ID | Description | Resolution | Points | Location |
+|----|-------------|------------|--------|----------|
+| B005 | Created notes not appearing in UI list views | Added ProcessedNote.self to ModelContainer schema | 5 | ProjectOneApp.swift:16 |
+| UI005 | Microphone button in toolbar does nothing | Implemented navigation to Voice Memos tab/section | 2 | ContentView.swift:88, ContentView_macOS.swift:213 |
+
+### 2025-07-13 - macOS Platform Compatibility
+| ID | Description | Resolution | Points | Location |
+|----|-------------|------------|--------|----------|
+| B003 | macOS build fails due to iOS-specific SwiftUI modifiers | Added conditional compilation for platform-specific UI | 3 | MarkdownNotesView.swift:169, VoiceMemoView.swift:877 |
+| UI004 | Poor macOS UX with TabView-based navigation | Implemented NavigationSplitView with sidebar for macOS | 8 | ContentView_macOS.swift, ContentView.swift |
+| B004 | AppCommands.swift compilation error with @FocusedValue | Fixed focused value optional binding syntax | 2 | AppCommands.swift |
+
 ### 2025-07-11 - UI Enhancement Fixes
 | ID | Description | Resolution | Points | Location |
 |----|-------------|------------|--------|----------|
@@ -9,7 +22,7 @@
 | UI002 | Status banner showing "Ready" instead of "Recording" | Updated status logic priority in LiquidGlassStatusCard | 1 | VoiceMemoView.swift:366 |
 | UI003 | Missing visual feedback during recording | Added SoundWaveVisualization component | 3 | VoiceMemoView.swift |
 
-**Total Story Points Resolved: 6**
+**Total Story Points Resolved: 26**
 
 ## Current Bugs
 
@@ -23,7 +36,7 @@
 
 | ID | Description | Status | Severity | Points | Location | Date Added | GitHub Issue |
 |----|-------------|--------|----------|--------|----------|------------|--------------|
-| B001 | Missing note recording UI implementation | Open | Medium | 8 | ContentView.swift | 2025-07-09 | [#7](https://github.com/likesjx/ProjectOne/issues/7) |
+| B001 | Missing note recording UI implementation | Closed | Medium | 8 | ContentView.swift | 2025-07-09 | [#7](https://github.com/likesjx/ProjectOne/issues/7) |
 
 ### 🟢 Low Priority
 
@@ -98,13 +111,13 @@
 
 ## Quick Stats
 
-- **Total Open Bugs**: 2
+- **Total Open Bugs**: 1
 - **Total Technical Debt Items**: 5
 - **High Priority Items**: 1
-- **Total Story Points**: 41
-- **Recently Resolved Points**: 6 (UI Enhancements)
+- **Total Story Points**: 28
+- **Recently Resolved Points**: 26 (macOS Compatibility + UI Enhancements + Note Visibility)
 
 ---
 
-**Last Updated**: 2025-07-11  
+**Last Updated**: 2025-07-14  
 **Next Review**: Weekly during sprint planning
