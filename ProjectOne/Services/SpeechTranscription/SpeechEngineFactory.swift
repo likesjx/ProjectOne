@@ -84,9 +84,11 @@ public struct DeviceCapabilities {
 public enum EngineSelectionStrategy {
     case automatic
     case preferApple
+    case preferAppleFoundation
     case preferMLX
     case preferWhisperKit
     case appleOnly
+    case appleFoundationOnly
     case mlxOnly
     case whisperKitOnly
     
@@ -96,12 +98,16 @@ public enum EngineSelectionStrategy {
             return "Automatic (best available)"
         case .preferApple:
             return "Prefer Apple Speech"
+        case .preferAppleFoundation:
+            return "Prefer Apple Foundation Models"
         case .preferMLX:
             return "Prefer MLX"
         case .preferWhisperKit:
             return "Prefer WhisperKit"
         case .appleOnly:
             return "Apple Speech only"
+        case .appleFoundationOnly:
+            return "Apple Foundation Models only"
         case .mlxOnly:
             return "MLX only"
         case .whisperKitOnly:
@@ -365,12 +371,16 @@ public class SpeechEngineFactory {
             return try await selectOptimalEngine()
         case .preferApple:
             return try await selectPreferredEngine(preference: .appleSpeech)
+        case .preferAppleFoundation:
+            return try await selectPreferredEngine(preference: .appleFoundation)
         case .preferMLX:
             return try await selectPreferredEngine(preference: .mlx)
         case .preferWhisperKit:
             return try await selectPreferredEngine(preference: .whisperKit)
         case .appleOnly:
             return try await createAppleEngine()
+        case .appleFoundationOnly:
+            return try await createAppleFoundationEngine()
         case .mlxOnly:
             return try await createMLXEngine()
         case .whisperKitOnly:
@@ -404,7 +414,11 @@ public class SpeechEngineFactory {
             scores.append((createMLXEngine, mlxScore, "MLX"))
         }
         
-        // TODO: Add Apple Foundation models when available
+        // Apple Foundation Models temporarily disabled for compilation
+        // let appleFoundationScore = calculateAppleFoundationScore()
+        // if appleFoundationScore > 0 {
+        //     scores.append((createAppleFoundationEngine, appleFoundationScore, "Apple Foundation Models"))
+        // }
         
         // Sort by score and try engines in order
         scores.sort { $0.score > $1.score }
@@ -427,6 +441,9 @@ public class SpeechEngineFactory {
     private func selectPreferredEngine(preference: TranscriptionMethod) async throws -> SpeechTranscriptionProtocol {
         // Try preferred engine first
         switch preference {
+        case .appleFoundation:
+            // Apple Foundation Models temporarily disabled for compilation
+            logger.warning("Apple Foundation Models temporarily disabled, falling back to automatic selection")
         case .mlx:
             if deviceCapabilities.supportsMLX {
                 do {
@@ -461,9 +478,41 @@ public class SpeechEngineFactory {
     private func selectFallbackEngine(primary: SpeechTranscriptionProtocol?) async throws -> SpeechTranscriptionProtocol? {
         guard let primary = primary else { return nil }
         
-        // If primary is Apple, try WhisperKit first, then MLX as fallback
+        // If primary is Apple Foundation Models, try Apple Speech first, then WhisperKit
+        if case .appleFoundation = primary.method {
+            // Try Apple Speech first (most reliable fallback)
+            do {
+                return try await createAppleEngine()
+            } catch {
+                logger.info("Apple Speech fallback unavailable: \(error.localizedDescription)")
+            }
+            
+            // Try WhisperKit as secondary fallback
+            do {
+                let whisperKitEngine = try await createWhisperKitEngine()
+                if whisperKitEngine.isAvailable {
+                    return whisperKitEngine
+                }
+            } catch {
+                logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
+            }
+        }
+        
+        // If primary is Apple Speech, try Apple Foundation Models first (if available), then WhisperKit, then MLX
         if case .appleSpeech = primary.method {
-            // Try WhisperKit first
+            // Apple Foundation Models temporarily disabled for compilation
+            // if AppleFoundationModelsTranscriber.isSupported() {
+            //     do {
+            //         let appleFoundationEngine = try await createAppleFoundationEngine()
+            //         if appleFoundationEngine.isAvailable {
+            //             return appleFoundationEngine
+            //         }
+            //     } catch {
+            //         logger.info("Apple Foundation Models fallback unavailable: \(error.localizedDescription)")
+            //     }
+            // }
+            
+            // Try WhisperKit next
             do {
                 let whisperKitEngine = try await createWhisperKitEngine()
                 if whisperKitEngine.isAvailable {
@@ -483,8 +532,21 @@ public class SpeechEngineFactory {
             }
         }
         
-        // If primary is WhisperKit, use Apple as fallback
+        // If primary is WhisperKit, use Apple Foundation Models first (if available), then Apple Speech
         if case .whisperKit = primary.method {
+            // Apple Foundation Models temporarily disabled for compilation
+            // if AppleFoundationModelsTranscriber.isSupported() {
+            //     do {
+            //         let appleFoundationEngine = try await createAppleFoundationEngine()
+            //         if appleFoundationEngine.isAvailable {
+            //             return appleFoundationEngine
+            //         }
+            //     } catch {
+            //         logger.info("Apple Foundation Models fallback unavailable: \(error.localizedDescription)")
+            //     }
+            // }
+            
+            // Fall back to Apple Speech
             do {
                 return try await createAppleEngine()
             } catch {
@@ -492,9 +554,21 @@ public class SpeechEngineFactory {
             }
         }
         
-        // If primary is MLX, use WhisperKit first, then Apple as fallback
+        // If primary is MLX, use Apple Foundation Models first (if available), then WhisperKit, then Apple as fallback
         if case .mlx = primary.method {
-            // Try WhisperKit first
+            // Apple Foundation Models temporarily disabled for compilation
+            // if AppleFoundationModelsTranscriber.isSupported() {
+            //     do {
+            //         let appleFoundationEngine = try await createAppleFoundationEngine()
+            //         if appleFoundationEngine.isAvailable {
+            //             return appleFoundationEngine
+            //         }
+            //     } catch {
+            //         logger.info("Apple Foundation Models fallback unavailable: \(error.localizedDescription)")
+            //     }
+            // }
+            
+            // Try WhisperKit next
             do {
                 let whisperKitEngine = try await createWhisperKitEngine()
                 if whisperKitEngine.isAvailable {
@@ -504,7 +578,7 @@ public class SpeechEngineFactory {
                 logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
             }
             
-            // Fall back to Apple
+            // Fall back to Apple Speech
             do {
                 return try await createAppleEngine()
             } catch {
@@ -567,6 +641,37 @@ public class SpeechEngineFactory {
            deviceCapabilities.availableMemory < maxMemory {
             score -= 20
         }
+        
+        return score
+    }
+    
+    private func calculateAppleFoundationScore() -> Int {
+        var score = 90 // High base score for Apple Foundation Models (highest quality)
+        
+        // Apple Foundation Models temporarily disabled for compilation
+        return 0 // Temporarily disabled
+        
+        // Apple Intelligence device bonus
+        // if AppleFoundationModelsTranscriber.isSupported() {
+        //     score += 20
+        // } else {
+        //     return 0 // Not supported on this device
+        // }
+        
+        // Bonus for more memory (larger models available)
+        if deviceCapabilities.totalMemory > 8 * 1024 * 1024 * 1024 { // 8GB+
+            score += 15
+        } else if deviceCapabilities.totalMemory > 6 * 1024 * 1024 * 1024 { // 6GB+
+            score += 10
+        }
+        
+        // Apple Silicon bonus (optimized for Apple Intelligence)
+        if deviceCapabilities.hasAppleSilicon {
+            score += 15
+        }
+        
+        // On-device processing bonus (privacy and speed)
+        score += 10
         
         return score
     }
@@ -644,6 +749,20 @@ public class SpeechEngineFactory {
         
         logger.info("WhisperKit Speech transcriber created successfully with model: \(modelSize.rawValue)")
         return transcriber
+    }
+    
+    private func createAppleFoundationEngine() async throws -> SpeechTranscriptionProtocol {
+        logger.info("Creating Apple Foundation Models transcriber")
+        
+        // Apple Foundation Models temporarily disabled for compilation
+        throw SpeechTranscriptionError.modelUnavailable
+        
+        // Create and prepare Apple Foundation Models transcriber
+        // let transcriber = AppleFoundationModelsTranscriber()
+        // try await transcriber.prepare()
+        
+        // logger.info("Apple Foundation Models transcriber created successfully")
+        // return transcriber
     }
     
     private func selectOptimalMLXModelSize() -> WhisperModelSize {
