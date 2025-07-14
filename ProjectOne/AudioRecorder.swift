@@ -10,6 +10,7 @@ import AVFoundation
 import SwiftUI
 import Combine
 import SwiftData
+import Speech
 
 class AudioRecorder: NSObject, ObservableObject {
     var audioRecorder: AVAudioRecorder?
@@ -53,17 +54,66 @@ class AudioRecorder: NSObject, ObservableObject {
     
     func requestPermission(completion: @escaping (Bool) -> Void) {
         #if os(iOS)
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            DispatchQueue.main.async {
-                completion(granted)
+        // Request both microphone and speech recognition permissions
+        requestMicrophonePermission { [weak self] micGranted in
+            guard micGranted else {
+                DispatchQueue.main.async {
+                    completion(false)
+                }
+                return
+            }
+            
+            self?.requestSpeechRecognitionPermission { speechGranted in
+                DispatchQueue.main.async {
+                    completion(speechGranted)
+                }
             }
         }
         #else
         // macOS doesn't require explicit permission request for microphone in this context
-        DispatchQueue.main.async {
-            completion(true)
+        // but still needs speech recognition permission
+        requestSpeechRecognitionPermission { granted in
+            DispatchQueue.main.async {
+                completion(granted)
+            }
         }
         #endif
+    }
+    
+    private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
+        #if os(iOS)
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            print("🎤 [AudioRecorder] Microphone permission: \(granted ? "✅ Granted" : "❌ Denied")")
+            completion(granted)
+        }
+        #else
+        completion(true)
+        #endif
+    }
+    
+    private func requestSpeechRecognitionPermission(completion: @escaping (Bool) -> Void) {
+        
+        SFSpeechRecognizer.requestAuthorization { authStatus in
+            print("🎤 [AudioRecorder] Speech recognition permission: \(authStatus.rawValue)")
+            
+            switch authStatus {
+            case .authorized:
+                print("🎤 [AudioRecorder] Speech recognition: ✅ Authorized")
+                completion(true)
+            case .denied:
+                print("🎤 [AudioRecorder] Speech recognition: ❌ Denied - User must enable in Settings")
+                completion(false)
+            case .restricted:
+                print("🎤 [AudioRecorder] Speech recognition: 🚫 Restricted - Device policy prevents access")
+                completion(false)
+            case .notDetermined:
+                print("🎤 [AudioRecorder] Speech recognition: ⚠️  Not determined - Permission dialog should have appeared")
+                completion(false)
+            @unknown default:
+                print("🎤 [AudioRecorder] Speech recognition: ❓ Unknown status: \(authStatus.rawValue)")
+                completion(false)
+            }
+        }
     }
     
     func startRecording() {
@@ -88,7 +138,7 @@ class AudioRecorder: NSObject, ObservableObject {
         
         let settings = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 12000,
+            AVSampleRateKey: 16000, // Compatible with AppleSpeechTranscriber (was 12000)
             AVNumberOfChannelsKey: 1,
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
