@@ -5,7 +5,7 @@ import Combine
 
 /// Service for managing knowledge graph visualization, layout, and interactions
 @MainActor
-final class KnowledgeGraphService: ObservableObject {
+public final class KnowledgeGraphService: ObservableObject {
     
     // MARK: - Published Properties
     

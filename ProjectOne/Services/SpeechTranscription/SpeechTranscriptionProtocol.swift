@@ -94,7 +94,7 @@ public struct SpeechTranscriptionSegment {
 /// Transcription method used
 public enum TranscriptionMethod {
     case appleSpeech
-    case appleFoundation
+    case speechAnalyzer
     case mlx
     case whisperKit
     case hybrid
@@ -103,8 +103,8 @@ public enum TranscriptionMethod {
         switch self {
         case .appleSpeech:
             return "Apple Speech"
-        case .appleFoundation:
-            return "Apple Foundation"
+        case .speechAnalyzer:
+            return "SpeechAnalyzer"
         case .mlx:
             return "MLX"
         case .whisperKit:

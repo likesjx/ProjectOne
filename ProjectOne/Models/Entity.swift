@@ -3,36 +3,36 @@ import SwiftData
 
 /// Represents a named entity in the knowledge graph (people, organizations, activities, concepts, locations)
 @Model
-final class Entity {
-    var id: UUID
-    var timestamp: Date
+public final class Entity {
+    public var id: UUID
+    public var timestamp: Date
     
     // Entity identification
-    var name: String
-    var type: EntityType
-    var aliases: [String] // Alternative names for this entity
+    public var name: String
+    public var type: EntityType
+    public var aliases: [String] // Alternative names for this entity
     
     // Confidence and validation
-    var confidence: Double // Confidence in entity extraction (0.0-1.0)
-    var isValidated: Bool // Whether user has validated this entity
-    var extractionSource: String? // Source where entity was first extracted
+    public var confidence: Double // Confidence in entity extraction (0.0-1.0)
+    public var isValidated: Bool // Whether user has validated this entity
+    public var extractionSource: String? // Source where entity was first extracted
     
     // Knowledge graph connections
-    var mentions: Int // Number of times mentioned across all notes
-    var lastMentioned: Date
-    var relationships: [UUID] // IDs of relationships this entity participates in
+    public var mentions: Int // Number of times mentioned across all notes
+    public var lastMentioned: Date
+    public var relationships: [UUID] // IDs of relationships this entity participates in
     
     // Entity attributes
-    var attributes: [String: String] // Key-value pairs for additional entity info
-    var entityDescription: String? // User-provided or AI-generated description
-    var tags: [String] // User-assigned tags
+    public var attributes: [String: String] // Key-value pairs for additional entity info
+    public var entityDescription: String? // User-provided or AI-generated description
+    public var tags: [String] // User-assigned tags
     
     // Semantic information
-    var semanticEmbedding: [Double]? // Vector embedding for semantic similarity
-    var importance: Double // Calculated importance score (0.0-1.0)
-    var salience: Double // How central this entity is to the knowledge graph
+    public var semanticEmbedding: [Double]? // Vector embedding for semantic similarity
+    public var importance: Double // Calculated importance score (0.0-1.0)
+    public var salience: Double // How central this entity is to the knowledge graph
     
-    init(name: String, type: EntityType) {
+    public init(name: String, type: EntityType) {
         self.id = UUID()
         self.timestamp = Date()
         self.name = name
@@ -91,7 +91,7 @@ final class Entity {
 
 // MARK: - Supporting Enums
 
-enum EntityType: String, CaseIterable, Codable {
+public enum EntityType: String, CaseIterable, Codable {
     case person = "Person"
     case organization = "Organization"
     case activity = "Activity"
