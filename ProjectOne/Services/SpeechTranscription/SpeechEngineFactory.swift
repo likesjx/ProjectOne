@@ -382,21 +382,13 @@ public class SpeechEngineFactory {
         // Score different engines based on device capabilities
         var scores: [(engine: () async throws -> SpeechTranscriptionProtocol, score: Int, name: String)] = []
         
-        // Apple Speech always available as baseline
-        scores.append((createAppleEngine, 50, "Apple Speech"))
+        // Apple Speech gets high priority due to WhisperKit buffer overflow issues
+        scores.append((createAppleEngine, 75, "Apple Speech"))
         
-        // In iOS Simulator, prioritize Apple Speech due to WhisperKit CoreML compatibility issues
-        #if targetEnvironment(simulator)
-        logger.warning("Running in iOS Simulator - prioritizing Apple Speech due to WhisperKit CoreML issues")
-        
-        // Still add WhisperKit but with lower score in simulator
-        let whisperKitScore = 30 // Lower than Apple Speech to prefer Apple Speech
+        // WhisperKit has buffer overflow issues but can be fallback
+        let whisperKitScore = calculateWhisperKitScore() - 30 // Reduce score due to persistent buffer issues
         scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
-        #else
-        // WhisperKit gets higher score for offline capabilities and accuracy on real devices
-        let whisperKitScore = calculateWhisperKitScore()
-        scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
-        #endif
+        logger.warning("WhisperKit has MLMultiArray buffer overflow issues - Apple Speech preferred")
         
         // MLX gets higher score on capable devices
         if deviceCapabilities.supportsMLX {
@@ -461,19 +453,16 @@ public class SpeechEngineFactory {
     private func selectFallbackEngine(primary: SpeechTranscriptionProtocol?) async throws -> SpeechTranscriptionProtocol? {
         guard let primary = primary else { return nil }
         
-        // If primary is Apple, try WhisperKit first, then MLX as fallback
+        // If primary is Apple, try WhisperKit then MLX as fallback
         if case .appleSpeech = primary.method {
-            // Try WhisperKit first
+            // Try WhisperKit first for better accuracy
             do {
-                let whisperKitEngine = try await createWhisperKitEngine()
-                if whisperKitEngine.isAvailable {
-                    return whisperKitEngine
-                }
+                return try await createWhisperKitEngine()
             } catch {
                 logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
             }
             
-            // Try MLX if WhisperKit failed and device supports it
+            // Try MLX if device supports it and WhisperKit failed
             if deviceCapabilities.supportsMLX {
                 do {
                     return try await createMLXEngine()
@@ -492,14 +481,11 @@ public class SpeechEngineFactory {
             }
         }
         
-        // If primary is MLX, use WhisperKit first, then Apple as fallback
+        // If primary is MLX, try WhisperKit then Apple as fallback
         if case .mlx = primary.method {
-            // Try WhisperKit first
+            // Try WhisperKit first for better accuracy
             do {
-                let whisperKitEngine = try await createWhisperKitEngine()
-                if whisperKitEngine.isAvailable {
-                    return whisperKitEngine
-                }
+                return try await createWhisperKitEngine()
             } catch {
                 logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
             }

@@ -78,15 +78,19 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
             return
         }
         
-        // If no preloaded model available, fall back to on-demand loading
-        logger.warning("No preloaded model available, loading on-demand")
+        // If no preloaded model available, fall back to progressive model loading
+        logger.warning("No preloaded model available, loading on-demand with progressive fallback")
         
-        do {
-            let modelToUse = modelSize.modelIdentifier
-            
-            logger.info("Attempting to download WhisperKit model: \(modelToUse)")
-            logger.info("Model download enabled: true")
-            logger.info("Expected model repository: argmaxinc/whisperkit-coreml")
+        // Try progressively smaller models to avoid buffer overflow, starting with the smallest
+        let fallbackModels: [WhisperKitModelSize] = [.tiny] // Only use tiny model to minimize buffer issues
+        
+        for (index, fallbackModelSize) in fallbackModels.enumerated() {
+            do {
+                let modelToUse = fallbackModelSize.modelIdentifier
+                
+                logger.info("Attempting WhisperKit model (\(index + 1)/\(fallbackModels.count)): \(modelToUse)")
+                logger.info("Model download enabled: true")
+                logger.info("Expected model repository: argmaxinc/whisperkit-coreml")
             
             // Initialize WhisperKit with timeout to prevent hanging
             let task = Task {
@@ -94,6 +98,9 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
                     logger.info("Starting WhisperKit initialization...")
                     let whisperKit = try await WhisperKit(
                         model: modelToUse,
+                        verbose: true,
+                        prewarm: false,  // Reduce memory pressure during initialization
+                        load: true,
                         download: true
                     )
                     logger.info("WhisperKit initialization completed successfully")
@@ -131,34 +138,34 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
                 throw SpeechTranscriptionError.processingFailed("WhisperKit initialization failed")
             }
             
-            isInitialized = true
-            logger.info("WhisperKit model \(modelToUse) prepared successfully")
-            
-        } catch {
-            logger.error("Failed to prepare WhisperKit model: \(error.localizedDescription)")
-            
-            // If it's a timeout, download, or CoreML error, try smaller model as fallback
-            if error.localizedDescription.contains("timeout") || 
-               error.localizedDescription.contains("download") ||
-               error.localizedDescription.contains("CoreML") ||
-               error.localizedDescription.contains("MLMultiArray") {
-                logger.info("Attempting fallback to tiny model due to initialization failure")
+                isInitialized = true
+                logger.info("WhisperKit model \(modelToUse) prepared successfully")
+                return  // Success - exit the fallback loop
                 
-                do {
-                    whisperKit = try await WhisperKit(
-                        model: "openai_whisper-tiny",
-                        download: true
-                    )
-                    isInitialized = true
-                    logger.info("WhisperKit tiny model prepared as fallback")
-                    return
-                } catch {
-                    logger.error("Fallback to tiny model also failed: \(error.localizedDescription)")
+            } catch {
+                logger.warning("Model \(fallbackModelSize.modelIdentifier) failed: \(error.localizedDescription)")
+                
+                // Check if this is a buffer overflow or memory issue
+                if error.localizedDescription.contains("MLMultiArray") || 
+                   error.localizedDescription.contains("beyond the end") ||
+                   error.localizedDescription.contains("CoreML") {
+                    logger.info("Buffer overflow detected, trying next smaller model")
+                    continue  // Try next model in fallback sequence
                 }
+                
+                // For other errors, still try smaller models
+                if index < fallbackModels.count - 1 {
+                    logger.info("General error, trying next model: \(error.localizedDescription)")
+                    continue
+                }
+                
+                // If this was the last model, rethrow the error
+                throw error
             }
-            
-            throw SpeechTranscriptionError.modelUnavailable
         }
+        
+        // If we get here, all models failed
+        throw SpeechTranscriptionError.modelUnavailable
     }
     
     public func cleanup() async {
@@ -191,23 +198,29 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
             // Convert AudioData to format expected by WhisperKit
             let audioArray = audio.samples
             
-            // Create transcription options
+            // Create very conservative transcription options to prevent buffer overflow
+            // Limit audio length to prevent MLMultiArray overflow (seen at offset 224)
+            let maxSampleLength = min(160000, audioArray.count) // 10 seconds at 16kHz maximum
+            let clippedAudio = Array(audioArray.prefix(maxSampleLength))
+            
             let options = DecodingOptions(
                 task: configuration.enableTranslation ? .translate : .transcribe,
                 language: getWhisperLanguageCode(for: configuration.language ?? locale.identifier),
                 temperature: 0.0,
-                temperatureFallbackCount: 3,
-                sampleLength: 480000, // 30 seconds at 16kHz
-                usePrefillPrompt: true,
+                temperatureFallbackCount: 0,  // No fallback to prevent multiple allocations
+                sampleLength: clippedAudio.count,
+                usePrefillPrompt: false,  // Disable to reduce memory usage
                 skipSpecialTokens: true,
-                withoutTimestamps: false
+                withoutTimestamps: true,  // Disable timestamps to reduce buffer size
+                wordTimestamps: false,   // Disable for memory efficiency
+                clipTimestamps: [0.0]   // Add explicit clipping
             )
             
             // Add timeout for transcription to prevent hanging and handle CoreML crashes
             let transcriptionTask = Task {
                 do {
                     return try await whisperKit.transcribe(
-                        audioArray: audioArray,
+                        audioArray: clippedAudio,
                         decodeOptions: options
                     )
                 } catch {
@@ -218,9 +231,11 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
                        errorMessage.contains("setNumber:atOffset") ||
                        errorMessage.contains("DecodingInputs") ||
                        errorMessage.contains("beyond the end of the multi array") ||
-                       errorMessage.contains("NSInvalidArgumentException") {
-                        logger.error("CoreML buffer allocation error detected: \(errorMessage)")
-                        throw SpeechTranscriptionError.processingFailed("CoreML model incompatible with current environment")
+                       errorMessage.contains("NSInvalidArgumentException") ||
+                       errorMessage.contains("offset") && errorMessage.contains("beyond") {
+                        logger.error("CoreML buffer overflow detected at specific offset: \(errorMessage)")
+                        logger.info("This is the known MLMultiArray buffer allocation issue - falling back to Apple Speech")
+                        throw SpeechTranscriptionError.processingFailed("WhisperKit CoreML buffer overflow - use Apple Speech instead")
                     }
                     throw error
                 }
