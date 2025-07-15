@@ -1,17 +1,17 @@
+#!/usr/bin/env swift
+
 //
-//  TestRunner.swift
-//  ProjectOne
-//
-//  Simple test runner for Memory Agent functionality
+//  TestMemoryAgentManual.swift
+//  Manual test for Memory Agent functionality
 //
 
 import Foundation
 import SwiftData
 
 @available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
-public class MemoryAgentTestRunner {
+struct TestMemoryAgent {
     
-    public static func testAIProviderInitialization() {
+    static func testAIProviderInitialization() {
         print("🧠 Testing AI Model Provider Initialization...")
         
         // Test privacy analyzer
@@ -38,7 +38,7 @@ public class MemoryAgentTestRunner {
         print("🎉 AI Provider initialization tests completed successfully!")
     }
     
-    public static func testMemoryContextCreation() {
+    static func testMemoryContextCreation() {
         print("\n🧠 Testing Memory Context Creation...")
         
         // Create a simple memory context
@@ -55,7 +55,7 @@ public class MemoryAgentTestRunner {
         print("🎉 Memory Context creation tests completed successfully!")
     }
     
-    public static func testRouting() {
+    static func testRouting() {
         print("\n🧠 Testing Routing Logic...")
         
         let privacyAnalyzer = PrivacyAnalyzer()
@@ -85,42 +85,22 @@ public class MemoryAgentTestRunner {
         print("🎉 Routing logic tests completed successfully!")
     }
     
-    public static func runAllTests() {
+    static func runAllTests() {
         print("🚀 Starting Memory Agent Manual Tests")
         print("=====================================")
         
         testAIProviderInitialization()
         testMemoryContextCreation()
         testRouting()
-        testRAGRetrieval()
         
         print("\n🎉 All Memory Agent tests completed successfully!")
         print("=====================================")
     }
-    
-    public static func testRAGRetrieval() {
-        print("\n🧠 Testing RAG Retrieval Engine...")
-        
-        // Create a basic mock ModelContext - this would be replaced with actual context in real tests
-        print("✅ Memory retrieval engine instantiation would occur here")
-        print("✅ RAG query processing would be tested here")
-        print("✅ Memory ranking and scoring would be validated here")
-        
-        // Test query processing
-        let testQueries = [
-            "Tell me about my recent meetings",
-            "What did I learn about machine learning?",
-            "Find notes about project planning"
-        ]
-        
-        for query in testQueries {
-            print("✅ Processing query: '\(query.prefix(30))...'")
-            // In real implementation, this would use MemoryRetrievalEngine
-            print("   - Query terms extracted: \(query.components(separatedBy: .whitespacesAndNewlines).filter { $0.count > 2 })")
-            let containsPersonalData = query.lowercased().contains("my") || query.lowercased().contains("i")
-            print("   - Personal data detected: \(containsPersonalData)")
-        }
-        
-        print("🎉 RAG Retrieval Engine tests completed successfully!")
-    }
+}
+
+// Run the tests
+if #available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *) {
+    TestMemoryAgent.runAllTests()
+} else {
+    print("❌ Memory Agent requires iOS 19.0+ / macOS 16.0+")
 }

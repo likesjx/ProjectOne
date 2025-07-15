@@ -84,9 +84,11 @@ public struct DeviceCapabilities {
 public enum EngineSelectionStrategy {
     case automatic
     case preferApple
+    case preferSpeechAnalyzer
     case preferMLX
     case preferWhisperKit
     case appleOnly
+    case speechAnalyzerOnly
     case mlxOnly
     case whisperKitOnly
     
@@ -96,12 +98,16 @@ public enum EngineSelectionStrategy {
             return "Automatic (best available)"
         case .preferApple:
             return "Prefer Apple Speech"
+        case .preferSpeechAnalyzer:
+            return "Prefer SpeechAnalyzer"
         case .preferMLX:
             return "Prefer MLX"
         case .preferWhisperKit:
             return "Prefer WhisperKit"
         case .appleOnly:
             return "Apple Speech only"
+        case .speechAnalyzerOnly:
+            return "SpeechAnalyzer only"
         case .mlxOnly:
             return "MLX only"
         case .whisperKitOnly:
@@ -365,12 +371,16 @@ public class SpeechEngineFactory {
             return try await selectOptimalEngine()
         case .preferApple:
             return try await selectPreferredEngine(preference: .appleSpeech)
+        case .preferSpeechAnalyzer:
+            return try await selectPreferredEngine(preference: .speechAnalyzer)
         case .preferMLX:
             return try await selectPreferredEngine(preference: .mlx)
         case .preferWhisperKit:
             return try await selectPreferredEngine(preference: .whisperKit)
         case .appleOnly:
             return try await createAppleEngine()
+        case .speechAnalyzerOnly:
+            return try await createSpeechAnalyzerEngine()
         case .mlxOnly:
             return try await createMLXEngine()
         case .whisperKitOnly:
@@ -382,13 +392,30 @@ public class SpeechEngineFactory {
         // Score different engines based on device capabilities
         var scores: [(engine: () async throws -> SpeechTranscriptionProtocol, score: Int, name: String)] = []
         
+        // SpeechAnalyzer gets highest priority (iOS 26.0+ beta feature)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let speechAnalyzerScore = calculateSpeechAnalyzerScore()
+            logger.info("SpeechAnalyzer availability check: macOS 26.0+ detected, score: \(speechAnalyzerScore)")
+            if speechAnalyzerScore > 0 {
+                scores.append((createSpeechAnalyzerEngine, speechAnalyzerScore, "SpeechAnalyzer"))
+                logger.info("SpeechAnalyzer added to candidate engines with score \(speechAnalyzerScore)")
+            }
+        } else {
+            logger.info("SpeechAnalyzer not available: OS version check failed")
+        }
+        
         // Apple Speech gets high priority due to WhisperKit buffer overflow issues
         scores.append((createAppleEngine, 75, "Apple Speech"))
         
-        // WhisperKit has buffer overflow issues but can be fallback
-        let whisperKitScore = calculateWhisperKitScore() - 30 // Reduce score due to persistent buffer issues
-        scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
-        logger.warning("WhisperKit has MLMultiArray buffer overflow issues - Apple Speech preferred")
+        // WhisperKit: Skip entirely when SpeechAnalyzer is available due to critical buffer overflow
+        if #available(iOS 26.0, macOS 26.0, *) {
+            logger.warning("Skipping WhisperKit entirely on iOS 26.0+ due to critical MLMultiArray buffer overflow - SpeechAnalyzer → Apple Speech preferred")
+        } else {
+            // Only include WhisperKit on older OS versions where SpeechAnalyzer isn't available
+            let whisperKitScore = calculateWhisperKitScore() - 60 // Major reduction due to buffer overflow crashes
+            scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
+            logger.warning("WhisperKit included with reduced score due to MLMultiArray buffer overflow issues")
+        }
         
         // MLX gets higher score on capable devices
         if deviceCapabilities.supportsMLX {
@@ -396,20 +423,26 @@ public class SpeechEngineFactory {
             scores.append((createMLXEngine, mlxScore, "MLX"))
         }
         
-        // TODO: Add Apple Foundation models when available
-        
         // Sort by score and try engines in order
         scores.sort { $0.score > $1.score }
         
+        logger.info("Engine selection order (by score):")
+        for (_, score, name) in scores {
+            logger.info("  - \(name): \(score)")
+        }
+        
         for (engineFactory, score, name) in scores {
             do {
+                logger.info("Attempting to create \(name) (score: \(score))")
                 let engine = try await engineFactory()
                 if engine.isAvailable {
-                    logger.info("Selected \(name) with score \(score)")
+                    logger.info("✅ Selected \(name) with score \(score)")
                     return engine
+                } else {
+                    logger.warning("⚠️ \(name) created but not available")
                 }
             } catch {
-                logger.warning("Failed to create \(name): \(error.localizedDescription)")
+                logger.warning("❌ Failed to create \(name): \(error.localizedDescription)")
             }
         }
         
@@ -419,6 +452,19 @@ public class SpeechEngineFactory {
     private func selectPreferredEngine(preference: TranscriptionMethod) async throws -> SpeechTranscriptionProtocol {
         // Try preferred engine first
         switch preference {
+        case .speechAnalyzer:
+            if #available(iOS 26.0, macOS 26.0, *) {
+                do {
+                    let speechAnalyzerEngine = try await createSpeechAnalyzerEngine()
+                    if speechAnalyzerEngine.isAvailable {
+                        return speechAnalyzerEngine
+                    }
+                } catch {
+                    logger.warning("Preferred SpeechAnalyzer engine unavailable: \(error.localizedDescription)")
+                }
+            } else {
+                logger.warning("SpeechAnalyzer requires iOS 26.0+ or macOS 26.0+")
+            }
         case .mlx:
             if deviceCapabilities.supportsMLX {
                 do {
@@ -453,9 +499,35 @@ public class SpeechEngineFactory {
     private func selectFallbackEngine(primary: SpeechTranscriptionProtocol?) async throws -> SpeechTranscriptionProtocol? {
         guard let primary = primary else { return nil }
         
-        // If primary is Apple, try WhisperKit then MLX as fallback
+        // If primary is SpeechAnalyzer, use Apple Speech as fallback (skip WhisperKit due to buffer overflow issues)
+        if case .speechAnalyzer = primary.method {
+            // Try Apple Speech (most reliable fallback)
+            do {
+                let appleEngine = try await createAppleEngine()
+                logger.info("SpeechAnalyzer → Apple Speech fallback (skipping WhisperKit due to MLMultiArray buffer overflow)")
+                return appleEngine
+            } catch {
+                logger.warning("Apple Speech fallback unavailable: \(error.localizedDescription)")
+                // Don't try WhisperKit as it has known buffer overflow issues
+                return nil
+            }
+        }
+        
+        // If primary is Apple Speech, try SpeechAnalyzer first (if available), then WhisperKit, then MLX
         if case .appleSpeech = primary.method {
-            // Try WhisperKit first for better accuracy
+            // Try SpeechAnalyzer if available (iOS 26.0+)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                do {
+                    let speechAnalyzerEngine = try await createSpeechAnalyzerEngine()
+                    if speechAnalyzerEngine.isAvailable {
+                        return speechAnalyzerEngine
+                    }
+                } catch {
+                    logger.info("SpeechAnalyzer fallback unavailable: \(error.localizedDescription)")
+                }
+            }
+            
+            // Try WhisperKit next
             do {
                 return try await createWhisperKitEngine()
             } catch {
@@ -472,8 +544,21 @@ public class SpeechEngineFactory {
             }
         }
         
-        // If primary is WhisperKit, use Apple as fallback
+        // If primary is WhisperKit, use SpeechAnalyzer first (if available), then Apple Speech
         if case .whisperKit = primary.method {
+            // Try SpeechAnalyzer if available (iOS 26.0+)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                do {
+                    let speechAnalyzerEngine = try await createSpeechAnalyzerEngine()
+                    if speechAnalyzerEngine.isAvailable {
+                        return speechAnalyzerEngine
+                    }
+                } catch {
+                    logger.info("SpeechAnalyzer fallback unavailable: \(error.localizedDescription)")
+                }
+            }
+            
+            // Fall back to Apple Speech
             do {
                 return try await createAppleEngine()
             } catch {
@@ -481,16 +566,28 @@ public class SpeechEngineFactory {
             }
         }
         
-        // If primary is MLX, try WhisperKit then Apple as fallback
+        // If primary is MLX, use SpeechAnalyzer first (if available), then WhisperKit, then Apple as fallback
         if case .mlx = primary.method {
-            // Try WhisperKit first for better accuracy
+            // Try SpeechAnalyzer if available (iOS 26.0+)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                do {
+                    let speechAnalyzerEngine = try await createSpeechAnalyzerEngine()
+                    if speechAnalyzerEngine.isAvailable {
+                        return speechAnalyzerEngine
+                    }
+                } catch {
+                    logger.info("SpeechAnalyzer fallback unavailable: \(error.localizedDescription)")
+                }
+            }
+            
+            // Try WhisperKit next
             do {
                 return try await createWhisperKitEngine()
             } catch {
                 logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
             }
             
-            // Fall back to Apple
+            // Fall back to Apple Speech
             do {
                 return try await createAppleEngine()
             } catch {
@@ -555,6 +652,35 @@ public class SpeechEngineFactory {
         }
         
         return score
+    }
+    
+    private func calculateSpeechAnalyzerScore() -> Int {
+        // Check if SpeechAnalyzer is available (iOS 26.0+ beta)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            var score = 95 // Highest base score for SpeechAnalyzer (latest Apple technology)
+            
+            // Bonus for more memory (larger models available)
+            if deviceCapabilities.totalMemory > 8 * 1024 * 1024 * 1024 { // 8GB+
+                score += 15
+            } else if deviceCapabilities.totalMemory > 6 * 1024 * 1024 * 1024 { // 6GB+
+                score += 10
+            }
+            
+            // Apple Silicon bonus (optimized for Apple Intelligence)
+            if deviceCapabilities.hasAppleSilicon {
+                score += 15
+            }
+            
+            // On-device processing bonus (privacy and speed)
+            score += 10
+            
+            // Beta feature bonus (cutting edge)
+            score += 5
+            
+            return score
+        } else {
+            return 0 // Not available on this OS version
+        }
     }
     
     private func createAppleEngine() async throws -> SpeechTranscriptionProtocol {
@@ -629,6 +755,36 @@ public class SpeechEngineFactory {
         try await transcriber.prepare()
         
         logger.info("WhisperKit Speech transcriber created successfully with model: \(modelSize.rawValue)")
+        return transcriber
+    }
+    
+    private func createSpeechAnalyzerEngine() async throws -> SpeechTranscriptionProtocol {
+        logger.info("🔬 Creating SpeechAnalyzer transcriber")
+        
+        // Check iOS version availability
+        guard #available(iOS 26.0, macOS 26.0, *) else {
+            logger.warning("SpeechAnalyzer requires iOS 26.0+ or macOS 26.0+")
+            throw SpeechTranscriptionError.modelUnavailable
+        }
+        
+        // Determine optimal locale
+        let locale: Locale
+        if let preferredLanguage = configuration.preferredLanguage {
+            locale = Locale(identifier: preferredLanguage)
+            logger.info("Using preferred language: \(preferredLanguage)")
+        } else {
+            locale = Locale.current
+            logger.info("Using current locale: \(locale.identifier)")
+        }
+        
+        // Create and prepare SpeechAnalyzer transcriber
+        logger.info("Initializing SpeechAnalyzerTranscriber with locale: \(locale.identifier)")
+        let transcriber = try SpeechAnalyzerTranscriber(locale: locale)
+        
+        logger.info("Preparing SpeechAnalyzer transcriber...")
+        try await transcriber.prepare()
+        
+        logger.info("✅ SpeechAnalyzer transcriber created and prepared successfully")
         return transcriber
     }
     

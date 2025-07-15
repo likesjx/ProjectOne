@@ -10,8 +10,8 @@ import SwiftData
 
 @available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
 @Model
-final class STMEntry {
-    var id: UUID
+public final class STMEntry {
+    public var id: UUID
     var content: String
     var timestamp: Date
     var memoryType: MemoryType

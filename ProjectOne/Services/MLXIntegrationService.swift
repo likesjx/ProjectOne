@@ -58,11 +58,30 @@ class MLXIntegrationService: ObservableObject {
         do {
             loadingProgress = 0.0
             
-            // Note: Model loading has been moved to the Memory Agent implementation.
-            // Speech recognition is now handled by MLXSpeechTranscriber.swift
-            // Entity extraction, relationship detection, and embeddings will be part of the Memory Agent (JAR-50)
-            loadingProgress = 1.0
+            // Initialize Gemma3n model for Memory Agent
+            loadingProgress = 0.3
+            print("🧠 Loading MLX Gemma3n model for Memory Agent...")
             
+            // The actual Gemma3n model loading is handled by MLXGemma3nProvider
+            // This service now coordinates with the Gemma3nCore
+            let gemmaCore = Gemma3nCore.shared
+            
+            loadingProgress = 0.7
+            
+            // Wait for Gemma3n to be ready (it initializes asynchronously)
+            var attempts = 0
+            while !gemmaCore.isAvailable() && attempts < 30 {
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                attempts += 1
+            }
+            
+            if gemmaCore.isAvailable() {
+                print("✅ MLX Gemma3n model ready for Memory Agent")
+            } else {
+                print("⚠️ MLX Gemma3n model not ready, will use fallback")
+            }
+            
+            loadingProgress = 1.0
             modelsLoaded = true
             errorMessage = nil
             

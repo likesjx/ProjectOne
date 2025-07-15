@@ -19,6 +19,14 @@ Knowledge graph visualization system:
 - Sequence diagrams for user interactions
 - Implementation patterns and best practices
 
+### 🧠 [Memory Agent Architecture](MEMORY_AGENT_ARCHITECTURE.md)
+AI-powered memory management system:
+- Privacy-first architecture with automatic routing
+- RAG (Retrieval-Augmented Generation) implementation
+- Agentic framework for autonomous operations
+- Apple Foundation Models integration
+- Comprehensive testing and monitoring
+
 ### 🔄 [Object Interaction Diagrams](OBJECT_INTERACTION_DIAGRAMS.md)
 Component interaction patterns:
 - Runtime behavior documentation
@@ -35,9 +43,10 @@ Component interaction patterns:
 ## Architecture Quick Reference
 
 ```
-UI Layer → Service Layer → Data Layer → AI/ML Layer
-    ↓           ↓            ↓           ↓
-SwiftUI → Gemma3nCore → SwiftData → PlaceholderEngine
+UI Layer → Memory Agent → Service Layer → Data Layer → AI/ML Layer
+    ↓           ↓             ↓            ↓           ↓
+SwiftUI → Privacy/RAG → Gemma3nCore → SwiftData → Apple Foundation Models
 ```
 
 Memory Architecture: STM → Working Memory → LTM → Episodic Memory
+Memory Agent: Privacy Analysis → RAG Retrieval → Agentic Operations

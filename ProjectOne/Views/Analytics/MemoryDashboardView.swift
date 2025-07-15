@@ -75,6 +75,10 @@ struct MemoryDashboardView: View {
                         Button("Force Refresh", systemImage: "arrow.clockwise") {
                             forceRefresh()
                         }
+                        
+                        Button("Run Memory Tests", systemImage: "testtube.2") {
+                            runMemoryAgentTests()
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -177,6 +181,17 @@ struct MemoryDashboardView: View {
         let timeRange = range.dateInterval
         _ = await analyticsService.getMemoryTrends(timeRange: timeRange)
         // Update UI based on time range data
+    }
+    
+    private func runMemoryAgentTests() {
+        Task {
+            print("🧪 Starting Memory Agent Tests from Dashboard...")
+            if #available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *) {
+                MemoryAgentTestRunner.runAllTests()
+            } else {
+                print("❌ Memory Agent tests require iOS 19.0+ / macOS 16.0+")
+            }
+        }
     }
     
 }

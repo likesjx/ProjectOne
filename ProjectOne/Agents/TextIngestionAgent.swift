@@ -10,11 +10,11 @@ import Foundation
 import SwiftData
 
 @MainActor
-class TextIngestionAgent {
+public class TextIngestionAgent {
     
     private let modelContext: ModelContext
     
-    init(modelContext: ModelContext) {
+    public init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
     
