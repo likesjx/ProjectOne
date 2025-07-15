@@ -16,8 +16,8 @@ enum ConsolidationLevel: String, CaseIterable, Codable {
 
 @available(iOS 17.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
 @Model
-final class ProcessedNote {
-    var id: UUID
+public final class ProcessedNote {
+    public var id: UUID
     var timestamp: Date
     var sourceType: NoteSourceType
     var originalText: String

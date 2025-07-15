@@ -549,12 +549,27 @@ public enum QueryIntent {
     case general
 }
 
-public enum AutonomousActionType {
+public enum AutonomousActionType: CustomStringConvertible {
     case memoryConsolidation
     case entityExtraction
     case knowledgeGraphUpdate
     case proactiveNotification
     case memoryCleanup
+    
+    public var description: String {
+        switch self {
+        case .memoryConsolidation:
+            return "memory consolidation"
+        case .entityExtraction:
+            return "entity extraction"
+        case .knowledgeGraphUpdate:
+            return "knowledge graph update"
+        case .proactiveNotification:
+            return "proactive notification"
+        case .memoryCleanup:
+            return "memory cleanup"
+        }
+    }
 }
 
 public struct AgentPerception {

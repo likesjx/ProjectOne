@@ -164,28 +164,45 @@ public class MemoryAgent: ObservableObject {
     private func initializeAIProviders() async throws {
         logger.info("Initializing AI providers")
         
-        // Try to initialize Apple Foundation Models provider first (iOS 26+)
+        // Try to initialize MLX Gemma3n provider first
+        let mlxProvider = MLXGemma3nProvider()
+        do {
+            try await mlxProvider.prepare()
+            aiProviders.append(mlxProvider)
+            primaryProvider = mlxProvider
+            logger.info("MLX Gemma3n provider initialized as primary")
+        } catch {
+            logger.warning("MLX Gemma3n unavailable: \(error.localizedDescription)")
+        }
+        
+        // Try to initialize Apple Foundation Models provider (iOS 26+)
         if #available(iOS 26.0, macOS 26.0, *) {
             let appleProvider = AppleFoundationModelsProvider()
             do {
                 try await appleProvider.prepare()
                 aiProviders.append(appleProvider)
-                primaryProvider = appleProvider
-                logger.info("Apple Foundation Models provider initialized as primary")
+                
+                if primaryProvider == nil {
+                    primaryProvider = appleProvider
+                    logger.info("Apple Foundation Models provider initialized as primary")
+                } else {
+                    fallbackProvider = appleProvider
+                    logger.info("Apple Foundation Models provider initialized as fallback")
+                }
             } catch {
                 logger.warning("Apple Foundation Models unavailable: \(error.localizedDescription)")
             }
         }
         
-        // Initialize mock provider as fallback
+        // Initialize mock provider as final fallback
         let mockProvider = MockAppleFoundationModelsProvider()
         try await mockProvider.prepare()
         aiProviders.append(mockProvider)
         
         if primaryProvider == nil {
             primaryProvider = mockProvider
-            logger.info("Mock provider set as primary (Apple Foundation Models unavailable)")
-        } else {
+            logger.info("Mock provider set as primary (no other providers available)")
+        } else if fallbackProvider == nil {
             fallbackProvider = mockProvider
             logger.info("Mock provider set as fallback")
         }
@@ -193,6 +210,8 @@ public class MemoryAgent: ObservableObject {
         guard !aiProviders.isEmpty else {
             throw MemoryAgentError.noAIProvidersAvailable
         }
+        
+        logger.info("AI providers initialized: Primary=\(primaryProvider?.displayName ?? "none"), Fallback=\(fallbackProvider?.displayName ?? "none")")
     }
     
     private func selectAIProvider(for context: MemoryContext) throws -> AIModelProvider {
@@ -217,7 +236,7 @@ public class MemoryAgent: ObservableObject {
     
     // MARK: - Memory Context Retrieval
     
-    private func retrieveRelevantContext(for query: String) async throws -> MemoryContext {
+    public func retrieveRelevantContext(for query: String) async throws -> MemoryContext {
         guard configuration.enableRAG else {
             return MemoryContext(userQuery: query)
         }

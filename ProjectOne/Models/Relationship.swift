@@ -3,8 +3,8 @@ import SwiftData
 
 /// Represents a relationship between two entities in the knowledge graph
 @Model
-final class Relationship {
-    var id: UUID
+public final class Relationship {
+    public var id: UUID
     var timestamp: Date
     
     // Relationship structure (subject-predicate-object triple)

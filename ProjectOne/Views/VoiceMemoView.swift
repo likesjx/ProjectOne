@@ -921,6 +921,15 @@ struct NoteCreationView: View {
             Task { @MainActor in
                 let textIngestionAgent = TextIngestionAgent(modelContext: modelContext)
                 await textIngestionAgent.process(note: note)
+                
+                // Send notification to trigger Memory Agent integration
+                NotificationCenter.default.post(
+                    name: .newNoteCreated,
+                    object: nil,
+                    userInfo: ["noteId": note.id]
+                )
+                
+                print("📝 [NoteCreation] Note saved and Memory Agent notified for note: \(note.id)")
             }
             
             dismiss()

@@ -180,7 +180,7 @@ public class PrivacyAnalyzer {
         switch memory {
         case let stm as STMEntry:
             content = stm.content
-            source = stm.sourceType?.rawValue ?? "unknown"
+            source = stm.memoryType.rawValue
         case let ltm as LTMEntry:
             content = "\(ltm.content) \(ltm.summary)"
             source = "long_term_memory"

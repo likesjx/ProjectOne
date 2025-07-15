@@ -10,8 +10,8 @@ import SwiftData
 
 @available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
 @Model
-final class EpisodicMemoryEntry {
-    var id: UUID
+public final class EpisodicMemoryEntry {
+    public var id: UUID
     var eventDescription: String
     var timestamp: Date
     var location: String?

@@ -197,7 +197,7 @@ public class MemoryAgentIntegration: ObservableObject {
     }
     
     private func syncProcessedNotes() async throws {
-        let descriptor = FetchDescriptor<ProcessedNote>(
+        var descriptor = FetchDescriptor<ProcessedNote>(
             sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
         )
         descriptor.fetchLimit = 100 // Sync most recent 100 notes
@@ -353,19 +353,61 @@ public class MemoryAgentIntegration: ObservableObject {
         }
         
         do {
-            let descriptor = FetchDescriptor<ProcessedNote>(
+            // Try to find as NoteItem first (new notes)
+            let noteItemDescriptor = FetchDescriptor<NoteItem>(
                 predicate: #Predicate { $0.id == noteId }
             )
             
-            guard let note = try modelContext.fetch(descriptor).first else {
-                logger.warning("Note not found: \(noteId)")
+            if let noteItem = try modelContext.fetch(noteItemDescriptor).first {
+                await handleNoteItem(noteItem)
                 return
             }
             
-            await handleProcessedNote(note)
+            // Fallback to ProcessedNote (processed notes)
+            let processedNoteDescriptor = FetchDescriptor<ProcessedNote>(
+                predicate: #Predicate { $0.id == noteId }
+            )
+            
+            if let processedNote = try modelContext.fetch(processedNoteDescriptor).first {
+                await handleProcessedNote(processedNote)
+                return
+            }
+            
+            logger.warning("Note not found: \(noteId)")
             
         } catch {
             logger.error("Failed to handle new note: \(error.localizedDescription)")
+        }
+    }
+    
+    private func handleNoteItem(_ noteItem: NoteItem) async {
+        logger.debug("Handling note item: \(noteItem.markdownContent.prefix(50))...")
+        
+        let ingestData = MemoryIngestData(
+            type: .note,
+            content: noteItem.markdownContent,
+            timestamp: noteItem.timestamp,
+            confidence: 1.0,
+            metadata: [
+                "sourceApp": noteItem.sourceApp ?? "ProjectOne",
+                "sourceURL": noteItem.sourceURL ?? "",
+                "originalId": noteItem.id.uuidString,
+                "isProcessed": noteItem.isProcessedByMemoryAgent
+            ]
+        )
+        
+        do {
+            try await memoryAgent.ingestData(ingestData)
+            
+            // Mark as processed by Memory Agent
+            noteItem.isProcessedByMemoryAgent = true
+            noteItem.processingDate = Date()
+            
+            try modelContext.save()
+            
+            logger.debug("Successfully ingested note item")
+        } catch {
+            logger.error("Failed to ingest note item: \(error.localizedDescription)")
         }
     }
     

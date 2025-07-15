@@ -157,9 +157,13 @@ public class MemoryRetrievalEngine: ObservableObject {
         return try modelContext.fetch(descriptor)
     }
     
-    private func retrieveRelevantRelationships(queryTerms: [String], limit: Int) async throws -> [String] {
-        // For now, return empty array since Relationship model is not implemented
-        return []
+    private func retrieveRelevantRelationships(queryTerms: [String], limit: Int) async throws -> [Relationship] {
+        var descriptor = FetchDescriptor<Relationship>(
+            sortBy: [SortDescriptor(\.id)]
+        )
+        descriptor.fetchLimit = limit
+        
+        return try modelContext.fetch(descriptor)
     }
     
     private func retrieveRelevantNotes(queryTerms: [String], limit: Int) async throws -> [ProcessedNote] {
@@ -193,8 +197,7 @@ public class MemoryRetrievalEngine: ObservableObject {
         let searchTerms = queryTerms.map { $0.lowercased() }
         return #Predicate<STMEntry> { memory in
             searchTerms.contains { term in
-                memory.content.contains(term) ||
-                memory.contextTags.contains { $0.contains(term) }
+                memory.content.contains(term)
             }
         }
     }
@@ -203,10 +206,7 @@ public class MemoryRetrievalEngine: ObservableObject {
         let searchTerms = queryTerms.map { $0.lowercased() }
         return #Predicate<LTMEntry> { memory in
             searchTerms.contains { term in
-                memory.content.contains(term) ||
-                memory.summary.contains(term) ||
-                memory.relatedConcepts.contains { $0.contains(term) } ||
-                memory.retrievalCues.contains { $0.contains(term) }
+                memory.content.contains(term) || memory.summary.contains(term)
             }
         }
     }
@@ -215,10 +215,7 @@ public class MemoryRetrievalEngine: ObservableObject {
         let searchTerms = queryTerms.map { $0.lowercased() }
         return #Predicate<EpisodicMemoryEntry> { memory in
             searchTerms.contains { term in
-                memory.eventDescription.contains(term) ||
-                memory.participants.contains { $0.contains(term) } ||
-                memory.contextualCues.contains { $0.contains(term) } ||
-                (memory.location?.contains(term) ?? false)
+                memory.eventDescription.contains(term)
             }
         }
     }
@@ -227,10 +224,7 @@ public class MemoryRetrievalEngine: ObservableObject {
         let searchTerms = queryTerms.map { $0.lowercased() }
         return #Predicate<Entity> { entity in
             searchTerms.contains { term in
-                entity.name.contains(term) ||
-                (entity.entityDescription?.contains(term) ?? false) ||
-                entity.aliases.contains { $0.contains(term) } ||
-                entity.tags.contains { $0.contains(term) }
+                entity.name.contains(term)
             }
         }
     }
@@ -240,10 +234,7 @@ public class MemoryRetrievalEngine: ObservableObject {
         let searchTerms = queryTerms.map { $0.lowercased() }
         return #Predicate<ProcessedNote> { note in
             searchTerms.contains { term in
-                note.originalText.contains(term) ||
-                note.summary.contains(term) ||
-                note.topics.contains { $0.contains(term) } ||
-                note.extractedKeywords.contains { $0.contains(term) }
+                note.originalText.contains(term) || note.summary.contains(term)
             }
         }
     }
