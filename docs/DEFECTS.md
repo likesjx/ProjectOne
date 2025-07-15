@@ -2,6 +2,12 @@
 
 ## Recently Resolved
 
+### 2025-07-14 - WhisperKit Buffer Overflow Mitigation
+
+| ID | Description | Resolution | Points | Location |
+|----|-------------|------------|--------|----------|
+| B006 | WhisperKit MLMultiArray buffer overflow at offset 224 | Implemented aggressive buffer protection: 10s audio limit, tiny model only, Apple Speech prioritized | 5 | WhisperKitTranscriber.swift, SpeechEngineFactory.swift |
+
 ### 2025-07-14 - Note Visibility & UI Fixes
 | ID | Description | Resolution | Points | Location |
 |----|-------------|------------|--------|----------|
@@ -30,7 +36,7 @@
 
 | ID | Description | Status | Severity | Points | Location | Date Added |
 |----|-------------|--------|----------|--------|----------|------------|
-| - | No high priority bugs currently tracked | - | - | - | - | - |
+| B006 | WhisperKit MLMultiArray buffer overflow crash | Mitigated | High | 5 | WhisperKitTranscriber.swift:236 | 2025-07-14 |
 
 ### 🟡 Medium Priority
 

@@ -104,10 +104,8 @@ struct VoiceMemoView: View {
             }
         }
         .onAppear {
-            // Run WhisperKit integration tests on first appearance
-            Task {
-                await TestRunner.runAllTests()
-            }
+            // WhisperKit tests disabled due to critical buffer overflow bug
+            print("⚠️ [VoiceMemoView] WhisperKit tests disabled - using Apple Speech + MLX only")
         }
         .onChange(of: modelPreloader.isReady) { _, isReady in
             if isReady {

@@ -459,16 +459,26 @@ public class WhisperModel {
     }
     
     func transcribe(audio: MLXArray, language: String?, task: String) throws -> WhisperTranscriptionOutput {
-        // Note: Full MLX Whisper implementation is not yet available in Swift
-        // This is a foundational implementation that prepares for future MLX Whisper models
+        // TODO: Replace with real MLX Whisper implementation when available
+        // Current status: MLX Swift Whisper models are not yet available
+        // Alternative: Fallback to WhisperKit for real transcription
+        
+        // Check if we should attempt real transcription via WhisperKit
+        // This provides actual speech recognition instead of mock words
+        if let realTranscription = attemptWhisperKitFallback(audioArray: audio, language: language, task: task) {
+            return realTranscription
+        }
+        
+        // Fallback to mock transcription with clear indication
+        print("MLX Whisper not available, generating placeholder transcription")
         
         // Generate realistic mock transcription based on audio characteristics
         let audioLength = Double(audio.size) / 16000.0 // Assume 16kHz sample rate
         let wordCount = max(1, Int(audioLength * 2.5)) // ~2.5 words per second estimate
         
-        // Create realistic segments based on audio duration
+        // Create realistic segments based on audio duration  
         var segments: [WhisperSegment] = []
-        let words = generateMockWords(count: wordCount)
+        let words = generateContextualMockWords(count: wordCount, language: language)
         var currentTime: TimeInterval = 0.0
         let timePerWord = audioLength / Double(wordCount)
         
@@ -487,7 +497,7 @@ public class WhisperModel {
             currentTime = endTime
         }
         
-        let fullText = words.joined(separator: " ")
+        let fullText = "[MLX Mock] " + words.joined(separator: " ")
         let averageConfidence = segments.reduce(0.0) { $0 + $1.confidence } / Float(segments.count)
         
         return WhisperTranscriptionOutput(
@@ -498,21 +508,57 @@ public class WhisperModel {
         )
     }
     
-    private func generateMockWords(count: Int) -> [String] {
-        let commonWords = [
-            "hello", "world", "this", "is", "a", "test", "of", "the", "speech",
-            "recognition", "system", "it", "works", "very", "well", "and",
-            "provides", "accurate", "results", "with", "good", "confidence",
-            "the", "audio", "quality", "is", "clear", "and", "easy", "to",
-            "understand", "we", "can", "process", "various", "types", "of",
-            "speech", "patterns", "effectively"
+    private func attemptWhisperKitFallback(audioArray: MLXArray, language: String?, task: String) -> WhisperTranscriptionOutput? {
+        // Attempt to use WhisperKit for real transcription when MLX models are not available
+        // This provides actual speech recognition results instead of random words
+        
+        // Note: This would require converting MLXArray back to audio format
+        // and interfacing with WhisperKit - complex integration for fallback
+        // For now, return nil to use mock transcription with clear labeling
+        
+        print("WhisperKit fallback not implemented - would provide real transcription")
+        return nil
+    }
+    
+    private func generateContextualMockWords(count: Int, language: String?) -> [String] {
+        // Enhanced mock words that indicate this is placeholder transcription
+        let mockIndicators = [
+            "MLX", "transcription", "placeholder", "awaiting", "real", "implementation"
+        ]
+        
+        let contextualWords = [
+            "this", "is", "a", "mock", "transcription", "from", "MLX", "service",
+            "real", "speech", "recognition", "will", "be", "implemented", "when",
+            "MLX", "Whisper", "models", "become", "available", "in", "Swift"
         ]
         
         var words: [String] = []
-        for _ in 0..<count {
-            words.append(commonWords.randomElement() ?? "word")
+        
+        // Start with clear indication this is mock
+        if count > 6 {
+            words.append(contentsOf: ["Mock", "MLX", "transcription", "placeholder"])
+            let remainingCount = count - 4
+            
+            for _ in 0..<remainingCount {
+                words.append(contextualWords.randomElement() ?? "word")
+            }
+        } else {
+            // For short transcriptions, just add mock indicators
+            for _ in 0..<count {
+                if words.count < 2 {
+                    words.append(mockIndicators.randomElement() ?? "mock")
+                } else {
+                    words.append(contextualWords.randomElement() ?? "word")
+                }
+            }
         }
+        
         return words
+    }
+    
+    private func generateMockWords(count: Int) -> [String] {
+        // Legacy method - kept for compatibility
+        return generateContextualMockWords(count: count, language: nil)
     }
 }
 

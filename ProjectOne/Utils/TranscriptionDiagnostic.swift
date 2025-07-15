@@ -123,6 +123,8 @@ public class TranscriptionDiagnostic {
     private func checkMicrophonePermission() async -> CheckResult {
         var issues: [DiagnosticIssue] = []
         var recommendations: [String] = []
+        
+        #if os(iOS)
         let micPermission = AVAudioSession.sharedInstance().recordPermission
         
         switch micPermission {
@@ -158,6 +160,10 @@ public class TranscriptionDiagnostic {
                 technicalDetails: "AVAudioSession.recordPermission = unknown(\(micPermission.rawValue))"
             ))
         }
+        #else
+        // macOS doesn't use AVAudioSession for microphone permissions
+        logger.info("✅ Microphone permission assumed granted on macOS")
+        #endif
         
         return CheckResult(issues: issues, recommendations: recommendations)
     }
@@ -233,12 +239,12 @@ public class TranscriptionDiagnostic {
         // Check if the audio recording format matches transcription expectations
         let audioSettings = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 12000,
+            AVSampleRateKey: 16000,
             AVNumberOfChannelsKey: 1,
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         
-        let sampleRate = audioSettings[AVSampleRateKey] as! Int
+        let sampleRate = audioSettings[AVSampleRateKey] as? Int ?? 0
         if sampleRate < 16000 {
             issues.append(DiagnosticIssue(
                 type: .audioFormat,
