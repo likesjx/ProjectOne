@@ -14,7 +14,7 @@ enum ConsolidationLevel: String, CaseIterable, Codable {
     case stable = "stable"              // Fully integrated
 }
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 public final class ProcessedNote {
     public var id: UUID

@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 
 /// Represents a relationship between two entities in the knowledge graph
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 public final class Relationship {
     public var id: UUID

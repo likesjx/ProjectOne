@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 
 /// Primary analytics data model tracking memory system performance and metrics
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class MemoryAnalytics {
     var id: UUID

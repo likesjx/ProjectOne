@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 public final class PromptTemplate {
     public var id: UUID

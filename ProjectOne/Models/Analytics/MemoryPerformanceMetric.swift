@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 
 /// Detailed performance metrics for memory system operations
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class MemoryPerformanceMetric {
     var id: UUID

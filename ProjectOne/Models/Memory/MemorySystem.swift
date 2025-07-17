@@ -4,7 +4,7 @@ import Collections
 
 // MARK: - Memory Item Base
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 class MemoryItem {
     var id: UUID
@@ -42,7 +42,7 @@ class MemoryItem {
 
 // MARK: - Short-Term Memory
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class ShortTermMemory {
     var sessionId: UUID
@@ -165,7 +165,7 @@ final class ShortTermMemory {
 
 // MARK: - Working Memory Item
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class WorkingMemoryItem: MemoryItem {
     var content: String
@@ -214,7 +214,7 @@ enum LegacyWorkingMemoryPriority: String, CaseIterable, Codable {
 
 // MARK: - Long-Term Memory
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class LongTermMemory {
     var id: UUID
@@ -353,7 +353,7 @@ final class LongTermMemory {
 
 // MARK: - Supporting Memory Types
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class EpisodicEvent: MemoryItem {
     var summary: String
@@ -406,7 +406,7 @@ final class EpisodicEvent: MemoryItem {
     }
 }
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class SemanticConcept: MemoryItem {
     var name: String
@@ -440,7 +440,7 @@ enum SemanticType: String, CaseIterable, Codable {
     case goal = "goal"
 }
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class ProcedurePattern: MemoryItem {
     var name: String
@@ -473,7 +473,7 @@ enum ProcedureType: String, CaseIterable, Codable {
     case communication = "communication" // Communication patterns
 }
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class ConsolidatedFact: MemoryItem {
     var statement: String
@@ -505,7 +505,7 @@ final class ConsolidatedFact: MemoryItem {
 
 // MARK: - Supporting Types
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class InteractionMemory: MemoryItem {
     var type: InteractionType
@@ -530,7 +530,7 @@ enum InteractionType: String, CaseIterable, Codable {
     case agent_delegation = "agent_delegation"
 }
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
 final class TemporaryRelationship: MemoryItem {
     var subjectEntityId: String
