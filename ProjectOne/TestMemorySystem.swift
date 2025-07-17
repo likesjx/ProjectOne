@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 import os.log
 
-@available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
 @MainActor
 class TestMemorySystem {
     
@@ -229,10 +229,10 @@ class TestMemorySystem {
 /// Run comprehensive memory system tests
 @MainActor
 func runMemorySystemTests(modelContext: ModelContext) async {
-    if #available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *) {
+    if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
         let tester = TestMemorySystem(modelContext: modelContext)
         await tester.runAllTests()
     } else {
-        print("⚠️ Memory system tests require iOS 19.0+")
+        print("⚠️ Memory system tests require iOS 17.0+")
     }
 }

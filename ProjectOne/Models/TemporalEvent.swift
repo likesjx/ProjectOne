@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 
-@available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
 @Model
 final class TemporalEvent {
     var id: UUID

@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 
-@available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
 struct TestMemoryAgent {
     
     static func testAIProviderInitialization() {
@@ -99,8 +99,8 @@ struct TestMemoryAgent {
 }
 
 // Run the tests
-if #available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *) {
+if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
     TestMemoryAgent.runAllTests()
 } else {
-    print("❌ Memory Agent requires iOS 19.0+ / macOS 16.0+")
+    print("❌ Memory Agent requires iOS 17.0+ / macOS 14.0+")
 }
