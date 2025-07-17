@@ -178,6 +178,10 @@ struct SettingsView: View {
                         DebugConsoleView()
                     }
                     
+                    NavigationLink("Test MLX Inference") {
+                        MLXTestView()
+                    }
+                    
                     NavigationLink("System Status") {
                         SystemStatusView(gemmaCore: gemmaCore)
                     }

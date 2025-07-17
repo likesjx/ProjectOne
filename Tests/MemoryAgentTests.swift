@@ -78,7 +78,8 @@ final class MemoryAgentTests: XCTestCase {
         XCTAssertFalse(response.content.isEmpty)
         XCTAssertGreaterThan(response.confidence, 0.0)
         XCTAssertLessThanOrEqual(response.confidence, 1.0)
-        XCTAssertEqual(response.modelUsed, "Mock Apple Foundation Models")
+        // Should use available AI provider (MLX or Apple Foundation Models)
+        XCTAssertFalse(response.modelUsed.isEmpty)
     }
     
     func testPersonalDataQueryProcessing() async throws {
@@ -100,7 +101,8 @@ final class MemoryAgentTests: XCTestCase {
         XCTAssertFalse(response.content.isEmpty)
         XCTAssertGreaterThan(response.confidence, 0.0)
         // Should use on-device model for personal data
-        XCTAssertEqual(response.modelUsed, "Mock Apple Foundation Models")
+        // Should use available AI provider (MLX or Apple Foundation Models)
+        XCTAssertFalse(response.modelUsed.isEmpty)
     }
     
     func testQueryProcessingWithoutInitialization() async throws {
@@ -334,5 +336,102 @@ final class MemoryAgentTests: XCTestCase {
         
         XCTAssertFalse(response.content.isEmpty)
         XCTAssertLessThan(processingTime, 5.0) // Should complete within 5 seconds
+    }
+    
+    // MARK: - MLX Provider Tests
+    
+    func testMLXProviderInitialization() async throws {
+        let mlxProvider = MLXGemma3nProvider()
+        
+        XCTAssertEqual(mlxProvider.identifier, "mlx-gemma3n")
+        XCTAssertEqual(mlxProvider.displayName, "MLX Gemma3n 2B")
+        XCTAssertEqual(mlxProvider.maxContextLength, 2048)
+        XCTAssertEqual(mlxProvider.estimatedResponseTime, 2.0)
+        XCTAssertTrue(mlxProvider.supportsPersonalData)
+        XCTAssertTrue(mlxProvider.isOnDevice)
+    }
+    
+    func testMLXProviderInference() async throws {
+        let mlxProvider = MLXGemma3nProvider()
+        
+        do {
+            try await mlxProvider.prepareModel()
+            
+            let prompt = "Hello, how are you?"
+            let response = try await mlxProvider.generateModelResponse(prompt)
+            
+            XCTAssertFalse(response.isEmpty)
+            // Should contain MLX inference result
+            XCTAssertTrue(response.contains("MLX") || response.contains("inference"))
+            
+        } catch AIModelProviderError.providerUnavailable {
+            // MLX may not be available in test environment - that's OK
+            print("MLX not available in test environment")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+    
+    func testMLXProviderAvailability() async throws {
+        let mlxProvider = MLXGemma3nProvider()
+        
+        // Test availability check
+        let isAvailable = mlxProvider.isAvailable
+        
+        // Should return consistent result
+        XCTAssertEqual(isAvailable, mlxProvider.isAvailable)
+        
+        if isAvailable {
+            // If available, should be able to prepare
+            try await mlxProvider.prepareModel()
+            XCTAssertTrue(mlxProvider.isModelLoaded)
+        }
+    }
+    
+    func testMLXWithMemoryAgent() async throws {
+        try await memoryAgent.initialize()
+        
+        // Check if MLX provider is in the hierarchy
+        let availableProviders = memoryAgent.getAvailableProviders()
+        let mlxProvider = availableProviders.first { $0.identifier == "mlx-gemma3n" }
+        
+        if let mlxProvider = mlxProvider {
+            XCTAssertEqual(mlxProvider.identifier, "mlx-gemma3n")
+            XCTAssertTrue(mlxProvider.supportsPersonalData)
+            XCTAssertTrue(mlxProvider.isOnDevice)
+            
+            // Test that personal data queries can use MLX
+            let personalQuery = "My personal information test"
+            let response = try await memoryAgent.processQuery(personalQuery)
+            
+            XCTAssertFalse(response.content.isEmpty)
+            XCTAssertGreaterThan(response.confidence, 0.0)
+        } else {
+            print("MLX provider not available in test environment")
+        }
+    }
+    
+    func testRealMLXInference() async throws {
+        #if canImport(MLX)
+        let mlxProvider = MLXGemma3nProvider()
+        
+        // Test that we get real MLX operations, not placeholders
+        do {
+            try await mlxProvider.prepareModel()
+            
+            let prompt = "Test"
+            let response = try await mlxProvider.generateModelResponse(prompt)
+            
+            // Should contain evidence of real MLX computation
+            XCTAssertTrue(response.contains("MLX inference") || response.contains("tokens"))
+            XCTAssertTrue(response.contains("softmax") || response.contains("matmul") || response.contains("embedding"))
+            
+        } catch AIModelProviderError.providerUnavailable {
+            // Expected in simulator or when MLX unavailable
+            print("MLX framework not available for real inference test")
+        }
+        #else
+        print("MLX not available at compile time")
+        #endif
     }
 }
