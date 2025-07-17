@@ -8,14 +8,28 @@ struct ProjectOneApp: App {
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
+            // Analytics models
             MemoryAnalytics.self,
             ConsolidationEvent.self,
             MemoryPerformanceMetric.self,
+            
+            // Memory models
+            STMEntry.self,
+            LTMEntry.self,
+            WorkingMemoryEntry.self,
+            EpisodicMemoryEntry.self,
+            
+            // Knowledge graph models
             Entity.self,
             Relationship.self,
+            
+            // Note models
             RecordingItem.self,
             ProcessedNote.self,
-            NoteItem.self
+            NoteItem.self,
+            
+            // Prompt models
+            PromptTemplate.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -39,8 +53,14 @@ struct ProjectOneApp: App {
                     // Start background WhisperKit model preloading when app launches
                     await startBackgroundModelPreloading()
                     
-                    // Initialize Memory Agent system
-                    await initializeMemoryAgent()
+                    // Initialize Memory Agent system - temporarily disabled during prompt testing
+                    // await initializeMemoryAgent()
+                    
+                    // Run enhanced prompt system tests - temporarily disabled during prompt testing
+                    // await runEnhancedPromptTests()
+                    
+                    // Run memory system tests - temporarily disabled during prompt testing
+                    // await runMemorySystemTests(modelContext: sharedModelContainer.mainContext)
                 }
         }
         .modelContainer(sharedModelContainer)
@@ -69,5 +89,17 @@ struct ProjectOneApp: App {
         } catch {
             print("❌ [ProjectOneApp] Failed to initialize Memory Agent: \(error)")
         }
+    }
+    
+    @MainActor
+    private func runEnhancedPromptTests() async {
+        print("🧪 [ProjectOneApp] Enhanced Prompt System Tests disabled during development")
+        // Tests temporarily disabled during prompt management integration
+    }
+    
+    @MainActor
+    private func runMemorySystemTests(modelContext: ModelContext) async {
+        print("🧪 [ProjectOneApp] Memory System Tests disabled during development")
+        // Tests temporarily disabled during prompt management integration
     }
 }

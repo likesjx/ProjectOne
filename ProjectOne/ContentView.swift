@@ -23,11 +23,19 @@ struct ContentView: View {
                         .background { Color.indigo.opacity(0.15) }
                         .glassEffect(.regular)
                     
+                    PromptManagementView(modelContext: modelContext)
+                        .tabItem {
+                            Label("Prompts", systemImage: "quote.bubble.fill")
+                        }
+                        .tag(1)
+                        .background { Color.pink.opacity(0.15) }
+                        .glassEffect(.regular)
+                    
                     VoiceMemoView(modelContext: modelContext)
                         .tabItem {
                             Label("Voice Memos", systemImage: "mic.circle.fill")
                         }
-                        .tag(1)
+                        .tag(2)
                         .background { Color.blue.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -35,7 +43,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Memory", systemImage: "brain.head.profile")
                         }
-                        .tag(2)
+                        .tag(3)
                         .background { Color.purple.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -43,7 +51,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Knowledge", systemImage: "network")
                         }
-                        .tag(3)
+                        .tag(4)
                         .background { Color.green.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -51,7 +59,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Notes", systemImage: "doc.text.fill")
                         }
-                        .tag(4)
+                        .tag(5)
                         .background { Color.mint.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -59,7 +67,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Data", systemImage: "externaldrive.fill")
                         }
-                        .tag(5)
+                        .tag(6)
                         .background { Color.orange.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -67,16 +75,13 @@ struct ContentView: View {
                         .tabItem {
                             Label("Settings", systemImage: "gearshape.fill")
                         }
-                        .tag(6)
+                        .tag(7)
                         .background { Color.gray.opacity(0.15) }
                         .glassEffect(.regular)
                 }
                 .liquidGlassTabStyle()
             }
             .navigationTitle("ProjectOne")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
-            #endif
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     LiquidGlassToolbarGroup {
@@ -92,13 +97,16 @@ struct ContentView: View {
             }
             .liquidGlassToolbar()
         }
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
         .liquidGlassContainer()
         .sheet(isPresented: $showingQuickNote) {
             NoteCreationView()
         }
         .alert("Note Imported", isPresented: $urlHandler.showingImportedNote) {
             Button("View Notes") {
-                selectedTab = 4 // Switch to Notes tab (updated index)
+                selectedTab = 4 // Switch to Notes tab
             }
             Button("OK") { }
         } message: {
@@ -138,7 +146,8 @@ struct LiquidGlassBackgroundExtension: View {
         case 3: return .green
         case 4: return .mint
         case 5: return .orange
-        case 6: return .gray
+        case 6: return .pink
+        case 7: return .gray
         default: return .indigo
         }
     }

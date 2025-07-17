@@ -230,9 +230,9 @@ struct ModelDownloadView: View {
             }
         }
         .navigationTitle("Model Downloads")
-        #if os(iOS)
+#if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        #endif
+#endif
     }
 }
 

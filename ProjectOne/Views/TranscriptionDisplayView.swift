@@ -92,9 +92,6 @@ struct TranscriptionDisplayView: View {
                 .padding()
             }
             .navigationTitle("Transcription")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: {
                     #if os(iOS)
@@ -126,6 +123,9 @@ struct TranscriptionDisplayView: View {
                 }
             }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
     
     private func copyToClipboard(_ text: String) {

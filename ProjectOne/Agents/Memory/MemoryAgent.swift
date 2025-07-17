@@ -21,9 +21,7 @@ public class MemoryAgent: ObservableObject {
     private let modelContext: ModelContext
     private let retrievalEngine: MemoryRetrievalEngine
     private let knowledgeGraphService: KnowledgeGraphService
-    private var aiProviders: [AIModelProvider] = []
-    private var primaryProvider: AIModelProvider?
-    private var fallbackProvider: AIModelProvider?
+    private let aiModelProvider: MemoryAgentModelProvider
     
     // MARK: - State
     
@@ -55,12 +53,14 @@ public class MemoryAgent: ObservableObject {
     public init(
         modelContext: ModelContext,
         knowledgeGraphService: KnowledgeGraphService,
-        configuration: Configuration = .default
+        configuration: Configuration = .default,
+        aiModelProvider: MemoryAgentModelProvider? = nil
     ) {
         self.modelContext = modelContext
         self.knowledgeGraphService = knowledgeGraphService
         self.retrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
         self.configuration = configuration
+        self.aiModelProvider = aiModelProvider ?? MemoryAgentModelProvider()
         
         logger.info("Memory Agent initializing...")
     }
@@ -70,8 +70,12 @@ public class MemoryAgent: ObservableObject {
     public func initialize() async throws {
         logger.info("Starting Memory Agent initialization")
         
-        // Initialize AI providers
-        try await initializeAIProviders()
+        // Register and initialize AI providers
+        aiModelProvider.registerProvider(MLXGemma3nProvider())
+        if #available(iOS 26.0, macOS 26.0, *) {
+            aiModelProvider.registerProvider(AppleFoundationModelsProvider())
+        }
+        try await aiModelProvider.initializeProviders()
         
         // Schedule memory consolidation if enabled
         if configuration.enableMemoryConsolidation {
@@ -86,9 +90,7 @@ public class MemoryAgent: ObservableObject {
         logger.info("Shutting down Memory Agent")
         
         // Cleanup AI providers
-        for provider in aiProviders {
-            await provider.cleanup()
-        }
+        await aiModelProvider.cleanup()
         
         isInitialized = false
         logger.info("Memory Agent shutdown completed")
@@ -116,11 +118,8 @@ public class MemoryAgent: ObservableObject {
             // Step 1: Retrieve relevant memories using RAG
             let memoryContext = try await retrieveRelevantContext(for: query)
             
-            // Step 2: Select appropriate AI provider based on privacy and context
-            let provider = try selectAIProvider(for: memoryContext)
-            
-            // Step 3: Generate response using selected provider
-            let response = try await provider.generateResponse(prompt: query, context: memoryContext)
+            // Step 2: Generate response using intelligent provider selection
+            let response = try await aiModelProvider.generateResponse(prompt: query, context: memoryContext)
             
             // Step 4: Store the interaction as a short-term memory
             try await storeInteraction(query: query, response: response, context: memoryContext)
@@ -159,80 +158,7 @@ public class MemoryAgent: ObservableObject {
         try await performMemoryConsolidation()
     }
     
-    // MARK: - AI Provider Management
-    
-    private func initializeAIProviders() async throws {
-        logger.info("Initializing AI providers")
-        
-        // Try to initialize MLX Gemma3n provider first
-        let mlxProvider = MLXGemma3nProvider()
-        do {
-            try await mlxProvider.prepare()
-            aiProviders.append(mlxProvider)
-            primaryProvider = mlxProvider
-            logger.info("MLX Gemma3n provider initialized as primary")
-        } catch {
-            logger.warning("MLX Gemma3n unavailable: \(error.localizedDescription)")
-        }
-        
-        // Try to initialize Apple Foundation Models provider (iOS 26+)
-        if #available(iOS 26.0, macOS 26.0, *) {
-            let appleProvider = AppleFoundationModelsProvider()
-            do {
-                try await appleProvider.prepare()
-                aiProviders.append(appleProvider)
-                
-                if primaryProvider == nil {
-                    primaryProvider = appleProvider
-                    logger.info("Apple Foundation Models provider initialized as primary")
-                } else {
-                    fallbackProvider = appleProvider
-                    logger.info("Apple Foundation Models provider initialized as fallback")
-                }
-            } catch {
-                logger.warning("Apple Foundation Models unavailable: \(error.localizedDescription)")
-            }
-        }
-        
-        // Initialize mock provider as final fallback
-        let mockProvider = MockAppleFoundationModelsProvider()
-        try await mockProvider.prepare()
-        aiProviders.append(mockProvider)
-        
-        if primaryProvider == nil {
-            primaryProvider = mockProvider
-            logger.info("Mock provider set as primary (no other providers available)")
-        } else if fallbackProvider == nil {
-            fallbackProvider = mockProvider
-            logger.info("Mock provider set as fallback")
-        }
-        
-        guard !aiProviders.isEmpty else {
-            throw MemoryAgentError.noAIProvidersAvailable
-        }
-        
-        logger.info("AI providers initialized: Primary=\(primaryProvider?.displayName ?? "none"), Fallback=\(fallbackProvider?.displayName ?? "none")")
-    }
-    
-    private func selectAIProvider(for context: MemoryContext) throws -> AIModelProvider {
-        // If query contains personal data, use on-device provider
-        if context.containsPersonalData {
-            guard let provider = aiProviders.first(where: { $0.supportsPersonalData && $0.isOnDevice }) else {
-                throw MemoryAgentError.noPrivacyCompliantProvider
-            }
-            return provider
-        }
-        
-        // For general queries, use primary provider
-        guard let provider = primaryProvider, provider.isAvailable else {
-            guard let fallback = fallbackProvider, fallback.isAvailable else {
-                throw MemoryAgentError.noAvailableProvider
-            }
-            return fallback
-        }
-        
-        return provider
-    }
+    // AI provider management is now handled by MemoryAgentModelProvider
     
     // MARK: - Memory Context Retrieval
     
@@ -262,7 +188,13 @@ public class MemoryAgent: ObservableObject {
         )
         
         modelContext.insert(stm)
-        try modelContext.save()
+        do {
+            try modelContext.save()
+            logger.info("Successfully saved STM entry")
+        } catch {
+            logger.error("Failed to save STM entry: \(error)")
+            throw error
+        }
         
         // Extract entities and relationships
         try await extractEntitiesAndRelationships(from: content, source: stm)
@@ -276,41 +208,45 @@ public class MemoryAgent: ObservableObject {
         // Process note with AI to determine if it should be STM or LTM
         let context = MemoryContext(userQuery: "Analyze this note content: \(content)")
         
-        if let provider = primaryProvider {
-            let analysisPrompt = "Analyze this note and determine its importance and longevity. Is this a temporary thought (short-term) or important information (long-term)? Content: \(content)"
+        let analysisPrompt = "Analyze this note and determine its importance and longevity. Is this a temporary thought (short-term) or important information (long-term)? Content: \(content)"
+        
+        let analysis = try await aiModelProvider.generateResponse(prompt: analysisPrompt, context: context)
             
-            let analysis = try await provider.generateResponse(prompt: analysisPrompt, context: context)
-            
-            if analysis.content.lowercased().contains("long-term") || analysis.content.lowercased().contains("important") {
-                // Create LTM
-                let ltm = LTMEntry(
-                    content: content,
-                    category: .personal,
-                    importance: 0.8,
-                    sourceSTMEntry: nil,
-                    sourceSTMIds: [],
-                    relatedEntities: [],
-                    relatedConcepts: [],
-                    emotionalWeight: 0.0,
-                    retrievalCues: data.metadata?["tags"] as? [String] ?? [],
-                    memoryCluster: nil
-                )
-                modelContext.insert(ltm)
-            } else {
-                // Create STM
-                let stm = STMEntry(
-                    content: content,
-                    memoryType: .semantic,
-                    importance: 1.0,
-                    sourceNoteId: nil,
-                    relatedEntities: [],
-                    emotionalWeight: 0.0,
-                    contextTags: data.metadata?["tags"] as? [String] ?? []
-                )
-                modelContext.insert(stm)
-            }
-            
+        if analysis.content.lowercased().contains("long-term") || analysis.content.lowercased().contains("important") {
+            // Create LTM
+            let ltm = LTMEntry(
+                content: content,
+                category: .personal,
+                importance: 0.8,
+                sourceSTMEntry: nil,
+                sourceSTMIds: [],
+                relatedEntities: [],
+                relatedConcepts: [],
+                emotionalWeight: 0.0,
+                retrievalCues: data.metadata?["tags"] as? [String] ?? [],
+                memoryCluster: nil
+            )
+            modelContext.insert(ltm)
+        } else {
+            // Create STM
+            let stm = STMEntry(
+                content: content,
+                memoryType: .semantic,
+                importance: 1.0,
+                sourceNoteId: nil,
+                relatedEntities: [],
+                emotionalWeight: 0.0,
+                contextTags: data.metadata?["tags"] as? [String] ?? []
+            )
+            modelContext.insert(stm)
+        }
+        
+        do {
             try modelContext.save()
+            logger.info("Successfully saved memory entry (Note processing)")
+        } catch {
+            logger.error("Failed to save memory entry: \(error)")
+            throw error
         }
         
         logger.info("Note processed and stored")
@@ -363,8 +299,6 @@ public class MemoryAgent: ObservableObject {
     // MARK: - Entity and Relationship Extraction
     
     private func extractEntitiesAndRelationships(from content: String, source: Any) async throws {
-        guard let provider = primaryProvider else { return }
-        
         let extractionPrompt = """
         Extract entities and relationships from this text. Return a JSON response with:
         {
@@ -376,7 +310,7 @@ public class MemoryAgent: ObservableObject {
         """
         
         let context = MemoryContext(userQuery: extractionPrompt)
-        let response = try await provider.generateResponse(prompt: extractionPrompt, context: context)
+        let response = try await aiModelProvider.generateResponse(prompt: extractionPrompt, context: context)
         
         // Parse the JSON response and create entities/relationships
         // This would need proper JSON parsing implementation
@@ -405,8 +339,6 @@ public class MemoryAgent: ObservableObject {
         
         let oldSTMs = try modelContext.fetch(descriptor)
         
-        guard let provider = primaryProvider else { return }
-        
         for stm in oldSTMs {
             // Use AI to determine if STM should become LTM
             let consolidationPrompt = """
@@ -422,7 +354,7 @@ public class MemoryAgent: ObservableObject {
             """
             
             let context = MemoryContext(userQuery: consolidationPrompt)
-            let decision = try await provider.generateResponse(prompt: consolidationPrompt, context: context)
+            let decision = try await aiModelProvider.generateResponse(prompt: consolidationPrompt, context: context)
             
             if decision.content.contains("PROMOTE_TO_LTM") {
                 // Extract summary and create LTM
@@ -456,17 +388,96 @@ public class MemoryAgent: ObservableObject {
     // MARK: - Interaction Storage
     
     private func storeInteraction(query: String, response: AIModelResponse, context: MemoryContext) async throws {
-        let interaction = STMEntry(
-            content: "Query: \(query)\nResponse: \(response.content)",
+        // 1. Store the user query as episodic memory
+        let queryEntry = EpisodicMemoryEntry(
+            eventDescription: query,
+            location: nil,
+            participants: ["user"],
+            emotionalTone: .neutral,
+            importance: 0.7
+        )
+        modelContext.insert(queryEntry)
+        
+        // 2. Store the AI response as semantic memory with full context
+        let responseContent = response.content
+        let interactionSTM = STMEntry(
+            content: responseContent,
             memoryType: .semantic,
             importance: response.confidence,
             sourceNoteId: nil,
-            relatedEntities: [],
+            relatedEntities: [], // Will be populated by entity extraction
             emotionalWeight: 0.0,
-            contextTags: ["ai_interaction", response.modelUsed.lowercased().replacingOccurrences(of: " ", with: "_")]
+            contextTags: [
+                "ai_response",
+                "conversation", 
+                response.modelUsed.lowercased().replacingOccurrences(of: " ", with: "_"),
+                "query_response_pair"
+            ]
         )
+        modelContext.insert(interactionSTM)
         
-        modelContext.insert(interaction)
+        // 3. Store the conversation pair as episodic memory for context continuity
+        let conversationEntry = EpisodicMemoryEntry(
+            eventDescription: "Conversation: User asked '\(query.prefix(100))...' and received response about \(self.extractMainTopics(from: responseContent).joined(separator: ", "))",
+            location: nil,
+            participants: ["user", "memory_agent"],
+            emotionalTone: .neutral,
+            importance: min(response.confidence, 0.9)
+        )
+        modelContext.insert(conversationEntry)
+        
+        // 4. Save all entries
+        try modelContext.save()
+        
+        // 5. Extract entities and relationships from the response content asynchronously
+        Task {
+            do {
+                try await self.extractEntitiesAndRelationships(from: responseContent, source: interactionSTM)
+                try await self.linkConversationContext(queryId: queryEntry.id, responseId: interactionSTM.id, conversationId: conversationEntry.id)
+            } catch {
+                logger.error("Failed to extract entities from AI response: \(error.localizedDescription)")
+            }
+        }
+        
+        logger.info("Interaction stored with full context integration")
+    }
+    
+    /// Extract main topics from AI response for episodic memory description
+    private func extractMainTopics(from content: String) -> [String] {
+        // Simple keyword extraction - could be enhanced with NLP
+        let words = content.lowercased()
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { $0.count > 4 }
+            .filter { !["about", "would", "could", "should", "there", "their", "where", "while", "which"].contains($0) }
+        
+        let topWords = Set(words.prefix(3))
+        return Array(topWords)
+    }
+    
+    /// Link conversation context for better retrieval
+    private func linkConversationContext(queryId: UUID, responseId: UUID, conversationId: UUID) async throws {
+        // Create relationships between the conversation components
+        let queryToResponse = Relationship(
+            subjectEntityId: queryId,
+            predicateType: .references,
+            objectEntityId: responseId
+        )
+        modelContext.insert(queryToResponse)
+        
+        let conversationToQuery = Relationship(
+            subjectEntityId: conversationId,
+            predicateType: .contains,
+            objectEntityId: queryId
+        )
+        modelContext.insert(conversationToQuery)
+        
+        let conversationToResponse = Relationship(
+            subjectEntityId: conversationId,
+            predicateType: .contains,
+            objectEntityId: responseId
+        )
+        modelContext.insert(conversationToResponse)
+        
         try modelContext.save()
     }
 }

@@ -35,6 +35,8 @@ struct ContentView_macOS: View {
                     MarkdownNotesView(modelContext: modelContext)
                 case .data:
                     DataExportView(modelContext: modelContext)
+                case .prompts:
+                    PromptManagementView(modelContext: modelContext)
                 case .settings:
                     SettingsView(gemmaCore: Gemma3nCore.shared)
                 }
@@ -73,6 +75,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case knowledge = "Knowledge"
     case notes = "Notes"
     case data = "Data"
+    case prompts = "Prompts"
     case settings = "Settings"
     
     var id: String { rawValue }
@@ -85,6 +88,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .knowledge: return "network"
         case .notes: return "doc.text.fill"
         case .data: return "externaldrive.fill"
+        case .prompts: return "quote.bubble.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -97,6 +101,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .knowledge: return .green
         case .notes: return .mint
         case .data: return .orange
+        case .prompts: return .pink
         case .settings: return .gray
         }
     }
@@ -109,7 +114,8 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .knowledge: return "4"
         case .notes: return "5"
         case .data: return "6"
-        case .settings: return "7"
+        case .prompts: return "7"
+        case .settings: return "8"
         }
     }
 }

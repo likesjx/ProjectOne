@@ -94,9 +94,6 @@ struct VoiceMemoView: View {
             .scrollIndicators(.hidden)
         }
         .navigationTitle("Voice Memos")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
         .liquidGlassNavigation()
         .sheet(isPresented: $showingNoteCreation) {
             LiquidGlassSheet {
@@ -121,6 +118,9 @@ struct VoiceMemoView: View {
                 audioRecorder.configureSpeechEngine(updatedConfig)
             }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 }
 

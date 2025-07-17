@@ -56,9 +56,6 @@ struct EntityDetailView: View {
                 .padding()
             }
             .navigationTitle("Entity Details")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItemGroup(placement: .cancellationAction) {
                     Button("Done") {
@@ -92,6 +89,9 @@ struct EntityDetailView: View {
         .task {
             await loadRelatedData()
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
     
     // MARK: - Header Section

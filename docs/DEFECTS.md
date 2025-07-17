@@ -36,6 +36,7 @@
 
 | ID | Description | Status | Severity | Points | Location | Date Added |
 |----|-------------|--------|----------|--------|----------|------------|
+| B007 | `AudioPlayerTests` failing due to async race condition and zero-duration test file | Closed | High | 3 | Tests/AudioPlayerTests.swift | 2025-07-16 |
 | B006 | WhisperKit MLMultiArray buffer overflow crash | Mitigated | High | 5 | WhisperKitTranscriber.swift:236 | 2025-07-14 |
 
 ### 🟡 Medium Priority
@@ -117,10 +118,10 @@
 
 ## Quick Stats
 
-- **Total Open Bugs**: 1
+- **Total Open Bugs**: 2
 - **Total Technical Debt Items**: 5
-- **High Priority Items**: 1
-- **Total Story Points**: 28
+- **High Priority Items**: 2
+- **Total Story Points**: 31
 - **Recently Resolved Points**: 26 (macOS Compatibility + UI Enhancements + Note Visibility)
 
 ---

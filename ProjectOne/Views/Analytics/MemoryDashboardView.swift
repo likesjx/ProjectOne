@@ -185,12 +185,8 @@ struct MemoryDashboardView: View {
     
     private func runMemoryAgentTests() {
         Task {
-            print("🧪 Starting Memory Agent Tests from Dashboard...")
-            if #available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *) {
-                MemoryAgentTestRunner.runAllTests()
-            } else {
-                print("❌ Memory Agent tests require iOS 19.0+ / macOS 16.0+")
-            }
+            print("🧪 Memory Agent Tests disabled during development")
+            // Tests temporarily disabled during prompt management integration
         }
     }
     

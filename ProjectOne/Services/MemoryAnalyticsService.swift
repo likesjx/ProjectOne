@@ -220,34 +220,48 @@ class MemoryAnalyticsService: ObservableObject {
     
     // MARK: - Data Collection Methods
     
-    private func getMemoryCount(type: MemoryType) async throws -> Int {
-        // TODO: Implement actual memory counting based on SwiftData models
-        // Placeholder implementation until memory models are created
+    public func getMemoryCount(type: MemoryType) async throws -> Int {
         switch type {
         case .working:
-            return 0 // TODO: Replace with WorkingMemoryEntry count when model is available
+            let descriptor = FetchDescriptor<WorkingMemoryEntry>()
+            return try modelContext.fetch(descriptor).count
         case .semantic:
-            return 0 // TODO: Replace with semantic memory count when model is available
+            let descriptor = FetchDescriptor<STMEntry>(
+                predicate: #Predicate<STMEntry> { $0.memoryTypeRawValue == "semantic" }
+            )
+            return try modelContext.fetch(descriptor).count
         case .procedural:
-            return 0 // TODO: Replace with procedural memory count when model is available
+            let descriptor = FetchDescriptor<STMEntry>(
+                predicate: #Predicate<STMEntry> { $0.memoryTypeRawValue == "procedural" }
+            )
+            return try modelContext.fetch(descriptor).count
         case .episodic:
-            return 0 // TODO: Replace with EpisodicMemoryEntry count when model is available
+            let descriptor = FetchDescriptor<EpisodicMemoryEntry>()
+            return try modelContext.fetch(descriptor).count
         }
     }
     
-    private func getEntityCount() async throws -> Int {
-        // TODO: Replace with actual Entity model when available
-        return 0
+    public func getEntityCount() async throws -> Int {
+        let descriptor = FetchDescriptor<Entity>()
+        return try modelContext.fetch(descriptor).count
     }
     
-    private func getRelationshipCount() async throws -> Int {
-        // TODO: Replace with actual Relationship model when available
-        return 0
+    public func getRelationshipCount() async throws -> Int {
+        let descriptor = FetchDescriptor<Relationship>()
+        return try modelContext.fetch(descriptor).count
     }
     
-    private func getEntityTypeCounts() async throws -> [String: Int] {
-        // TODO: Replace with actual Entity model when available
-        return [:]
+    public func getEntityTypeCounts() async throws -> [String: Int] {
+        let descriptor = FetchDescriptor<Entity>()
+        let entities = try modelContext.fetch(descriptor)
+        
+        var typeCounts: [String: Int] = [:]
+        for entity in entities {
+            let typeKey = entity.type.rawValue
+            typeCounts[typeKey, default: 0] += 1
+        }
+        
+        return typeCounts
     }
     
     // MARK: - Calculation Methods

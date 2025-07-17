@@ -291,9 +291,6 @@ struct DataExportView: View {
                 }
             }
             .navigationTitle("Select Time Range")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: {
                     #if os(iOS)
@@ -308,6 +305,9 @@ struct DataExportView: View {
                 }
             }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
     
     // MARK: - Document Picker

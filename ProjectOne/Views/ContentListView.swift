@@ -90,9 +90,6 @@ struct ContentListView: View {
                 }
             }
             .navigationTitle("All Content")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
-            #endif
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     ContentToolbarActions(showingFilters: $showingFilters)
@@ -102,6 +99,9 @@ struct ContentListView: View {
                 ContentFilterSheet(selectedFilter: $selectedFilter)
             }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+#endif
     }
     
     @MainActor
@@ -549,9 +549,6 @@ struct ContentFilterSheet: View {
                 }
             }
             .navigationTitle("Filter Content")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Done") {
@@ -560,6 +557,9 @@ struct ContentFilterSheet: View {
                 }
             }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 }
 

@@ -59,9 +59,6 @@ struct RelationshipDetailView: View {
                 .padding()
             }
             .navigationTitle("Relationship Details")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItemGroup(placement: .cancellationAction) {
                     Button("Done") {
@@ -100,6 +97,9 @@ struct RelationshipDetailView: View {
         .task {
             await loadEntities()
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
     
     // MARK: - Header Section

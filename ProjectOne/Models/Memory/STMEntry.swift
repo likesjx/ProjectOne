@@ -8,13 +8,17 @@
 import Foundation
 import SwiftData
 
-@available(iOS 19.0, macOS 16.0, tvOS 19.0, watchOS 12.0, *)
 @Model
 public final class STMEntry {
     public var id: UUID
     var content: String
     var timestamp: Date
-    var memoryType: MemoryType
+    internal var memoryTypeRawValue: String = "episodic"
+    
+    var memoryType: MemoryType {
+        get { MemoryType(rawValue: memoryTypeRawValue) ?? .episodic }
+        set { memoryTypeRawValue = newValue.rawValue }
+    }
     var importance: Double
     var accessCount: Int
     var lastAccessed: Date
@@ -37,7 +41,7 @@ public final class STMEntry {
         self.id = UUID()
         self.content = content
         self.timestamp = Date()
-        self.memoryType = memoryType
+        self.memoryTypeRawValue = memoryType.rawValue
         self.importance = importance
         self.accessCount = 0
         self.lastAccessed = Date()
@@ -84,7 +88,7 @@ public final class STMEntry {
     }
 }
 
-enum MemoryType: String, Codable, CaseIterable {
+enum MemoryType: String, Codable, CaseIterable, Sendable {
     case episodic = "episodic"
     case semantic = "semantic"
     case procedural = "procedural"

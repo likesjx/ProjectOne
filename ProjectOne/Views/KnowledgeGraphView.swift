@@ -49,9 +49,6 @@ struct KnowledgeGraphView: View {
         NavigationView {
             mainContent
                 .navigationTitle("Knowledge Graph")
-#if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-#endif
                 .toolbar {
 #if os(iOS)
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -73,6 +70,9 @@ struct KnowledgeGraphView: View {
                     relationshipDetailsSheet
                 }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
     
     private var mainContent: some View {

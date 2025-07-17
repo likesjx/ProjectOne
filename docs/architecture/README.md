@@ -27,6 +27,9 @@ AI-powered memory management system:
 - Apple Foundation Models integration
 - Comprehensive testing and monitoring
 
+### 🤖 [ADR-004: Agent-Centric Architecture](ADR_004_Agent_Centric_Architecture.md)
+Decision record for refactoring to a modular, agent-based system to enhance scalability and reduce complexity.
+
 ### 🔄 [Object Interaction Diagrams](OBJECT_INTERACTION_DIAGRAMS.md)
 Component interaction patterns:
 - Runtime behavior documentation

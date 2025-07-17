@@ -166,14 +166,14 @@ struct MarkdownNotesView: View {
             }
         }
         .navigationTitle("Notes")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
         .sheet(isPresented: $showingNoteCreation) {
             LiquidGlassSheet {
                 NoteCreationView()
             }
         }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 }
 
