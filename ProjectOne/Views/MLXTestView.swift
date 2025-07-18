@@ -119,7 +119,9 @@ struct MLXTestView: View {
             }
             .padding()
             .navigationTitle("MLX Inference Test")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .onAppear {
                 checkMLXStatus()
             }
