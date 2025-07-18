@@ -5,7 +5,7 @@ import os.log
 
 /// Gemma3nCore - Integration layer for MLX Gemma3n with Memory Agent
 class Gemma3nCore: ObservableObject {
-    static let shared = Gemma3nCore()
+    public static let shared = Gemma3nCore()
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "Gemma3nCore")
     private var mlxProvider: MLXGemma3nE2BProvider?
@@ -14,12 +14,11 @@ class Gemma3nCore: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private init() {
+    public init() {
         logger.info("Initializing Gemma3nCore")
-        initializeMLXProvider()
     }
     
-    private func initializeMLXProvider() {
+    public func setup() {
         logger.debug("Setting up MLX Gemma3n provider")
         mlxProvider = MLXGemma3nE2BProvider()
         
