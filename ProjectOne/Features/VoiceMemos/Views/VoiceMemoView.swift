@@ -14,6 +14,7 @@ struct VoiceMemoView: View {
     @StateObject private var audioRecorder: AudioRecorder
     @StateObject private var audioPlayer = AudioPlayer()
     @StateObject private var modelPreloader = WhisperKitModelPreloader.shared
+    @EnvironmentObject private var gemmaCore: Gemma3nCore
     @State private var hasRequestedPermission = false
     @State private var showingNoteCreation = false
     
@@ -65,7 +66,7 @@ struct VoiceMemoView: View {
                     // Enhanced Quick Action Bar
                     LiquidGlassQuickActionBar(
                         audioRecorder: audioRecorder,
-                        gemmaCore: Gemma3nCore.shared,
+                        gemmaCore: gemmaCore,
                         hasRequestedPermission: $hasRequestedPermission,
                         showingNoteCreation: $showingNoteCreation,
                         onAudioRecorded: { audioURL in

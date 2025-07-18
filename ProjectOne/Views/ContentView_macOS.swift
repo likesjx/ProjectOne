@@ -12,6 +12,7 @@ import SwiftData
 struct ContentView_macOS: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var urlHandler: URLHandler
+    @EnvironmentObject private var gemmaCore: Gemma3nCore
     @State private var selectedSection: SidebarSection = .allContent
     @State private var showingQuickNote = false
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
@@ -38,7 +39,7 @@ struct ContentView_macOS: View {
                 case .prompts:
                     PromptManagementView(modelContext: modelContext)
                 case .settings:
-                    SettingsView(gemmaCore: Gemma3nCore.shared)
+                    SettingsView(gemmaCore: gemmaCore)
                 }
             }
             .frame(minWidth: 600, minHeight: 400)

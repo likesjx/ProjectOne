@@ -5,6 +5,7 @@ import SwiftData
 struct ProjectOneApp: App {
     @State private var urlHandler = URLHandler()
     @State private var memoryAgentService: MemoryAgentService?
+    @StateObject private var gemmaCore = Gemma3nCore()
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -47,6 +48,7 @@ struct ProjectOneApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(urlHandler)
+                .environmentObject(gemmaCore)
                 .onOpenURL { url in
                     Task {
                         await urlHandler.handleURL(url, with: sharedModelContainer.mainContext)
@@ -55,6 +57,9 @@ struct ProjectOneApp: App {
                 .task {
                     // Start background WhisperKit model preloading when app launches
                     await startBackgroundModelPreloading()
+                    
+                    // Initialize Gemma3nCore after app is stable
+                    await initializeGemmaCore()
                     
                     // Initialize Memory Agent system - temporarily disabled during prompt testing
                     // await initializeMemoryAgent()
@@ -78,6 +83,13 @@ struct ProjectOneApp: App {
     private func startBackgroundModelPreloading() async {
         print("🚀 [ProjectOneApp] Starting background WhisperKit model preloading...")
         WhisperKitModelPreloader.shared.startPreloading()
+    }
+    
+    @MainActor
+    private func initializeGemmaCore() async {
+        print("🧠 [ProjectOneApp] Initializing Gemma3nCore...")
+        gemmaCore.setup()
+        print("✅ [ProjectOneApp] Gemma3nCore setup initiated")
     }
     
     @MainActor

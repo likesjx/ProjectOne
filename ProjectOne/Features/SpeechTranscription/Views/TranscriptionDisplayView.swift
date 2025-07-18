@@ -145,7 +145,7 @@ struct TranscriptionDisplayView: View {
     
     TranscriptionDisplayView(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),
-        gemmaCore: Gemma3nCore.shared,
+        gemmaCore: Gemma3nCore(),
         isPresented: $isPresented
     )
 }

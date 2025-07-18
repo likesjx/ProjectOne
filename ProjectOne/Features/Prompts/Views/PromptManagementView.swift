@@ -423,7 +423,7 @@ struct PromptDetailView: View {
     @State private var testResult = ""
     @State private var mlxTestResult = ""
     @State private var isTesting = false
-    @StateObject private var gemmaCore = Gemma3nCore.shared
+    @EnvironmentObject private var gemmaCore: Gemma3nCore
     
     var body: some View {
         ScrollView {

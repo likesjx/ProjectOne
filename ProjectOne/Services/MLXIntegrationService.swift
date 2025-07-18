@@ -21,14 +21,16 @@ class MLXIntegrationService: ObservableObject {
     
     private var modelCache: [String: Any] = [:]
     private let modelContext: ModelContext
+    private let gemmaCore: Gemma3nCore?
     
     // Model configuration
     private let modelConfig = MLXModelConfiguration()
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, gemmaCore: Gemma3nCore? = nil) {
         self.modelContext = modelContext
+        self.gemmaCore = gemmaCore
         checkMLXAvailability()
     }
     
@@ -64,7 +66,12 @@ class MLXIntegrationService: ObservableObject {
             
             // The actual Gemma3n model loading is handled by MLXGemma3nE2BProvider
             // This service now coordinates with the Gemma3nCore
-            let gemmaCore = Gemma3nCore.shared
+            guard let gemmaCore = self.gemmaCore else {
+                print("⚠️ No Gemma3nCore instance provided, skipping MLX model coordination")
+                loadingProgress = 1.0
+                modelsLoaded = true
+                return
+            }
             
             loadingProgress = 0.7
             

@@ -4,6 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var urlHandler: URLHandler
+    @EnvironmentObject private var gemmaCore: Gemma3nCore
     @State private var selectedTab = 0
     @State private var showingQuickNote = false
     
@@ -11,6 +12,7 @@ struct ContentView: View {
         #if os(macOS)
         ContentView_macOS()
             .environmentObject(urlHandler)
+            .environmentObject(gemmaCore)
         #else
         NavigationStack {
             LiquidGlassTabContainer(selectedTab: $selectedTab) {
@@ -71,7 +73,7 @@ struct ContentView: View {
                         .background { Color.orange.opacity(0.15) }
                         .glassEffect(.regular)
                     
-                    SettingsView(gemmaCore: Gemma3nCore.shared)
+                    SettingsView(gemmaCore: gemmaCore)
                         .tabItem {
                             Label("Settings", systemImage: "gearshape.fill")
                         }

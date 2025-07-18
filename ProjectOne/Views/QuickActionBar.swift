@@ -201,7 +201,7 @@ extension Notification.Name {
     @Previewable @State var modelContainer = try! ModelContainer(for: Entity.self, Relationship.self)
     QuickActionBar(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),
-        gemmaCore: Gemma3nCore.shared,
+        gemmaCore: Gemma3nCore(),
         hasRequestedPermission: .constant(true),
         showingNoteCreation: .constant(false),
         onAudioRecorded: { _ in }

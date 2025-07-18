@@ -597,7 +597,7 @@ struct FeatureRow: View {
     let container = try! ModelContainer(for: UserSpeechProfile.self, configurations: config)
     
     SettingsView(
-        gemmaCore: Gemma3nCore.shared
+        gemmaCore: Gemma3nCore()
     )
     .modelContainer(container)
 }
