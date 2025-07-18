@@ -41,7 +41,7 @@ struct MLXTestView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Material.regular)
                 .cornerRadius(8)
                 
                 Divider()
@@ -84,7 +84,7 @@ struct MLXTestView: View {
                                 .font(.system(.body, design: .monospaced))
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(.systemGray6))
+                                .background(Material.regular)
                                 .cornerRadius(8)
                         }
                         .frame(maxHeight: 300)
@@ -107,14 +107,14 @@ struct MLXTestView: View {
                             .font(.caption)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Color(.systemGray5))
+                            .background(Material.thin)
                             .cornerRadius(6)
                             .lineLimit(2)
                         }
                     }
                 }
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Material.regular)
                 .cornerRadius(8)
             }
             .padding()
