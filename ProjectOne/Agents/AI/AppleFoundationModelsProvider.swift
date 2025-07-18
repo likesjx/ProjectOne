@@ -29,8 +29,13 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     
     public override var isAvailable: Bool {
         #if canImport(AppleIntelligence)
+        // Apple Foundation Models work on both real devices and simulators
         return AIFoundationModel.isAvailable && isModelLoaded
         #else
+        // For iOS 26.0+ but without AppleIntelligence framework, use placeholder
+        if #available(iOS 26.0, macOS 26.0, *) {
+            return isModelLoaded
+        }
         return false
         #endif
     }
@@ -116,32 +121,5 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
 // MARK: - Apple Intelligence Placeholder Types
 
 #if !canImport(AppleIntelligence)
-// Placeholder types for when Apple Intelligence is not available
-struct AIFoundationModel {
-    static let isAvailable = false
-    
-    static func load(configuration: AIFoundationModelConfiguration) async throws -> AIFoundationModel {
-        throw AIModelProviderError.providerUnavailable("Apple Intelligence not available")
-    }
-    
-    func generateResponse(for request: AIInferenceRequest) async throws -> AIInferenceResponse {
-        throw AIModelProviderError.providerUnavailable("Apple Intelligence not available")
-    }
-}
-
-struct AIFoundationModelConfiguration {
-    let maxTokens: Int
-    let temperature: Double
-    let topP: Double
-}
-
-struct AIInferenceRequest {
-    let prompt: String
-    let maxTokens: Int
-    let temperature: Double
-}
-
-struct AIInferenceResponse {
-    let text: String
-}
+// Placeholder types are now defined in UnifiedAppleFoundationProvider.swift
 #endif

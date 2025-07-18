@@ -65,7 +65,7 @@ public class MemoryAgentModelProvider {
         providers.append(provider)
         providerHealth[provider.identifier] = ProviderHealthStatus(
             isHealthy: true,
-            lastSuccessfulResponse: nil,
+            lastSuccessfulOperation: nil,
             consecutiveFailures: 0,
             averageResponseTime: provider.estimatedResponseTime,
             errorRate: 0.0
@@ -90,7 +90,7 @@ public class MemoryAgentModelProvider {
                 // Mark provider as unhealthy
                 providerHealth[provider.identifier] = ProviderHealthStatus(
                     isHealthy: false,
-                    lastSuccessfulResponse: nil,
+                    lastSuccessfulOperation: nil,
                     consecutiveFailures: 1,
                     averageResponseTime: provider.estimatedResponseTime,
                     errorRate: 1.0
@@ -241,7 +241,7 @@ public class MemoryAgentModelProvider {
         
         var health = providerHealth[providerId] ?? ProviderHealthStatus(
             isHealthy: true,
-            lastSuccessfulResponse: nil,
+            lastSuccessfulOperation: nil,
             consecutiveFailures: 0,
             averageResponseTime: 2.0,
             errorRate: 0.0
@@ -250,7 +250,7 @@ public class MemoryAgentModelProvider {
         if success {
             health = ProviderHealthStatus(
                 isHealthy: true,
-                lastSuccessfulResponse: Date(),
+                lastSuccessfulOperation: Date(),
                 consecutiveFailures: 0,
                 averageResponseTime: responseTime ?? health.averageResponseTime,
                 errorRate: max(0.0, health.errorRate - 0.1) // Improve error rate
@@ -258,7 +258,7 @@ public class MemoryAgentModelProvider {
         } else {
             health = ProviderHealthStatus(
                 isHealthy: health.consecutiveFailures < 2, // Becomes unhealthy after 3 failures
-                lastSuccessfulResponse: health.lastSuccessfulResponse,
+                lastSuccessfulOperation: health.lastSuccessfulOperation,
                 consecutiveFailures: health.consecutiveFailures + 1,
                 averageResponseTime: health.averageResponseTime,
                 errorRate: min(1.0, health.errorRate + 0.2) // Degrade error rate

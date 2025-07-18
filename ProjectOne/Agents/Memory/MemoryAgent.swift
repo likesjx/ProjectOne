@@ -71,7 +71,7 @@ public class MemoryAgent: ObservableObject {
         logger.info("Starting Memory Agent initialization")
         
         // Register and initialize AI providers
-        aiModelProvider.registerProvider(MLXGemma3nE2BProvider())
+        // aiModelProvider.registerProvider(MLXGemma3nE2BProvider()) // Disabled during unified provider migration
         if #available(iOS 26.0, macOS 26.0, *) {
             aiModelProvider.registerProvider(AppleFoundationModelsProvider())
         }
@@ -310,7 +310,7 @@ public class MemoryAgent: ObservableObject {
         """
         
         let context = MemoryContext(userQuery: extractionPrompt)
-        let response = try await aiModelProvider.generateResponse(prompt: extractionPrompt, context: context)
+        _ = try await aiModelProvider.generateResponse(prompt: extractionPrompt, context: context)
         
         // Parse the JSON response and create entities/relationships
         // This would need proper JSON parsing implementation

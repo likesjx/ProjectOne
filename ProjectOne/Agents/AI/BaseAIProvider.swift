@@ -416,15 +416,4 @@ public class BaseAIProvider: AIModelProvider {
 
 // MARK: - Provider Health Status
 
-/// Health status for monitoring provider performance
-public struct ProviderHealthStatus {
-    let isHealthy: Bool
-    let lastSuccessfulResponse: Date?
-    let consecutiveFailures: Int
-    let averageResponseTime: TimeInterval
-    let errorRate: Double
-    
-    public var shouldFallback: Bool {
-        return !isHealthy || consecutiveFailures > 3 || errorRate > 0.5
-    }
-}
+// ProviderHealthStatus is now defined in UnifiedModelProvider.swift
