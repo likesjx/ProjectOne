@@ -42,8 +42,7 @@ struct MLXTestView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding()
-                .background(Material.regular)
-                .cornerRadius(8)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 
                 Divider()
                 
@@ -67,9 +66,8 @@ struct MLXTestView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(testPrompt.isEmpty ? Color.gray : Color.blue)
+                        .glassEffect(.regular.tint((testPrompt.isEmpty ? Color.gray : Color.blue).opacity(0.3)).interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .foregroundColor(.white)
-                        .cornerRadius(8)
                     }
                     .disabled(testPrompt.isEmpty || isLoading)
                 }
@@ -85,8 +83,7 @@ struct MLXTestView: View {
                                 .font(.system(.body, design: .monospaced))
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Material.regular)
-                                .cornerRadius(8)
+                                .glassEffect(.regular.tint(Color.gray.opacity(0.1)), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .frame(maxHeight: 300)
                     }
@@ -108,15 +105,13 @@ struct MLXTestView: View {
                             .font(.caption)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Material.thin)
-                            .cornerRadius(6)
+                            .glassEffect(.regular.tint(Color.blue.opacity(0.1)), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .lineLimit(2)
                         }
                     }
                 }
                 .padding()
-                .background(Material.regular)
-                .cornerRadius(8)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .padding()
             .navigationTitle("MLX Inference Test")

@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+@available(iOS 26.0, iPadOS 26.0, macOS 26.0, tvOS 26.0, watchOS 11.0, *)
 struct PromptEditView: View {
     var template: PromptTemplate
     @ObservedObject var promptManager: PromptManager
