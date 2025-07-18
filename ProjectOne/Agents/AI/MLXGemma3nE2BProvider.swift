@@ -22,6 +22,8 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
     public override var identifier: String { "mlx-gemma-3n-e2b-llm" }
     public override var displayName: String { "MLX Gemma 3n E2B (LLM)" }
     public override var isAvailable: Bool { isModelReady }
+    public override var maxContextLength: Int { 4096 }
+    public override var estimatedResponseTime: TimeInterval { 2.0 }
 
     public init() {
         super.init(subsystem: "com.jaredlikes.ProjectOne", category: "MLXGemma3nE2BProvider")
