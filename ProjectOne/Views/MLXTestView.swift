@@ -134,7 +134,7 @@ struct MLXTestView: View {
     ]
     
     private func checkMLXStatus() {
-        let mlxProvider = MLXGemma3nProvider()
+        let mlxProvider = MLXGemma3nE2BProvider()
         mlxAvailable = mlxProvider.isAvailable
         providerInfo = """
         Identifier: \(mlxProvider.identifier)
@@ -153,7 +153,7 @@ struct MLXTestView: View {
         
         Task {
             do {
-                let mlxProvider = MLXGemma3nProvider()
+                let mlxProvider = MLXGemma3nE2BProvider()
                 
                 // Try to prepare the model
                 try await mlxProvider.prepareModel()

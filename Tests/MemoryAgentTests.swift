@@ -341,10 +341,10 @@ final class MemoryAgentTests: XCTestCase {
     // MARK: - MLX Provider Tests
     
     func testMLXProviderInitialization() async throws {
-        let mlxProvider = MLXGemma3nProvider()
+        let mlxProvider = MLXGemma3nE2BProvider()
         
-        XCTAssertEqual(mlxProvider.identifier, "mlx-gemma3n")
-        XCTAssertEqual(mlxProvider.displayName, "MLX Gemma3n 2B")
+        XCTAssertEqual(mlxProvider.identifier, "mlx-gemma-3n-e2b-llm")
+        XCTAssertEqual(mlxProvider.displayName, "MLX Gemma 3n E2B (LLM)")
         XCTAssertEqual(mlxProvider.maxContextLength, 2048)
         XCTAssertEqual(mlxProvider.estimatedResponseTime, 2.0)
         XCTAssertTrue(mlxProvider.supportsPersonalData)
@@ -352,7 +352,7 @@ final class MemoryAgentTests: XCTestCase {
     }
     
     func testMLXProviderInference() async throws {
-        let mlxProvider = MLXGemma3nProvider()
+        let mlxProvider = MLXGemma3nE2BProvider()
         
         do {
             try await mlxProvider.prepareModel()
@@ -373,7 +373,7 @@ final class MemoryAgentTests: XCTestCase {
     }
     
     func testMLXProviderAvailability() async throws {
-        let mlxProvider = MLXGemma3nProvider()
+        let mlxProvider = MLXGemma3nE2BProvider()
         
         // Test availability check
         let isAvailable = mlxProvider.isAvailable
@@ -393,10 +393,10 @@ final class MemoryAgentTests: XCTestCase {
         
         // Check if MLX provider is in the hierarchy
         let availableProviders = memoryAgent.getAvailableProviders()
-        let mlxProvider = availableProviders.first { $0.identifier == "mlx-gemma3n" }
+        let mlxProvider = availableProviders.first { $0.identifier == "mlx-gemma-3n-e2b-llm" }
         
         if let mlxProvider = mlxProvider {
-            XCTAssertEqual(mlxProvider.identifier, "mlx-gemma3n")
+            XCTAssertEqual(mlxProvider.identifier, "mlx-gemma-3n-e2b-llm")
             XCTAssertTrue(mlxProvider.supportsPersonalData)
             XCTAssertTrue(mlxProvider.isOnDevice)
             
@@ -413,7 +413,7 @@ final class MemoryAgentTests: XCTestCase {
     
     func testRealMLXInference() async throws {
         #if canImport(MLX)
-        let mlxProvider = MLXGemma3nProvider()
+        let mlxProvider = MLXGemma3nE2BProvider()
         
         // Test that we get real MLX operations, not placeholders
         do {

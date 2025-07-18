@@ -23,7 +23,7 @@ This guide documents the complete implementation of the MLX-based Gemma3n AI pro
 
 ```
 Memory Agent System
-├── MLXGemma3nProvider.swift     # Primary AI provider implementation
+├── MLXGemma3nE2BProvider.swift     # Primary AI provider implementation
 ├── Gemma3nCore.swift           # Integration layer and lifecycle management  
 ├── MemoryAgent.swift           # Updated provider initialization logic
 └── MLXIntegrationService.swift # MLX framework coordination
@@ -31,9 +31,9 @@ Memory Agent System
 
 ## 📋 Implementation Details
 
-### 1. MLXGemma3nProvider.swift
+### 1. MLXGemma3nE2BProvider.swift
 
-**Location**: `/ProjectOne/Agents/AI/MLXGemma3nProvider.swift`
+**Location**: `/ProjectOne/Agents/AI/MLXGemma3nE2BProvider.swift`
 
 **Key Features**:
 - Implements `AIModelProvider` protocol
@@ -229,8 +229,8 @@ Documents/models/gemma-2b-it/
 ## 📊 Performance Characteristics
 
 ### MLX Provider Specs
-- **Identifier**: `mlx-gemma3n`
-- **Display Name**: `MLX Gemma3n 2B`
+- **Identifier**: `mlx-gemma-3n-e2b-llm`
+- **Display Name**: `MLX Gemma 3n E2B (LLM)`
 - **Max Context Length**: 2,048 tokens
 - **Estimated Response Time**: 2.0 seconds
 - **On-Device**: ✅ Yes

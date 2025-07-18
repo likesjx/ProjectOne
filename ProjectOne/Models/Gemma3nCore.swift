@@ -8,7 +8,7 @@ class Gemma3nCore: ObservableObject {
     static let shared = Gemma3nCore()
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "Gemma3nCore")
-    private var mlxProvider: MLXGemma3nProvider?
+    private var mlxProvider: MLXGemma3nE2BProvider?
     
     @Published var isReady = false
     @Published var isLoading = false
@@ -21,7 +21,7 @@ class Gemma3nCore: ObservableObject {
     
     private func initializeMLXProvider() {
         logger.debug("Setting up MLX Gemma3n provider")
-        mlxProvider = MLXGemma3nProvider()
+        mlxProvider = MLXGemma3nE2BProvider()
         
         Task {
             await prepareProvider()
@@ -73,7 +73,7 @@ class Gemma3nCore: ObservableObject {
     }
     
     /// Get the MLX provider for direct access
-    func getMLXProvider() -> MLXGemma3nProvider? {
+    func getMLXProvider() -> MLXGemma3nE2BProvider? {
         return mlxProvider
     }
     
