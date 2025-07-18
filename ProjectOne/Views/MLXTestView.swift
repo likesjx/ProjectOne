@@ -8,6 +8,8 @@
 import SwiftUI
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 struct MLXTestView: View {
@@ -39,7 +41,7 @@ struct MLXTestView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding()
-                .background(Color(UIColor.systemGray6))
+                .background(Color(.systemGray6))
                 .cornerRadius(8)
                 
                 Divider()
@@ -82,7 +84,7 @@ struct MLXTestView: View {
                                 .font(.system(.body, design: .monospaced))
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(UIColor.systemGray6))
+                                .background(Color(.systemGray6))
                                 .cornerRadius(8)
                         }
                         .frame(maxHeight: 300)
@@ -105,14 +107,14 @@ struct MLXTestView: View {
                             .font(.caption)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Color(UIColor.systemGray5))
+                            .background(Color(.systemGray5))
                             .cornerRadius(6)
                             .lineLimit(2)
                         }
                     }
                 }
                 .padding()
-                .background(Color(UIColor.systemGray6))
+                .background(Color(.systemGray6))
                 .cornerRadius(8)
             }
             .padding()
