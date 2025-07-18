@@ -29,7 +29,10 @@ struct ProjectOneApp: App {
             NoteItem.self,
             
             // Prompt models
-            PromptTemplate.self
+            PromptTemplate.self,
+            
+            // User profile models
+            UserSpeechProfile.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
