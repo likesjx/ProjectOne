@@ -6,12 +6,13 @@
 //
 
 import SwiftUI
-#if os(iOS)
+#if os(iOS) || os(iPadOS)
 import UIKit
 #elseif os(macOS)
 import AppKit
 #endif
 
+@available(iOS 26.0, iPadOS 26.0, macOS 26.0, *)
 struct MLXTestView: View {
     @State private var testPrompt = "Hello, how are you?"
     @State private var testResult = ""
@@ -119,7 +120,7 @@ struct MLXTestView: View {
             }
             .padding()
             .navigationTitle("MLX Inference Test")
-            #if os(iOS)
+            #if os(iOS) || os(iPadOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .onAppear {
@@ -181,5 +182,7 @@ struct MLXTestView: View {
 }
 
 #Preview {
-    MLXTestView()
+    if #available(iOS 26.0, iPadOS 26.0, macOS 26.0, *) {
+        MLXTestView()
+    }
 }
