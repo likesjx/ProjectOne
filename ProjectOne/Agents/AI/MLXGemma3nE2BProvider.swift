@@ -48,7 +48,7 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
             }
             
             // Try to load the model with enhanced error handling
-            let modelContainer = try await loadModelContainerWithRetry(id: modelId)
+            let modelContext = try await loadModelContainerWithRetry(id: modelId)
             
             await MainActor.run {
                 modelLoadingStatus = .loading
@@ -56,7 +56,7 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
                 loadingProgress = 0.8
             }
             
-            self.chatSession = ChatSession(modelContainer)
+            self.chatSession = ChatSession(modelContext)
             
             await MainActor.run {
                 modelLoadingStatus = .ready
@@ -125,8 +125,8 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
     // MARK: - Enhanced Model Loading
     
     #if canImport(MLXLMCommon)
-    /// Load model container with retry logic and better error handling
-    private func loadModelContainerWithRetry(id: String, maxRetries: Int = 3) async throws -> ModelContainer {
+    /// Load model context with retry logic and better error handling
+    private func loadModelContainerWithRetry(id: String, maxRetries: Int = 3) async throws -> ModelContext {
         var lastError: Error?
         
         for attempt in 1...maxRetries {
@@ -150,9 +150,9 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
                 }
                 
                 // Create new URLSession for each retry to avoid stale connections
-                let container = try await loadModelContainerWithFreshSession(id: id)
+                let modelContext = try await loadModelContainerWithFreshSession(id: id)
                 logger.info("Successfully loaded model on attempt \(attempt)")
-                return container
+                return modelContext
                 
             } catch {
                 lastError = error
@@ -175,7 +175,7 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
     }
     
     /// Load model with a fresh URLSession to avoid TCP connection reuse issues
-    private func loadModelContainerWithFreshSession(id: String) async throws -> ModelContainer {
+    private func loadModelContainerWithFreshSession(id: String) async throws -> ModelContext {
         // Force a fresh network session by clearing any cached connections
         URLCache.shared.removeAllCachedResponses()
         
@@ -186,8 +186,12 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
         config.timeoutIntervalForRequest = 60.0
         config.timeoutIntervalForResource = 300.0
         
-        // Use the MLX framework's loadModelContainer but with improved error context
-        return try await loadModelContainer(id: id)
+        // Use the ACTUAL working MLX Swift API (same as WorkingMLXProvider)
+        return try await MLXLMCommon.loadModel(id: id) { progress in
+            Task { @MainActor in
+                self.loadingProgress = 0.2 + (progress.fractionCompleted * 0.6)
+            }
+        }
     }
     
     /// Implement network recovery delay with exponential backoff

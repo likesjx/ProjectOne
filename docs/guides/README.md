@@ -1,6 +1,6 @@
 # Implementation Guides
 
-This directory contains practical implementation guides, troubleshooting documentation, and session logs for ProjectOne development.
+This directory contains practical implementation guides, troubleshooting documentation, and production AI provider integration logs for ProjectOne development.
 
 ## Documents
 
@@ -25,12 +25,26 @@ Production issue analysis and resolutions:
 - Error handling improvements
 - Monitoring best practices
 
+### 🎯 [MLX Swift Correct API Usage](MLX_SWIFT_CORRECT_API_USAGE.md) ⭐ **Production Ready**
+Complete guide to production MLX Swift 0.25.6 implementation:
+- Real MLX Swift APIs with MLXLMCommon integration
+- Community model loading and inference patterns
+- WorkingMLXProvider implementation details
+- Device compatibility and performance optimization
+
+### ✅ [MLX Gemma3n Implementation Complete](MLX_GEMMA3N_IMPLEMENTATION_COMPLETE.md)
+End-to-end MLX Swift integration documentation:
+- Production-ready MLX provider implementation
+- Real model loading with community hub integration
+- Comprehensive testing and validation results
+- Performance benchmarking and optimization
+
 ### 🤖 [MLX Swift Integration Session](MLX_SWIFT_INTEGRATION_SESSION.md)
-Session log from MLX Swift integration work:
-- Integration process documentation
-- Challenges and solutions encountered
-- Configuration steps and setup
-- Testing and validation results
+Historical session log from early MLX Swift integration work:
+- Initial integration process documentation
+- Challenges and solutions encountered during development
+- Configuration steps and setup procedures
+- Early testing and validation results
 
 ### 🎵 [Audio Recording Implementation](AUDIO_RECORDING_IMPLEMENTATION.md)
 Complete implementation guide for the audio recording system:
@@ -58,9 +72,9 @@ Comprehensive guide to the iOS Simulator fallback strategy implementation:
 ## Quick Troubleshooting
 
 ### Common Issues
+- **MLX Swift Setup**: See [MLX Swift Correct API Usage](MLX_SWIFT_CORRECT_API_USAGE.md)
+- **AI Provider Integration**: Check [MLX Gemma3n Implementation Complete](MLX_GEMMA3N_IMPLEMENTATION_COMPLETE.md)
 - **SwiftData Crashes**: See [SwiftData Crash Fixes](SWIFTDATA_CRASH_FIXES.md)
-- **Memory Issues**: Check [Sentry Issues Fixes](SENTRY_ISSUES_FIXES.md)
-- **MLX Integration**: Refer to [MLX Integration Session](MLX_SWIFT_INTEGRATION_SESSION.md)
 - **Audio Recording**: Check [Audio Recording Implementation](AUDIO_RECORDING_IMPLEMENTATION.md)
 - **iOS Simulator Crashes**: See [iOS Simulator Fallback Strategy](IOS_SIMULATOR_FALLBACK_STRATEGY.md)
 

@@ -1,6 +1,6 @@
 # ProjectOne
 
-A sophisticated SwiftUI iOS/macOS personal AI knowledge system that combines audio recording, real-time transcription, knowledge graph construction, and intelligent memory management.
+A sophisticated SwiftUI iOS/macOS personal AI knowledge system featuring production-ready AI providers, comprehensive audio pipeline, and intelligent memory management with iOS 26.0+ Foundation Models integration.
 
 ## Quick Start
 
@@ -8,7 +8,8 @@ A sophisticated SwiftUI iOS/macOS personal AI knowledge system that combines aud
 - Xcode 26+ (Beta)
 - iOS 26+ (Beta) / macOS Tahoe+
 - Swift 6.0+
-- Liquid Glass Design Language support
+- Apple Silicon hardware (for MLX Swift support)
+- Apple Intelligence enabled (for Foundation Models)
 
 ### Setup
 ```bash
@@ -19,29 +20,29 @@ open ProjectOne.xcodeproj
 
 ### Build & Run
 ```bash
-# iOS Simulator
+# iOS Simulator (iOS 26.0+ required for Foundation Models)
 ⌘+R in Xcode (select iOS target)
 
-# macOS
+# macOS (Apple Silicon recommended for MLX Swift)
 ⌘+R in Xcode (select macOS target)
 ```
 
 ## System Overview
 
-ProjectOne is built around the **Gemma3nCore** AI reasoning engine and uses a Titans-inspired memory architecture for intelligent knowledge management.
+ProjectOne features a **dual AI provider architecture** with MLX Swift 0.25.6 for on-device inference and iOS 26.0+ Foundation Models for system-integrated AI capabilities, combined with comprehensive memory management and audio processing.
 
 ### Core Features
+- 🤖 **Production AI Providers** - MLX Swift 0.25.6 (real models) + iOS 26.0+ Foundation Models
 - 🎙️ **Complete Audio Pipeline** - Recording, playback, and Apple Speech Recognition transcription
 - 🎵 **Audio Playback System** - Cross-platform audio player with progress tracking and seek controls
 - 🗣️ **Apple Speech Integration** - Real Apple Speech Recognition with proper permission handling
 - 🧠 **Memory Agent System** - AI-powered memory management with privacy-first architecture
-- 🤖 **MLX Gemma3n Integration** - On-device MLX-based AI provider with local inference capability
-- 🔐 **Privacy-First AI** - Automatic routing between MLX on-device and Apple Foundation Models
+- 🔐 **Dual Provider Architecture** - Automatic routing between on-device MLX and system Foundation Models
 - 🕸️ **Knowledge Graph** - Interactive visualization of entities and relationships  
 - 🧮 **RAG (Retrieval-Augmented Generation)** - Advanced memory retrieval with semantic ranking
 - 🤖 **Agentic Framework** - Autonomous memory consolidation and knowledge graph updates
 - 📊 **Memory Analytics** - Dashboard for memory usage and system health monitoring
-- 🔧 **Transcription Framework** - Dual-engine architecture (Apple Speech + Placeholder simulation)
+- 🔧 **Comprehensive Testing** - UnifiedAITestView for concurrent provider testing
 - 💾 **Data Export/Import** - Export/import data in JSON, CSV, and Markdown formats
 - 📱 **Enhanced Recording UI** - Liquid Glass recording rows with playback controls
 - ✨ **Liquid Glass UI** - iOS 26 Glass design language throughout the interface
@@ -49,9 +50,9 @@ ProjectOne is built around the **Gemma3nCore** AI reasoning engine and uses a Ti
 ### Architecture Layers
 - **UI Layer**: SwiftUI with Liquid Glass design language, NavigationStack, TabView
 - **Memory Agent Layer**: Privacy analyzer, RAG retrieval engine, agentic orchestrator
-- **Service Layer**: Gemma3nCore, Apple Foundation Models, complete audio pipeline
+- **Service Layer**: EnhancedGemma3nCore, dual AI provider routing, complete audio pipeline
 - **Data Layer**: SwiftData persistence with comprehensive memory models
-- **AI/ML Layer**: MLX Gemma3n (primary), Apple Foundation Models, WhisperKit transcription
+- **AI/ML Layer**: MLX Swift 0.25.6 (on-device), iOS 26.0+ Foundation Models (system), Apple Speech
 - **Design Layer**: iOS 26 Glass effects, interactive materials, adaptive UI
 
 ## Documentation
@@ -112,19 +113,21 @@ ProjectOne/
 
 ## Current Status
 
-**Phase 4 Complete**: Memory Agent System Implementation  
-**Next**: Phase 5 - Advanced MLX Swift Integration and Production Optimization
+**Phase 5 Complete**: Production AI Provider Integration  
+**Next**: Enhanced memory management with structured generation
 
-### Recent Updates (2025-07-16)
-- 🤖 **MLX Gemma3n Integration Complete** - Full MLX-based on-device AI provider implementation with Memory Agent integration
-- 🧠 **Memory Agent System Complete** - Full AI-powered memory management implementation with real AI providers only
-- 🔐 **Privacy-First Architecture** - MLX provider prioritized for on-device processing, automatic routing based on data sensitivity
+### Recent Updates (2025-07-19)
+- 🎯 **Production AI Providers** - Real MLX Swift 0.25.6 and iOS 26.0+ Foundation Models implementation
+- 🔗 **WorkingMLXProvider** - Actual MLX Swift APIs with real community models (Qwen3, Gemma2, Llama3.1)
+- 🍎 **RealFoundationModelsProvider** - iOS 26.0+ SystemLanguageModel with proper availability checking
+- 🧠 **EnhancedGemma3nCore** - Dual provider system with automatic routing and @Generable support
+- 🔧 **AppleIntelligenceProvider** - Updated with real device eligibility and feature detection
+- 📱 **iOS 26.0+ Target** - Project fully updated for Foundation Models framework requirements
+- 🧪 **UnifiedAITestView** - Comprehensive concurrent testing of all AI providers
+- ✅ **Real APIs Only** - All placeholder and mock implementations removed
 - 🧮 **RAG Implementation** - Advanced retrieval-augmented generation with semantic ranking and scoring
 - 🤖 **Agentic Framework** - Autonomous memory consolidation, entity extraction, and knowledge graph updates
-- 🍎 **Apple Foundation Models** - Native integration with Apple's on-device AI capabilities as fallback provider
 - 📊 **Memory Analytics Dashboard** - Real-time system health monitoring and memory insights
-- ✅ **Mock Providers Removed** - All mock AI providers eliminated, system uses only real providers
-- ✅ **Comprehensive Testing** - Complete test suite for all Memory Agent components
 - 🎉 **Complete Audio Recording System** - Full implementation with Apple Speech Recognition
 - 🎵 **AudioPlayer Integration** - Cross-platform playback with AVAudioPlayer and progress controls
 - 🗣️ **AppleSpeechEngine** - Real Apple Speech Recognition replacing placeholder transcription
@@ -159,14 +162,16 @@ ProjectOne/
 - **Frontend**: SwiftUI with Liquid Glass design language, iOS 26+ (Beta), macOS Tahoe+
 - **Navigation**: NavigationStack, TabView with glass materials
 - **UI Framework**: iOS 26 Glass APIs (.glassEffect, GlassEffectContainer, .interactive)
+- **AI Providers**: MLX Swift 0.25.6 (on-device), iOS 26.0+ Foundation Models (system)
+- **AI Framework**: EnhancedGemma3nCore with dual provider routing and @Generable support
 - **Memory Agent**: Privacy analyzer, RAG retrieval engine, agentic orchestrator
-- **AI/ML**: MLX Gemma3n (primary), Apple Foundation Models (fallback), WhisperKit transcription
-- **Backend Services**: Swift 6.0, Gemma3nCore AI engine
+- **Backend Services**: Swift 6.0, MLXLMCommon for model loading and inference
 - **Database**: SwiftData with comprehensive memory models
-- **Audio**: AVFoundation for recording and processing
-- **Privacy**: On-device/cloud routing based on data sensitivity analysis
-- **Architecture**: MVVM with memory agent layer and service pattern
+- **Audio**: AVFoundation for recording, Apple Speech Recognition for transcription
+- **Privacy**: Automatic routing based on data sensitivity and provider availability
+- **Architecture**: MVVM with dual AI provider layer and service pattern
 - **Design System**: Apple's Liquid Glass, adaptive materials, refraction effects
+- **Testing**: UnifiedAITestView for concurrent provider validation
 
 ## License
 

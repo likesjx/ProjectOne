@@ -1,32 +1,39 @@
 # API Documentation
 
-Code-level documentation for ProjectOne APIs, services, and components.
+Code-level documentation for ProjectOne production AI providers, memory systems, and core services.
 
 ## Available Documentation
+
+### 🤖 [AI Provider APIs](AI_PROVIDERS.md)
+Production AI provider system with real implementations:
+- **WorkingMLXProvider**: MLX Swift 0.25.6 with real community models
+- **RealFoundationModelsProvider**: iOS 26.0+ SystemLanguageModel integration
+- **EnhancedGemma3nCore**: Dual provider system with automatic routing
+- **AppleIntelligenceProvider**: Device eligibility and feature detection
+- **UnifiedAITestView**: Concurrent testing framework for all providers
 
 ### 🧠 [Memory Agent API](MEMORY_AGENT_API.md)
 Complete API reference for the Memory Agent system:
 - **PrivacyAnalyzer**: Query and memory privacy analysis
 - **MemoryRetrievalEngine**: RAG-based memory retrieval with ranking
-- **AppleFoundationModelsProvider**: Apple AI integration with privacy routing
 - **MemoryAgentOrchestrator**: Autonomous memory operations
 - **Data Models**: Memory types, contexts, and configurations
 - **Testing API**: Comprehensive test utilities
 
 ### 🍎 [Foundation Models API](FOUNDATION_MODELS_API.md)
-Complete reference for Apple's Foundation Models framework (iOS 26.0+ Beta):
-- **SystemLanguageModel**: On-device language model access and availability
-- **LanguageModelSession**: Conversation management and context preservation
-- **Guided Generation**: Structured Swift type generation with @Generable
-- **Tool Calling**: Custom function execution and system integration
-- **Safety & Guardrails**: Content filtering and acceptable use guidelines
-- **Best Practices**: Availability checking, error handling, and optimization
+Complete reference for Apple's Foundation Models framework (iOS 26.0+):
+- **SystemLanguageModel**: Real device availability checking and model access
+- **LanguageModelSession**: Session management with proper error handling
+- **@Generable Protocol**: Structured content generation with Swift types
+- **Guided Generation**: Entity extraction and structured summarization
+- **Device Eligibility**: Apple Intelligence requirements and feature detection
+- **Production Patterns**: Real API usage with availability monitoring
 
 ## Planned Documentation
 
 ### Service APIs
-- **Gemma3nCore**: AI reasoning engine integration
-- **TranscriptionEngine**: Audio processing and speech recognition
+- **MLXIntegrationService**: MLX Swift model management and optimization
+- **TranscriptionEngine**: Apple Speech Recognition integration
 - **KnowledgeGraphService**: Entity and relationship management
 - **MemoryAnalyticsService**: System monitoring and health metrics
 

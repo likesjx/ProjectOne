@@ -182,6 +182,10 @@ struct SettingsView: View {
                         MLXTestView()
                     }
                     
+                    NavigationLink("AI Provider Testing") {
+                        UnifiedAITestView()
+                    }
+                    
                     NavigationLink("System Status") {
                         SystemStatusView(gemmaCore: gemmaCore)
                     }
