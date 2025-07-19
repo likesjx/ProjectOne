@@ -13,6 +13,15 @@ Complete API reference for the Memory Agent system:
 - **Data Models**: Memory types, contexts, and configurations
 - **Testing API**: Comprehensive test utilities
 
+### 🍎 [Foundation Models API](FOUNDATION_MODELS_API.md)
+Complete reference for Apple's Foundation Models framework (iOS 26.0+ Beta):
+- **SystemLanguageModel**: On-device language model access and availability
+- **LanguageModelSession**: Conversation management and context preservation
+- **Guided Generation**: Structured Swift type generation with @Generable
+- **Tool Calling**: Custom function execution and system integration
+- **Safety & Guardrails**: Content filtering and acceptable use guidelines
+- **Best Practices**: Availability checking, error handling, and optimization
+
 ## Planned Documentation
 
 ### Service APIs

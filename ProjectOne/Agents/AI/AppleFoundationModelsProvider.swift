@@ -8,15 +8,15 @@
 import Foundation
 import os.log
 
-#if canImport(AppleIntelligence)
-import AppleIntelligence
+#if canImport(FoundationModels)
+import FoundationModels
 #endif
 
 /// Apple Foundation Models provider for on-device AI processing
 @available(iOS 26.0, macOS 26.0, *)
 public class AppleFoundationModelsProvider: BaseAIProvider {
     
-    #if canImport(AppleIntelligence)
+    #if canImport(FoundationModels)
     private var foundationModel: AIFoundationModel?
     #endif
     
@@ -28,7 +28,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     public override var maxContextLength: Int { 8192 }
     
     public override var isAvailable: Bool {
-        #if canImport(AppleIntelligence)
+        #if canImport(FoundationModels)
         return AIFoundationModel.isAvailable && isModelLoaded
         #else
         return false
@@ -53,7 +53,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     }
     
     override func prepareModel() async throws {
-        #if canImport(AppleIntelligence)
+        #if canImport(FoundationModels)
         do {
             // Initialize the foundation model
             foundationModel = try await AIFoundationModel.load(
@@ -71,7 +71,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
             throw AIModelProviderError.modelNotLoaded
         }
         #else
-        throw AIModelProviderError.providerUnavailable("Apple Intelligence framework not available")
+        throw AIModelProviderError.providerUnavailable("FoundationModels framework not available")
         #endif
     }
     
@@ -80,7 +80,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     }
     
     override func cleanupModel() async {
-        #if canImport(AppleIntelligence)
+        #if canImport(FoundationModels)
         foundationModel = nil
         #endif
     }
@@ -88,7 +88,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     // MARK: - Private Implementation
     
     private func processWithFoundationModel(_ prompt: String) async throws -> String {
-        #if canImport(AppleIntelligence)
+        #if canImport(FoundationModels)
         guard let model = foundationModel else {
             throw AIModelProviderError.modelNotLoaded
         }
@@ -102,8 +102,8 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
         let response = try await model.generateResponse(for: request)
         return response.text
         #else
-        // Fallback for when Apple Intelligence is not available
-        throw AIModelProviderError.providerUnavailable("Apple Intelligence not available")
+        // Fallback for when FoundationModels is not available
+        throw AIModelProviderError.providerUnavailable("FoundationModels not available")
         #endif
     }
     
@@ -113,19 +113,19 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
 // MARK: - Mock Implementation Removed
 // Mock providers have been removed - only real AI providers are used
 
-// MARK: - Apple Intelligence Placeholder Types
+// MARK: - FoundationModels Placeholder Types
 
 #if !canImport(AppleIntelligence)
-// Placeholder types for when Apple Intelligence is not available
+// Placeholder types for when FoundationModels is not available
 struct AIFoundationModel {
     static let isAvailable = false
     
     static func load(configuration: AIFoundationModelConfiguration) async throws -> AIFoundationModel {
-        throw AIModelProviderError.providerUnavailable("Apple Intelligence not available")
+        throw AIModelProviderError.providerUnavailable("FoundationModels not available")
     }
     
     func generateResponse(for request: AIInferenceRequest) async throws -> AIInferenceResponse {
-        throw AIModelProviderError.providerUnavailable("Apple Intelligence not available")
+        throw AIModelProviderError.providerUnavailable("FoundationModels not available")
     }
 }
 

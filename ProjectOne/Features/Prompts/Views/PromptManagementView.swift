@@ -422,6 +422,7 @@ struct PromptDetailView: View {
     @State private var testArguments: [String: String] = [:]
     @State private var testResult = ""
     @State private var mlxTestResult = ""
+    @State private var foundationsTestResult = ""
     @State private var isTesting = false
     @EnvironmentObject private var gemmaCore: Gemma3nCore
     
@@ -524,17 +525,28 @@ struct PromptDetailView: View {
                             }
                         }
                         
-                        HStack(spacing: 12) {
-                            Button("Test Template") {
-                                testTemplate()
+                        VStack(spacing: 8) {
+                            HStack(spacing: 12) {
+                                Button("Test Template") {
+                                    testTemplate()
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Button("Test with MLX") {
+                                    testTemplateWithMLX()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isTesting || !gemmaCore.isReady)
                             }
-                            .buttonStyle(.bordered)
                             
-                            Button("Test with MLX") {
-                                testTemplateWithMLX()
+                            if #available(iOS 26.0, macOS 26.0, *) {
+                                Button("Test with Apple Foundation Models") {
+                                    testTemplateWithFoundations()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .foregroundColor(.green)
+                                .disabled(isTesting)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isTesting || !gemmaCore.isReady)
                         }
                     }
                 }
@@ -579,6 +591,17 @@ struct PromptDetailView: View {
                             .font(.body)
                             .padding()
                             .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                } else if !foundationsTestResult.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Apple Foundation Models Response")
+                            .font(.headline)
+                        
+                        Text(foundationsTestResult)
+                            .font(.body)
+                            .padding()
+                            .background(Color.green.opacity(0.1))
                             .cornerRadius(8)
                     }
                 }
@@ -691,6 +714,53 @@ struct PromptDetailView: View {
         } catch {
             isTesting = false
             mlxTestResult = "Template rendering error: \(error.localizedDescription)"
+        }
+    }
+    
+    @available(iOS 26.0, macOS 26.0, *)
+    private func testTemplateWithFoundations() {
+        do {
+            let renderedPrompt = try template.render(with: testArguments)
+            
+            isTesting = true
+            foundationsTestResult = ""
+            
+            Task {
+                do {
+                    let provider = AppleFoundationModelsProvider()
+                    try await provider.prepare()
+                    
+                    // Create a simple memory context for testing
+                    let memoryContext = MemoryContext(
+                        entities: [],
+                        relationships: [],
+                        shortTermMemories: [],
+                        longTermMemories: [],
+                        episodicMemories: [],
+                        relevantNotes: [],
+                        userQuery: renderedPrompt,
+                        containsPersonalData: false
+                    )
+                    
+                    let response = try await provider.generateResponse(
+                        prompt: renderedPrompt,
+                        context: memoryContext
+                    )
+                    
+                    await MainActor.run {
+                        isTesting = false
+                        foundationsTestResult = response.content
+                    }
+                } catch {
+                    await MainActor.run {
+                        isTesting = false
+                        foundationsTestResult = "Apple Foundation Models error: \(error.localizedDescription)"
+                    }
+                }
+            }
+        } catch {
+            isTesting = false
+            foundationsTestResult = "Template rendering error: \(error.localizedDescription)"
         }
     }
 }

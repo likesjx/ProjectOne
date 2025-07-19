@@ -3,11 +3,14 @@ import SwiftUI
 import Combine
 import os.log
 
+// Import unified provider system
+// Note: These files should be in the same target, so no module import needed
+
 /// Gemma3nCore - Integration layer for MLX Gemma3n with Memory Agent
 class Gemma3nCore: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "Gemma3nCore")
-    private var mlxProvider: MLXGemma3nE2BProvider?
+    private var mlxProvider: UnifiedMLXProvider?
     
     @Published var isReady = false
     @Published var isLoading = false
@@ -19,7 +22,7 @@ class Gemma3nCore: ObservableObject {
     
     public func setup() {
         logger.debug("Setting up MLX Gemma3n provider")
-        mlxProvider = MLXGemma3nE2BProvider()
+        mlxProvider = UnifiedMLXProvider()
         
         Task {
             await prepareProvider()
@@ -34,7 +37,9 @@ class Gemma3nCore: ObservableObject {
         errorMessage = nil
         
         do {
-            try await provider.prepare()
+            try await provider.prepare(modelTypes: [.multimodal])
+            // Load the specific Gemma3n model
+            try await provider.loadModel(name: "mlx-community/gemma-3n-E2B-it-lm-bf16", type: .multimodal)
             isReady = true
             logger.info("Gemma3nCore is ready with MLX provider")
         } catch {
@@ -56,9 +61,9 @@ class Gemma3nCore: ObservableObject {
         }
         
         do {
-            let context = MemoryContext(userQuery: text)
-            let response = try await provider.generateResponse(prompt: text, context: context)
-            return response.content
+            let input = UnifiedModelInput(text: text)
+            let response = try await provider.process(input: input, modelType: .multimodal)
+            return response.text ?? "No response generated"
         } catch {
             logger.error("Text processing failed: \(error.localizedDescription)")
             return "Error processing text: \(error.localizedDescription)"
@@ -71,7 +76,7 @@ class Gemma3nCore: ObservableObject {
     }
     
     /// Get the MLX provider for direct access
-    func getMLXProvider() -> MLXGemma3nE2BProvider? {
+    func getMLXProvider() -> UnifiedMLXProvider? {
         return mlxProvider
     }
     
@@ -79,7 +84,7 @@ class Gemma3nCore: ObservableObject {
     func reloadModel() async {
         logger.info("Reloading Gemma3n model")
         
-        await mlxProvider?.cleanup()
+        await mlxProvider?.cleanup(modelTypes: [.multimodal])
         await prepareProvider()
     }
     

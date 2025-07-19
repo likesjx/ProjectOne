@@ -8,15 +8,51 @@
 import Foundation
 import os.log
 import SwiftData
+import Combine
+
+/// Status of model loading for real-time UI feedback
+public enum ModelLoadingStatus: Equatable {
+    case notStarted
+    case preparing
+    case downloading(progress: Double)
+    case loading
+    case ready
+    case failed(String)
+    case unavailable
+    
+    public var isLoading: Bool {
+        switch self {
+        case .preparing, .downloading, .loading:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .notStarted: return "Not Started"
+        case .preparing: return "Preparing..."
+        case .downloading(let progress): return "Downloading \(Int(progress * 100))%"
+        case .loading: return "Loading Model..."
+        case .ready: return "Ready"
+        case .failed(let error): return "Failed: \(error)"
+        case .unavailable: return "Unavailable"
+        }
+    }
+}
 
 /// Base class for AI model providers that eliminates code duplication
 /// and provides common functionality for all AI providers
-public class BaseAIProvider: AIModelProvider {
+public class BaseAIProvider: AIModelProvider, ObservableObject {
     
     // MARK: - Common Infrastructure
     
     internal let logger: Logger
-    internal var isModelLoaded = false
+    @Published public var isModelLoaded = false
+    @Published public var modelLoadingStatus: ModelLoadingStatus = .notStarted
+    @Published public var loadingProgress: Double = 0.0
+    @Published public var statusMessage: String = ""
     internal let processingQueue = DispatchQueue(label: "ai-provider", qos: .userInitiated)
     
     // MARK: - Abstract Properties (Override Required)
