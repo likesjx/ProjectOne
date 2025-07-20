@@ -544,6 +544,6 @@ enum GraphLayout: String, CaseIterable {
 
 #Preview {
     NavigationView {
-        KnowledgeGraphView(modelContext: ModelContext(try! ModelContainer(for: Entity.self, Relationship.self)))
+        KnowledgeGraphView(modelContext: ModelContext(try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)))
     }
 }

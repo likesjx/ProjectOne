@@ -2,38 +2,63 @@
 //  AppleFoundationModelsProvider.swift
 //  ProjectOne
 //
-//  Created by Memory Agent on 7/15/25.
+//  Apple Foundation Models provider that extends BaseAIProvider
+//  Uses real Foundation Models API for iOS 26.0+ with @Generable support
+//
+//  Apple Foundation Models Framework Documentation:
+//  - Main Framework: https://developer.apple.com/documentation/foundationmodels
+//  - SystemLanguageModel: https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel
+//  - LanguageModelSession: https://developer.apple.com/documentation/foundationmodels/languagemodelsession
+//  - Guided Generation: https://developer.apple.com/documentation/foundationmodels/generating-swift-data-structures-with-guided-generation
+//  - Tool Calling: https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling
+//  - Safety Guidelines: https://developer.apple.com/documentation/foundationmodels/improving-safety-from-generative-model-output
+//  
+//  Local Documentation: docs/api/FOUNDATION_MODELS_API.md
 //
 
 import Foundation
+import Combine
 import os.log
 
+// Foundation Models framework for iOS 26.0+ Beta
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
 
-/// Apple Foundation Models provider for on-device AI processing
+/// Apple Foundation Models provider that extends BaseAIProvider for iOS 26.0+
 @available(iOS 26.0, macOS 26.0, *)
 public class AppleFoundationModelsProvider: BaseAIProvider {
-    
-    #if canImport(FoundationModels)
-    private var foundationModel: AIFoundationModel?
-    #endif
     
     // MARK: - BaseAIProvider Implementation
     
     public override var identifier: String { "apple-foundation-models" }
     public override var displayName: String { "Apple Foundation Models" }
-    public override var estimatedResponseTime: TimeInterval { 0.3 }
+    public override var estimatedResponseTime: TimeInterval { 0.2 }
     public override var maxContextLength: Int { 8192 }
     
     public override var isAvailable: Bool {
         #if canImport(FoundationModels)
-        return AIFoundationModel.isAvailable && isModelLoaded
+        guard let model = languageModel else { return false }
+        switch model.availability {
+        case .available:
+            return true
+        default:
+            return false
+        }
         #else
         return false
         #endif
     }
+    
+    // MARK: - Foundation Models Properties
+    
+    #if canImport(FoundationModels)
+    private var languageModel: SystemLanguageModel?
+    private var session: LanguageModelSession?
+    #endif
+    
+    private var lastAvailabilityCheck: Date = Date.distantPast
+    private let availabilityCheckInterval: TimeInterval = 30.0 // Check every 30 seconds
     
     // MARK: - Initialization
     
@@ -43,7 +68,11 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
             category: "AppleFoundationModelsProvider"
         )
         
-        logger.info("Initializing Apple Foundation Models provider")
+        logger.info("Initializing Apple Foundation Models Provider for iOS 26.0+")
+        
+        Task {
+            await checkAvailability()
+        }
     }
     
     // MARK: - BaseAIProvider Implementation
@@ -53,95 +82,303 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     }
     
     override func prepareModel() async throws {
+        logger.info("Preparing Apple Foundation Models")
+        
         #if canImport(FoundationModels)
         do {
-            // Initialize the foundation model
-            foundationModel = try await AIFoundationModel.load(
-                configuration: AIFoundationModelConfiguration(
-                    maxTokens: maxContextLength,
-                    temperature: 0.7,
-                    topP: 0.9
-                )
-            )
+            // Initialize the real Foundation Models API
+            let model = SystemLanguageModel.default
+            self.languageModel = model
             
-            logger.info("Apple Foundation Models loaded successfully")
+            // Check availability thoroughly
+            switch model.availability {
+            case .available:
+                logger.info("✅ Apple Foundation Models available and ready")
+                
+                // Create initial session for readiness
+                session = LanguageModelSession(
+                    model: model,
+                    instructions: "You are a helpful, accurate, and concise assistant that provides personalized responses based on the user's context and memory."
+                )
+                
+                await MainActor.run {
+                    self.modelLoadingStatus = .ready
+                }
+                
+            case .unavailable(.deviceNotEligible):
+                let error = "Device not eligible for Apple Intelligence"
+                logger.error("❌ \(error)")
+                await MainActor.run {
+                    self.modelLoadingStatus = .failed(error)
+                }
+                throw AIModelProviderError.providerUnavailable(error)
+                
+            case .unavailable(.appleIntelligenceNotEnabled):
+                let error = "Apple Intelligence not enabled in Settings"
+                logger.error("❌ \(error)")
+                await MainActor.run {
+                    self.modelLoadingStatus = .failed(error)
+                }
+                throw AIModelProviderError.providerUnavailable(error)
+                
+            case .unavailable(.modelNotReady):
+                let error = "Foundation Models not ready (downloading or system busy)"
+                logger.error("❌ \(error)")
+                await MainActor.run {
+                    self.modelLoadingStatus = .failed(error)
+                }
+                throw AIModelProviderError.providerUnavailable(error)
+                
+            case .unavailable(let other):
+                let error = "Unknown availability issue: \(other)"
+                logger.error("❌ \(error)")
+                await MainActor.run {
+                    self.modelLoadingStatus = .failed(error)
+                }
+                throw AIModelProviderError.providerUnavailable(error)
+            }
             
         } catch {
-            logger.error("Failed to load Apple Foundation Models: \(error.localizedDescription)")
-            throw AIModelProviderError.modelNotLoaded
+            logger.error("Failed to prepare Apple Foundation Models: \(error.localizedDescription)")
+            await MainActor.run {
+                self.modelLoadingStatus = .failed(error.localizedDescription)
+            }
+            throw error
         }
+        
         #else
-        throw AIModelProviderError.providerUnavailable("FoundationModels framework not available")
+        let error = "Foundation Models framework not available"
+        logger.error("❌ \(error)")
+        await MainActor.run {
+            self.modelLoadingStatus = .failed(error)
+        }
+        throw AIModelProviderError.providerUnavailable(error)
         #endif
     }
     
     override func generateModelResponse(_ prompt: String) async throws -> String {
-        return try await processWithFoundationModel(prompt)
+        #if canImport(FoundationModels)
+        guard isAvailable, let model = languageModel else {
+            throw AIModelProviderError.providerUnavailable("Foundation Models not available")
+        }
+        
+        logger.info("Generating response with Apple Foundation Models")
+        
+        do {
+            // Create or reuse session using the real Foundation Models API
+            if session == nil {
+                session = LanguageModelSession(
+                    model: model,
+                    instructions: "You are a helpful, accurate, and concise assistant that provides personalized responses based on the user's context and memory."
+                )
+            }
+            
+            guard let currentSession = session else {
+                throw AIModelProviderError.modelNotLoaded
+            }
+            
+            // Generate response using the documented API
+            let response = try await currentSession.respond(to: prompt)
+            
+            logger.info("✅ Foundation Models response generated successfully")
+            return response.content
+            
+        } catch {
+            logger.error("❌ Foundation Models generation failed: \(error.localizedDescription)")
+            throw AIModelProviderError.processingFailed(error.localizedDescription)
+        }
+        
+        #else
+        throw AIModelProviderError.providerUnavailable("Foundation Models framework not available")
+        #endif
     }
     
     override func cleanupModel() async {
         #if canImport(FoundationModels)
-        foundationModel = nil
+        session = nil
+        languageModel = nil
+        logger.info("Apple Foundation Models cleaned up")
         #endif
     }
     
-    // MARK: - Private Implementation
+    // MARK: - Advanced Foundation Models Features
     
-    private func processWithFoundationModel(_ prompt: String) async throws -> String {
+    /// Generate text with guided generation (@Generable support)
+    public func generateWithGuidance<T: Generable>(prompt: String, type: T.Type) async throws -> T {
         #if canImport(FoundationModels)
-        guard let model = foundationModel else {
-            throw AIModelProviderError.modelNotLoaded
+        guard isAvailable, let model = languageModel else {
+            throw AIModelProviderError.providerUnavailable("Foundation Models not available")
         }
         
-        let request = AIInferenceRequest(
-            prompt: prompt,
-            maxTokens: 512,
-            temperature: 0.7
-        )
+        logger.info("Generating guided content with Foundation Models for type: \(String(describing: type))")
         
-        let response = try await model.generateResponse(for: request)
-        return response.text
+        do {
+            // Create session for guided generation using real API
+            let guidedSession = LanguageModelSession(
+                model: model,
+                instructions: "Generate structured responses following the provided schema exactly. Be accurate and comprehensive."
+            )
+            
+            // Use guided generation with @Generable type - documented API
+            let response = try await guidedSession.respond(to: prompt, generating: type)
+            let result = response.content
+            
+            logger.info("✅ Foundation Models guided generation completed")
+            return result
+            
+        } catch {
+            logger.error("❌ Foundation Models guided generation failed: \(error.localizedDescription)")
+            throw AIModelProviderError.processingFailed(error.localizedDescription)
+        }
+        
         #else
-        // Fallback for when FoundationModels is not available
-        throw AIModelProviderError.providerUnavailable("FoundationModels not available")
+        throw AIModelProviderError.providerUnavailable("Foundation Models framework not available")
         #endif
     }
     
-    // Prompt building and token estimation are now handled by BaseAIProvider
-}
-
-// MARK: - Mock Implementation Removed
-// Mock providers have been removed - only real AI providers are used
-
-// MARK: - FoundationModels Placeholder Types
-
-#if !canImport(AppleIntelligence)
-// Placeholder types for when FoundationModels is not available
-struct AIFoundationModel {
-    static let isAvailable = false
-    
-    static func load(configuration: AIFoundationModelConfiguration) async throws -> AIFoundationModel {
-        throw AIModelProviderError.providerUnavailable("FoundationModels not available")
+    /// Generate with tool calling support (simplified implementation)
+    public func generateWithTools(prompt: String, tools: [FoundationModelTool] = []) async throws -> FoundationModelResponse {
+        #if canImport(FoundationModels)
+        guard isAvailable else {
+            throw AIModelProviderError.providerUnavailable("Foundation Models not available")
+        }
+        
+        logger.info("Generating with tool calling support")
+        
+        do {
+            // For now, fallback to text generation
+            // Tool calling implementation would require additional API documentation
+            let text = try await generateModelResponse(prompt)
+            return FoundationModelResponse(text: text, toolCalls: [])
+            
+        } catch {
+            logger.error("❌ Foundation Models tool calling failed: \(error.localizedDescription)")
+            throw AIModelProviderError.processingFailed(error.localizedDescription)
+        }
+        
+        #else
+        throw AIModelProviderError.providerUnavailable("Foundation Models framework not available")
+        #endif
     }
     
-    func generateResponse(for request: AIInferenceRequest) async throws -> AIInferenceResponse {
-        throw AIModelProviderError.providerUnavailable("FoundationModels not available")
+    /// Get current model capabilities
+    public func getCapabilities() -> FoundationModelCapabilities {
+        #if canImport(FoundationModels)
+        if let model = languageModel, isAvailable {
+            return FoundationModelCapabilities(
+                supportsTextGeneration: true,
+                supportsGuidedGeneration: true,
+                supportsToolCalling: true,
+                supportsStreamingGeneration: true,
+                maxContextLength: maxContextLength,
+                supportedLanguages: Array(model.supportedLanguages.map { $0.languageCode?.identifier ?? "en" })
+            )
+        }
+        #endif
+        
+        return FoundationModelCapabilities(
+            supportsTextGeneration: false,
+            supportsGuidedGeneration: false,
+            supportsToolCalling: false,
+            supportsStreamingGeneration: false,
+            maxContextLength: 0,
+            supportedLanguages: []
+        )
+    }
+    
+    // MARK: - Private Methods
+    
+    private func checkAvailability() async {
+        // Throttle availability checks
+        let now = Date()
+        guard now.timeIntervalSince(lastAvailabilityCheck) > availabilityCheckInterval else {
+            return
+        }
+        lastAvailabilityCheck = now
+        
+        #if canImport(FoundationModels)
+        await MainActor.run {
+            self.modelLoadingStatus = .preparing
+        }
+        
+        // Initialize the model for availability checking
+        let model = SystemLanguageModel.default
+        self.languageModel = model
+        
+        // Check real availability using the documented API
+        logger.info("🔍 Checking SystemLanguageModel.default.availability...")
+        switch model.availability {
+        case .available:
+            await MainActor.run {
+                self.modelLoadingStatus = .ready
+            }
+            logger.info("✅ Foundation Models available and ready")
+            
+        case .unavailable(.deviceNotEligible):
+            await MainActor.run {
+                self.modelLoadingStatus = .failed("Device not eligible for Apple Intelligence")
+            }
+            logger.error("❌ Device not eligible for Apple Intelligence")
+            
+        case .unavailable(.appleIntelligenceNotEnabled):
+            await MainActor.run {
+                self.modelLoadingStatus = .failed("Apple Intelligence not enabled")
+            }
+            logger.error("❌ Apple Intelligence not enabled in Settings")
+            
+        case .unavailable(.modelNotReady):
+            await MainActor.run {
+                self.modelLoadingStatus = .failed("Model not ready")
+            }
+            logger.error("❌ Foundation Models not ready (downloading or system busy)")
+            
+        case .unavailable(let other):
+            await MainActor.run {
+                self.modelLoadingStatus = .failed("Unknown availability issue")
+            }
+            logger.error("❌ Foundation Models unavailable: \(String(describing: other))")
+        }
+        
+        #else
+        await MainActor.run {
+            self.modelLoadingStatus = .failed("Framework not available")
+        }
+        logger.error("❌ Foundation Models framework not available in this build")
+        #endif
     }
 }
 
-struct AIFoundationModelConfiguration {
-    let maxTokens: Int
-    let temperature: Double
-    let topP: Double
+// MARK: - Supporting Types (from RealFoundationModelsProvider)
+
+public enum FoundationModelUseCase {
+    case contentGeneration
+    case guidedGeneration
+    case toolCalling
+    case summarization
+    case translation
 }
 
-struct AIInferenceRequest {
-    let prompt: String
-    let maxTokens: Int
-    let temperature: Double
+public struct FoundationModelCapabilities {
+    public let supportsTextGeneration: Bool
+    public let supportsGuidedGeneration: Bool
+    public let supportsToolCalling: Bool
+    public let supportsStreamingGeneration: Bool
+    public let maxContextLength: Int
+    public let supportedLanguages: [String]
 }
 
-struct AIInferenceResponse {
-    let text: String
+public struct FoundationModelTool {
+    public let name: String
+    public let description: String
+    public let parameters: [String: Any]
 }
-#endif
+
+public struct FoundationModelToolCall {
+    public let toolName: String
+    public let parameters: [String: Any]
+}
+
+public struct FoundationModelResponse {
+    public let text: String
+    public let toolCalls: [FoundationModelToolCall]
+}

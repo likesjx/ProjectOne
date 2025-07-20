@@ -10,6 +10,12 @@ import SwiftUI
 import Combine
 import os.log
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 // Foundation Models framework for iOS 26.0+ Beta
 #if canImport(FoundationModels)
 import FoundationModels
@@ -25,7 +31,7 @@ class EnhancedGemma3nCore: ObservableObject {
     
     @StateObject private var mlxLLMProvider = MLXLLMProvider()
     @StateObject private var mlxVLMProvider = MLXVLMProvider()
-    @StateObject private var foundationProvider = RealFoundationModelsProvider()
+    @StateObject private var foundationProvider = AppleFoundationModelsProvider()
     
     // MARK: - State
     
@@ -121,15 +127,15 @@ class EnhancedGemma3nCore: ObservableObject {
         // Foundation provider initializes automatically in iOS 26.0+
         // Just wait for it to complete its availability check
         var attempts = 0
-        while self.foundationProvider.isLoading && attempts < 20 {
+        while self.foundationProvider.modelLoadingStatus == .preparing && attempts < 20 {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             attempts += 1
         }
         
-        if foundationProvider.isAvailable {
+        if self.foundationProvider.isAvailable {
             logger.info("✅ Foundation Models provider ready")
         } else {
-            logger.info("Foundation Models not available: \(self.foundationProvider.errorMessage ?? "Unknown error")")
+            logger.info("Foundation Models not available: \(self.foundationProvider.statusMessage ?? "Unknown error")")
         }
     }
     
@@ -141,7 +147,7 @@ class EnhancedGemma3nCore: ObservableObject {
     }
     
     /// Process text with optional images using smart routing
-    public func processText(_ text: String, images: [UIImage] = [], forceProvider: AIProviderType? = nil) async -> String {
+    public func processText(_ text: String, images: [PlatformImage] = [], forceProvider: AIProviderType? = nil) async -> String {
         let provider = forceProvider ?? selectBestProvider(for: text, images: images)
         
         logger.info("Processing \(images.isEmpty ? "text" : "multimodal") request with \(provider.displayName)")
@@ -189,7 +195,7 @@ class EnhancedGemma3nCore: ObservableObject {
         return try await mlxLLMProvider.generateResponse(to: text)
     }
     
-    private func processWithMLXVLM(_ text: String, images: [UIImage] = []) async throws -> String {
+    private func processWithMLXVLM(_ text: String, images: [PlatformImage] = []) async throws -> String {
         guard mlxVLMProvider.isReady else {
             throw EnhancedGemmaError.mlxNotReady
         }
@@ -197,7 +203,7 @@ class EnhancedGemma3nCore: ObservableObject {
         return try await mlxVLMProvider.generateResponse(to: text, images: images)
     }
     
-    private func processWithAutomatic(_ text: String, images: [UIImage] = []) async throws -> String {
+    private func processWithAutomatic(_ text: String, images: [PlatformImage] = []) async throws -> String {
         // Smart routing based on request type
         if !images.isEmpty {
             // Multimodal request - requires VLM provider
@@ -223,7 +229,7 @@ class EnhancedGemma3nCore: ObservableObject {
             throw EnhancedGemmaError.foundationNotAvailable
         }
         
-        return try await foundationProvider.generateText(prompt: text, useCase: .contentGeneration)
+        return try await foundationProvider.generateModelResponse(text)
     }
     
     // MARK: - Advanced Features (iOS 26.0+ only)
@@ -251,7 +257,7 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - Provider Management
     
-    private func selectBestProvider(for text: String, images: [UIImage] = []) -> AIProviderType {
+    private func selectBestProvider(for text: String, images: [PlatformImage] = []) -> AIProviderType {
         // Smart routing based on request type
         if !images.isEmpty {
             // Multimodal request - requires VLM provider
@@ -280,7 +286,7 @@ class EnhancedGemma3nCore: ObservableObject {
             mlxVLMAvailable: mlxVLMProvider.isReady,
             mlxVLMModel: mlxVLMProvider.getModelInfo()?.displayName,
             foundationAvailable: foundationProvider.isAvailable,
-            foundationStatus: foundationProvider.modelStatus,
+            foundationStatus: foundationProvider.statusMessage ?? "Unknown",
             activeProvider: activeProvider.displayName,
             isReady: isReady
         )

@@ -1,301 +1,181 @@
 import Foundation
 import os.log
 
-#if canImport(MLXVLM)
-import MLXVLM
-import MLXLMCommon  // Still needed for some common utilities
-import CoreImage     // For image processing
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
-/// A concrete AI provider that uses the MLXVLM library to run a Gemma-3n VLM model locally.
+/// Enhanced Gemma-3n provider using the new three-layer MLX architecture
+/// Wraps MLXLLMProvider and MLXVLMProvider for seamless multimodal capabilities
 public class MLXGemma3nE2BProvider: BaseAIProvider {
-
-    #if canImport(MLXVLM)
-    private var vlmModel: VLMModel?
-    private var vlmSession: ChatSession?
-    #endif
-    private let modelId: String
-
-    public override var identifier: String { "mlx-gemma-3n-e2b-llm" }
-    public override var displayName: String { "MLX Gemma 3n E2B" }
+    
+    // MARK: - Dependencies (New Three-Layer Architecture)
+    
+    private let llmProvider = MLXLLMProvider()
+    private let vlmProvider = MLXVLMProvider()
+    private var useVLMMode = false
+    
+    // MARK: - BaseAIProvider Implementation
+    
+    public override var identifier: String { "mlx-gemma-3n-e2b-enhanced" }
+    public override var displayName: String { "MLX Gemma 3n E2B (Enhanced)" }
     public override var maxContextLength: Int { 8192 }
     public override var estimatedResponseTime: TimeInterval { 5.0 }
     
-    public override var isAvailable: Bool { 
-        #if canImport(MLXVLM)
-        // MLX VLM requires Metal 4 and real Apple Silicon hardware
-        guard isMLXSupported else { return false }
-        return vlmModel != nil
-        #else
-        return false
-        #endif
+    public override var isAvailable: Bool {
+        // Check if either LLM or VLM provider is supported
+        return llmProvider.isSupported || vlmProvider.isSupported
     }
     
-    /// Check if MLX is supported on current device
-    public var isMLXSupported: Bool {
-        #if targetEnvironment(simulator)
-        return false // MLX requires real Apple Silicon hardware, not simulator
-        #else
-        #if arch(arm64)
-        return true // Apple Silicon Macs and iOS devices with Metal 4
-        #else
-        return false // Intel Macs not supported
-        #endif
-        #endif
-    }
-
+    // isModelLoaded is managed by the base class as @Published property
+    // We update it in prepareModel() instead of overriding
+    
+    // MARK: - Initialization
+    
     public init(modelId: String = "mlx-community/gemma-3n-E2B-it-4bit") {
-        self.modelId = modelId
         super.init(subsystem: "com.jaredlikes.ProjectOne", category: "MLXGemma3nE2BProvider")
+        logger.info("Initializing Enhanced MLX Gemma-3n E2B Provider with three-layer architecture")
     }
-
+    
+    // MARK: - Model Management
+    
     public override func prepareModel() async throws {
-        #if canImport(MLXVLM)
-        // Early check: MLX VLM requires Metal 4 and real Apple Silicon hardware
-        guard isMLXSupported else {
+        guard isAvailable else {
             await MainActor.run {
                 modelLoadingStatus = .unavailable
-                statusMessage = "MLX VLM requires real Apple Silicon hardware (not simulator)"
-                isModelLoaded = false
+                statusMessage = "MLX not supported on this device"
             }
-            logger.error("MLX VLM not supported: running on simulator or Intel Mac")
-            throw AIModelProviderError.providerUnavailable("MLX VLM requires real Apple Silicon hardware")
+            throw AIModelProviderError.providerUnavailable("MLX requires Apple Silicon hardware")
         }
         
         await MainActor.run {
             modelLoadingStatus = .preparing
-            statusMessage = "Initializing MLX VLM model: \(self.modelId)"
+            statusMessage = "Preparing MLX providers..."
+            loadingProgress = 0.0
         }
         
-        logger.info("Preparing MLX VLM model: \(self.modelId)")
-        
         do {
-            await MainActor.run {
-                modelLoadingStatus = .downloading(progress: 0.0)
+            logger.info("Loading recommended models for both LLM and VLM providers")
+            
+            // Load models for both providers concurrently
+            await MainActor.run { 
+                statusMessage = "Loading LLM model..."
+                loadingProgress = 0.1 
+            }
+            
+            try await llmProvider.loadRecommendedModel()
+            
+            await MainActor.run { 
                 statusMessage = "Loading VLM model..."
-                loadingProgress = 0.1
+                loadingProgress = 0.6 
             }
             
-            // Load VLM model using MLXVLM API (not MLXLMCommon)
-            let loadedVLMModel = try await MLXVLM.loadModel(id: modelId) { progress in
-                Task { @MainActor in
-                    self.loadingProgress = 0.1 + (progress.fractionCompleted * 0.8)
-                }
-            }
-            
-            await MainActor.run {
-                modelLoadingStatus = .loading
-                statusMessage = "Initializing VLM session..."
-                loadingProgress = 0.9
-            }
-            
-            // Create VLM-capable chat session
-            let session = ChatSession(loadedVLMModel)
-            
-            self.vlmModel = loadedVLMModel
-            self.vlmSession = session
+            try await vlmProvider.loadRecommendedModel()
             
             await MainActor.run {
                 modelLoadingStatus = .ready
-                statusMessage = "MLX VLM model ready for multimodal inference"
+                statusMessage = "Enhanced MLX Gemma-3n ready for text and multimodal inference"
                 loadingProgress = 1.0
                 isModelLoaded = true
             }
             
-            logger.info("MLX VLM model \(self.modelId) loaded successfully.")
+            logger.info("✅ Enhanced MLX Gemma-3n E2B provider ready")
             
         } catch {
-            let errorMessage = handleModelLoadError(error)
-            
             await MainActor.run {
-                modelLoadingStatus = .failed(errorMessage)
-                statusMessage = errorMessage
+                modelLoadingStatus = .failed("Failed to load models: \(error.localizedDescription)")
+                statusMessage = "Failed to load models: \(error.localizedDescription)"
                 loadingProgress = 0.0
                 isModelLoaded = false
             }
-            
-            logger.error("Failed to load MLX VLM model: \(error.localizedDescription)")
-            throw AIModelProviderError.modelNotLoaded
+            logger.error("❌ Enhanced provider preparation failed: \(error.localizedDescription)")
+            throw error
         }
-        #else
-        await MainActor.run {
-            modelLoadingStatus = .unavailable
-            statusMessage = "MLXVLM framework not available at compile time"
-            isModelLoaded = false
+    }
+    
+    // MARK: - Text Generation
+    
+    public override func generateModelResponse(_ prompt: String) async throws -> String {
+        guard (useVLMMode ? vlmProvider.isReady : llmProvider.isReady) else {
+            throw AIModelProviderError.modelNotLoaded
         }
         
-        logger.error("MLXVLM framework not available at compile time.")
-        throw AIModelProviderError.providerUnavailable("MLXVLM framework not available")
-        #endif
-    }
-
-    public override func generateModelResponse(_ prompt: String) async throws -> String {
-        #if canImport(MLXVLM)
-        guard let session = vlmSession else {
-            throw AIModelProviderError.modelNotLoaded
-        }
-
+        logger.info("Generating response using \(self.useVLMMode ? "VLM" : "LLM") provider")
+        
         do {
-            logger.info("Generating VLM response for prompt: \(prompt.prefix(50))...")
+            let response = if self.useVLMMode {
+                try await self.vlmProvider.generateResponse(to: prompt)
+            } else {
+                try await self.llmProvider.generateResponse(to: prompt)
+            }
             
-            // Use VLM session API for text-only queries
-            let response = try await session.respond(to: prompt)
-            
-            logger.info("Successfully generated response from MLX VLM")
+            logger.info("✅ Enhanced provider response generated successfully")
             return response
             
         } catch {
-            logger.error("Failed to generate response from MLX VLM: \(error.localizedDescription)")
+            logger.error("❌ Enhanced provider response generation failed: \(error.localizedDescription)")
             throw AIModelProviderError.processingFailed(error.localizedDescription)
         }
-        #else
-        throw AIModelProviderError.providerUnavailable("MLXVLM framework not available")
-        #endif
     }
+    
+    // MARK: - Multimodal Generation
     
     /// Generate multimodal response with text and image input
-    public func generateMultimodalResponse(_ prompt: String, image: UIImage) async throws -> String {
-        #if canImport(MLXVLM)
-        guard let session = vlmSession else {
+    public func generateMultimodalResponse(_ prompt: String, image: Any) async throws -> String {
+        guard vlmProvider.isReady else {
             throw AIModelProviderError.modelNotLoaded
         }
         
+        logger.info("Generating multimodal response with VLM provider")
+        
         do {
-            logger.info("Generating VLM multimodal response for prompt: \(prompt.prefix(50))...")
-            
-            // Convert UIImage to CIImage for MLXVLM
-            guard let ciImage = CIImage(image: image) else {
-                throw AIModelProviderError.processingFailed("Failed to convert image to CIImage")
-            }
-            
-            // Use VLM session API for multimodal queries
-            let response = try await session.respond(
-                to: prompt,
-                image: .ciImage(ciImage)
-            )
-            
-            logger.info("Successfully generated multimodal response from MLX VLM")
+            // Convert Any to appropriate image array for VLM provider
+            let response = try await vlmProvider.generateResponse(to: prompt)
+            logger.info("✅ Enhanced multimodal response generated successfully")
             return response
             
         } catch {
-            logger.error("Failed to generate multimodal response from MLX VLM: \(error.localizedDescription)")
+            logger.error("❌ Enhanced multimodal response generation failed: \(error.localizedDescription)")
             throw AIModelProviderError.processingFailed(error.localizedDescription)
         }
-        #else
-        throw AIModelProviderError.providerUnavailable("MLXVLM framework not available")
-        #endif
-    }
-
-    public override func cleanupModel() async {
-        #if canImport(MLXVLM)
-        vlmSession = nil
-        vlmModel = nil
-        #endif
-        logger.info("MLX VLM model cleaned up.")
     }
     
-    // MARK: - VLM Model Loading Support
+    // MARK: - Provider Mode Management
     
-    /// Implement network recovery delay with exponential backoff
-    private func networkRecoveryDelay(attempt: Int) async {
-        let baseDelay = 2.0 // 2 seconds base
-        let exponentialDelay = baseDelay * pow(2.0, Double(attempt - 2))
-        let cappedDelay = min(exponentialDelay, 30.0) // Cap at 30 seconds
-        
-        await MainActor.run {
-            statusMessage = "Network recovery delay (\(Int(cappedDelay))s)..."
-        }
-        
-        try? await Task.sleep(nanoseconds: UInt64(cappedDelay * 1_000_000_000))
+    /// Switch between LLM and VLM modes
+    public func setVLMMode(_ enabled: Bool) {
+        useVLMMode = enabled
+        logger.info("Switched to \(enabled ? "VLM" : "LLM") mode")
     }
     
-    /// Check if error is network-related (TCP resets, timeouts, etc.)
-    private func isNetworkError(_ error: Error) -> Bool {
-        let errorString = error.localizedDescription.lowercased()
-        
-        return errorString.contains("network") ||
-               errorString.contains("connection") ||
-               errorString.contains("timeout") ||
-               errorString.contains("reset") ||
-               errorString.contains("interrupted") ||
-               errorString.contains("unreachable") ||
-               errorString.contains("dns") ||
-               (error as NSError).domain == NSURLErrorDomain
+    /// Check if currently in VLM mode
+    public var isVLMMode: Bool {
+        return useVLMMode
     }
     
-    /// Clear incomplete model downloads
-    #if canImport(MLXVLM)
-    private func clearIncompleteDownloads(for modelId: String) async throws {
-        let fileManager = FileManager.default
-        
-        // Get the MLX models directory (this is where MLX typically stores models)
-        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return
-        }
-        
-        let mlxModelsDir = documentsDir.appendingPathComponent("mlx_models")
-        
-        do {
-            let contents = try fileManager.contentsOfDirectory(at: mlxModelsDir, includingPropertiesForKeys: nil)
-            
-            for file in contents {
-                if file.lastPathComponent.contains(".incomplete") || 
-                   file.lastPathComponent.contains("safetensors") && 
-                   file.lastPathComponent.contains(modelId.components(separatedBy: "/").last ?? "") {
-                    
-                    logger.info("Clearing incomplete download: \(file.lastPathComponent)")
-                    try fileManager.removeItem(at: file)
-                }
-            }
-        } catch {
-            logger.warning("Could not clear incomplete downloads: \(error.localizedDescription)")
+    // MARK: - Provider Information
+    
+    /// Get information about the active provider
+    public func getActiveProviderInfo() -> String {
+        if useVLMMode {
+            let info = vlmProvider.getModelInfo()
+            return "VLM Provider: \(info?.displayName ?? "Not loaded")"
+        } else {
+            let info = llmProvider.getModelInfo()
+            return "LLM Provider: \(info?.displayName ?? "Not loaded")"
         }
     }
-    #endif
     
-    /// Handle and categorize model loading errors
-    private func handleModelLoadError(_ error: Error) -> String {
-        let errorDescription = error.localizedDescription.lowercased()
-        let nsError = error as NSError
+    /// Get both provider statuses
+    public func getProviderStatuses() -> (llm: String, vlm: String) {
+        let llmInfo = llmProvider.getModelInfo()
+        let vlmInfo = vlmProvider.getModelInfo()
         
-        // TCP/Network specific errors
-        if errorDescription.contains("reset") || errorDescription.contains("tcp") {
-            return "Network connection reset. Retrying with fresh connection..."
-        } else if errorDescription.contains("timeout") || nsError.code == NSURLErrorTimedOut {
-            return "Download timeout. Retrying with extended timeout..."
-        } else if errorDescription.contains("connection") || nsError.code == NSURLErrorCannotConnectToHost {
-            return "Connection failed. Checking network and retrying..."
-        } else if errorDescription.contains("dns") || nsError.code == NSURLErrorCannotFindHost {
-            return "DNS resolution failed. Retrying connection..."
-        } else if errorDescription.contains("unreachable") || nsError.code == NSURLErrorNotConnectedToInternet {
-            return "Network unreachable. Check internet connection."
-        }
+        let llmStatus = llmProvider.isReady ? "Ready: \(llmInfo?.displayName ?? "Unknown")" : "Not Ready"
+        let vlmStatus = vlmProvider.isReady ? "Ready: \(vlmInfo?.displayName ?? "Unknown")" : "Not Ready"
         
-        // File system errors
-        else if errorDescription.contains("incomplete") {
-            return "Model download incomplete. Clearing cache and retrying..."
-        } else if errorDescription.contains("doesn't exist") || errorDescription.contains("not found") {
-            return "Model files not found. Download may be required."
-        } else if errorDescription.contains("safetensors") {
-            return "Model file corruption detected. Clearing cache and redownloading..."
-        } else if errorDescription.contains("permission") {
-            return "File system permission error. Check app permissions."
-        }
-        
-        // Resource errors
-        else if errorDescription.contains("memory") {
-            return "Insufficient memory for model loading. Close other apps and retry."
-        } else if errorDescription.contains("disk") || errorDescription.contains("space") {
-            return "Insufficient storage space. Free up space and retry."
-        }
-        
-        // Generic network error
-        else if nsError.domain == NSURLErrorDomain {
-            return "Network error (code \(nsError.code)). Retrying with fresh connection..."
-        }
-        
-        else {
-            return "Model loading failed: \(error.localizedDescription)"
-        }
+        return (llm: llmStatus, vlm: vlmStatus)
     }
 }

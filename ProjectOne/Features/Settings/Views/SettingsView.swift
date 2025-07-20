@@ -598,7 +598,7 @@ struct FeatureRow: View {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: UserSpeechProfile.self, configurations: config)
+    let container = try! SwiftData.ModelContainer(for: UserSpeechProfile.self, configurations: config)
     
     SettingsView(
         gemmaCore: Gemma3nCore()

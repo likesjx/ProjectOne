@@ -183,8 +183,8 @@ public class MLXLLMProvider: ObservableObject {
     
     // MARK: - Conversation Management
     
-    /// Generate response with conversation history
-    public func generateResponse(withHistory messages: [Chat.Message]) async throws -> String {
+    /// Generate response with conversation history (simplified)
+    public func generateResponse(withHistory conversationText: String) async throws -> String {
         guard let container = modelContainer else {
             throw MLXLLMError.modelNotLoaded("No LLM model loaded")
         }
@@ -193,14 +193,11 @@ public class MLXLLMProvider: ObservableObject {
             throw MLXLLMError.modelNotReady("LLM model is not ready")
         }
         
-        logger.info("Generating response with conversation history (\(messages.count) messages)")
+        logger.info("Generating response with conversation history")
         
         do {
-            // Convert conversation to single prompt (simplified approach)
-            let conversationPrompt = messages.map { "\($0.role.rawValue): \($0.content)" }.joined(separator: "\n")
-            
-            // Generate using MLXService
-            let response = try await mlxService.generate(with: container, prompt: conversationPrompt)
+            // Generate using MLXService with conversation history
+            let response = try await mlxService.generate(with: container, prompt: conversationText)
             
             logger.info("✅ Conversation response generated successfully")
             return response

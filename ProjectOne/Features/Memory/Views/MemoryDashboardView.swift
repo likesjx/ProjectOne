@@ -548,6 +548,6 @@ enum TimeRange: String, CaseIterable {
 
 #Preview {
     NavigationView {
-        MemoryDashboardView(modelContext: ModelContext(try! ModelContainer(for: MemoryAnalytics.self)))
+        MemoryDashboardView(modelContext: ModelContext(try! SwiftData.ModelContainer(for: MemoryAnalytics.self)))
     }
 }

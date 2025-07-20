@@ -15,6 +15,17 @@ import os.log
 
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+// Cross-platform image type
+#if canImport(UIKit)
+public typealias PlatformImage = UIImage
+#elseif canImport(AppKit)
+public typealias PlatformImage = NSImage
+#else
+public typealias PlatformImage = Any
 #endif
 
 /// Multimodal VLM provider wrapping MLXService
@@ -133,7 +144,7 @@ public class MLXVLMProvider: ObservableObject {
     // MARK: - Multimodal Generation
     
     /// Generate response to text prompt with images
-    public func generateResponse(to prompt: String, images: [UIImage] = []) async throws -> String {
+    public func generateResponse(to prompt: String, images: [PlatformImage] = []) async throws -> String {
         guard let container = modelContainer else {
             throw MLXVLMError.modelNotLoaded("No VLM model loaded")
         }
@@ -164,11 +175,31 @@ public class MLXVLMProvider: ObservableObject {
     
     /// Generate text-only response (fallback mode)
     public func generateResponse(to prompt: String) async throws -> String {
-        return try await generateResponse(to: prompt, images: [])
+        guard let container = modelContainer else {
+            throw MLXVLMError.modelNotLoaded("No VLM model loaded")
+        }
+        
+        guard isReady else {
+            throw MLXVLMError.modelNotReady("VLM model is not ready")
+        }
+        
+        logger.info("Generating text-only VLM response")
+        
+        do {
+            // Generate using MLXService with simple prompt
+            let response = try await mlxService.generate(with: container, prompt: prompt)
+            
+            logger.info("✅ Text-only VLM response generated successfully")
+            return response
+            
+        } catch {
+            logger.error("❌ Text-only VLM response generation failed: \(error.localizedDescription)")
+            throw MLXVLMError.generationFailed(error.localizedDescription)
+        }
     }
     
     /// Stream multimodal response for real-time UI updates
-    public func streamResponse(to prompt: String, images: [UIImage] = []) -> AsyncThrowingStream<String, Error> {
+    public func streamResponse(to prompt: String, images: [PlatformImage] = []) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -203,8 +234,8 @@ public class MLXVLMProvider: ObservableObject {
     
     // MARK: - Conversation Management
     
-    /// Generate response with conversation history and images
-    public func generateResponse(withHistory messages: [Chat.Message], images: [UIImage] = []) async throws -> String {
+    /// Generate response with conversation history and images (simplified)
+    public func generateResponse(withHistory conversationText: String, images: [PlatformImage] = []) async throws -> String {
         guard let container = modelContainer else {
             throw MLXVLMError.modelNotLoaded("No VLM model loaded")
         }
@@ -213,7 +244,7 @@ public class MLXVLMProvider: ObservableObject {
             throw MLXVLMError.modelNotReady("VLM model is not ready")
         }
         
-        logger.info("Generating multimodal conversation response (\(messages.count) messages, \(images.count) images)")
+        logger.info("Generating multimodal conversation response with \(images.count) images")
         
         do {
             // For now, handle text-only until multimodal support is complete
@@ -221,11 +252,8 @@ public class MLXVLMProvider: ObservableObject {
                 logger.warning("Image processing not yet implemented, processing text only")
             }
             
-            // Convert conversation to single prompt (simplified approach)
-            let conversationPrompt = messages.map { "\($0.role.rawValue): \($0.content)" }.joined(separator: "\n")
-            
-            // Generate using MLXService
-            let response = try await mlxService.generate(with: container, prompt: conversationPrompt)
+            // Generate using MLXService with conversation history
+            let response = try await mlxService.generate(with: container, prompt: conversationText)
             
             logger.info("✅ Multimodal conversation response generated successfully")
             return response

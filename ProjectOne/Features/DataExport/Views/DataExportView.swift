@@ -561,6 +561,6 @@ extension URL {
 
 #Preview {
     NavigationView {
-        DataExportView(modelContext: ModelContext(try! ModelContainer(for: MemoryAnalytics.self)))
+        DataExportView(modelContext: ModelContext(try! SwiftData.ModelContainer(for: MemoryAnalytics.self)))
     }
 }

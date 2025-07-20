@@ -47,7 +47,18 @@ struct MLXTestView: View {
     @State private var isLoadingFoundations = false
     @State private var providerInfo = ""
     @State private var showComparison = false
-    @StateObject private var mlxProvider = MLXGemma3nE2BProvider()
+    @StateObject private var llmProvider = MLXLLMProvider()
+    @StateObject private var vlmProvider = MLXVLMProvider()
+    @State private var useVLM = false
+    
+    /// Get the loading state of the currently active provider
+    private var currentProvider: (isLoading: Bool, isReady: Bool, loadingProgress: Double, errorMessage: String?) {
+        if useVLM {
+            return (vlmProvider.isLoading, vlmProvider.isReady, vlmProvider.loadingProgress, vlmProvider.errorMessage)
+        } else {
+            return (llmProvider.isLoading, llmProvider.isReady, llmProvider.loadingProgress, llmProvider.errorMessage)
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -60,36 +71,41 @@ struct MLXTestView: View {
                     
                     HStack(spacing: 12) {
                         HStack(spacing: 8) {
-                            Image(systemName: mlxProvider.modelLoadingStatus.systemImage)
-                                .foregroundColor(mlxProvider.modelLoadingStatus.color)
-                                .rotationEffect(.degrees(mlxProvider.modelLoadingStatus.isLoading ? 360 : 0))
+                            Image(systemName: currentProvider.isLoading ? "gearshape.2" : (currentProvider.isReady ? "checkmark.circle.fill" : "questionmark.circle"))
+                                .foregroundColor(currentProvider.isLoading ? .orange : (currentProvider.isReady ? .green : .gray))
+                                .rotationEffect(.degrees(currentProvider.isLoading ? 360 : 0))
                                 .animation(
-                                    mlxProvider.modelLoadingStatus.isLoading ? 
+                                    currentProvider.isLoading ? 
                                         .linear(duration: 2).repeatForever(autoreverses: false) : 
                                         .default, 
-                                    value: mlxProvider.modelLoadingStatus
+                                    value: currentProvider.isLoading
                                 )
                             
-                            Text(mlxProvider.modelLoadingStatus.description)
+                            Text(currentProvider.isLoading ? "Loading..." : (currentProvider.isReady ? "Ready" : "Not Started"))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
+                            
+                            // Provider type toggle
+                            Toggle("VLM", isOn: $useVLM)
+                                .toggleStyle(SwitchToggleStyle())
+                                .scaleEffect(0.8)
                         }
                         
                         Spacer()
                         
-                        if mlxProvider.modelLoadingStatus.isLoading {
-                            ProgressView(value: mlxProvider.loadingProgress)
+                        if currentProvider.isLoading {
+                            ProgressView(value: currentProvider.loadingProgress)
                                 .frame(width: 60)
                         }
                     }
                     
-                    Text(mlxProvider.statusMessage)
+                    Text(currentProvider.errorMessage ?? "")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(3)
                     
                     // Retry button for failed model loading
-                    if case .failed = mlxProvider.modelLoadingStatus {
+                    if !currentProvider.isReady && !currentProvider.isLoading && currentProvider.errorMessage != nil {
                         Button("Retry Model Loading") {
                             retryMLXModel()
                         }
@@ -292,6 +308,9 @@ struct MLXTestView: View {
                 setupProviderInfo()
                 prepareMLXModel()
             }
+            .onChange(of: useVLM) { _ in
+                setupProviderInfo()
+            }
         }
     }
     
@@ -305,19 +324,24 @@ struct MLXTestView: View {
     ]
     
     private func setupProviderInfo() {
+        let activeProvider = useVLM ? "VLM Provider" : "LLM Provider"
+        let modelInfo = useVLM ? vlmProvider.getModelInfo() : llmProvider.getModelInfo()
+        
         providerInfo = """
-        Identifier: \(mlxProvider.identifier)
-        Display Name: \(mlxProvider.displayName)
-        Max Context: \(mlxProvider.maxContextLength) tokens
-        On-Device: \(mlxProvider.isOnDevice ? "Yes" : "No")
-        Personal Data: \(mlxProvider.supportsPersonalData ? "Supported" : "Not Supported")
+        Active Provider: \(activeProvider)
+        Model: \(modelInfo?.displayName ?? "None loaded")
+        Memory Requirement: \(modelInfo?.memoryRequirement ?? "Unknown")
+        On-Device: Yes
+        Multimodal: \(useVLM ? "Yes" : "No")
         """
     }
     
     private func prepareMLXModel() {
         Task {
             do {
-                try await mlxProvider.prepareModel()
+                // Load recommended models for both providers
+                try await llmProvider.loadRecommendedModel()
+                try await vlmProvider.loadRecommendedModel()
             } catch {
                 // Error is already handled by the provider's published state
                 print("Model preparation failed: \(error)")
@@ -328,15 +352,13 @@ struct MLXTestView: View {
     private func retryMLXModel() {
         Task {
             do {
-                // Reset the provider state before retrying
-                await MainActor.run {
-                    mlxProvider.isModelLoaded = false
-                    mlxProvider.modelLoadingStatus = .notStarted
-                    mlxProvider.statusMessage = ""
-                    mlxProvider.loadingProgress = 0.0
-                }
+                // Unload current models
+                await llmProvider.unloadModel()
+                await vlmProvider.unloadModel()
                 
-                try await mlxProvider.prepareModel()
+                // Retry loading
+                try await llmProvider.loadRecommendedModel()
+                try await vlmProvider.loadRecommendedModel()
             } catch {
                 print("Model retry failed: \(error)")
             }
@@ -352,8 +374,12 @@ struct MLXTestView: View {
         
         Task {
             do {
-                // Use the observed provider instance
-                let result = try await mlxProvider.generateModelResponse(testPrompt)
+                // Use the active provider based on toggle
+                let result = if useVLM {
+                    try await vlmProvider.generateResponse(to: testPrompt)
+                } else {
+                    try await llmProvider.generateResponse(to: testPrompt)
+                }
                 
                 await MainActor.run {
                     testResult = result
@@ -425,7 +451,11 @@ struct MLXTestView: View {
             // Run both tests concurrently
             async let mlxTask: Void = {
                 do {
-                    let result = try await mlxProvider.generateModelResponse(testPrompt)
+                    let result = if useVLM {
+                        try await vlmProvider.generateResponse(to: testPrompt)
+                    } else {
+                        try await llmProvider.generateResponse(to: testPrompt)
+                    }
                     await MainActor.run {
                         testResult = result
                         isLoadingMLX = false
