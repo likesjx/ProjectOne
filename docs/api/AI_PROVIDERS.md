@@ -10,47 +10,64 @@ ProjectOne implements a sophisticated dual AI provider system that automatically
 - **MLX Swift 0.25.6**: On-device inference with real community models
 - **iOS 26.0+ Foundation Models**: System-integrated AI with Apple Intelligence
 
-## Core Providers
+## Core Providers (NEW Architecture)
 
-### WorkingMLXProvider
+### MLXService (Core Service Layer)
 
-Production MLX Swift implementation using the actual MLX Swift 0.25.6 APIs.
+Low-level MLX model management service based on real MLX Swift Examples patterns.
 
-#### Supported Models
-
-```swift
-public enum MLXModel: String, CaseIterable {
-    case qwen3_4B = "mlx-community/Qwen3-4B-4bit"
-    case gemma2_2B = "mlx-community/Gemma-2-2b-it-4bit" 
-    case gemma2_9B = "mlx-community/Gemma-2-9b-it-4bit"
-    case llama3_8B = "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
-    case mistral_7B = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
-}
-```
+#### Responsibilities
+- Model registry management (LLMRegistry, VLMRegistry)
+- ModelContainer loading with factory pattern
+- Caching with `NSCache<NSString, ModelContainer>`
+- Core generation execution using `ModelContainer.perform { context in }`
 
 #### Key Methods
 
 ```swift
-// Load model using real MLX APIs
-public func loadModel(_ model: MLXModel) async throws
+// Load model using factory pattern
+public func loadModel(_ configuration: Any, type: ModelType) async throws -> ModelContainer
 
-// Generate response with loaded model
+// Core generation execution
+public func generate(with container: ModelContainer, input: UserInput) async throws -> String
+
+// Device compatibility checking
+public var isMLXSupported: Bool
+
+// Cache management
+public func clearCache()
+```
+
+### MLXLLMProvider (Text-Only Interface)
+
+Clean chat interface for text-only language models, wrapping MLXService.
+
+#### Supported Models
+- **Qwen3-4B**: General purpose, mobile-optimized
+- **Gemma-2-2B/9B**: Lightweight to high-quality responses  
+- **Llama-3.1-8B**: Instruction following, reasoning
+- **Mistral-7B**: Conversational, creative tasks
+
+#### Key Methods
+
+```swift
+// Load LLM model
+public func loadModel(_ configuration: LLMConfiguration) async throws
+
+// Simple text chat interface
 public func generateResponse(to prompt: String) async throws -> String
 
 // Stream response for real-time UI updates
 public func streamResponse(to prompt: String) -> AsyncThrowingStream<String, Error>
 
-// Device compatibility checking
-public var isMLXSupported: Bool
-
-// Get recommended model based on platform
-public func getRecommendedModel() -> MLXModel
+// Model management
+public func unloadModel() async
 ```
 
 #### Usage Example
 
 ```swift
-let provider = WorkingMLXProvider()
+let provider = MLXLLMProvider()
 
 // Check device compatibility
 guard provider.isMLXSupported else {
@@ -58,12 +75,64 @@ guard provider.isMLXSupported else {
     return
 }
 
-// Load recommended model
-let model = provider.getRecommendedModel()
-try await provider.loadModel(model)
+// Load model using registry
+try await provider.loadModel(LLMRegistry.qwen3_4B_4bit)
 
 // Generate response
 let response = try await provider.generateResponse(to: "Hello, how are you?")
+```
+
+### MLXVLMProvider (Multimodal Interface)
+
+Chat interface for vision-language models with image support, wrapping MLXService.
+
+#### Supported Models
+- **Gemma-3n**: Google's multimodal language model
+- **Qwen2-VL**: Alibaba's vision-language model
+- **LLaVA variants**: Open-source vision-language models
+
+#### Key Methods
+
+```swift
+// Load VLM model
+public func loadModel(_ configuration: VLMConfiguration) async throws
+
+// Multimodal chat interface
+public func generateResponse(to prompt: String, images: [UIImage] = []) async throws -> String
+
+// Text-only mode (fallback)
+public func generateResponse(to prompt: String) async throws -> String
+
+// Stream multimodal response
+public func streamResponse(to prompt: String, images: [UIImage]) -> AsyncThrowingStream<String, Error>
+
+// Model management
+public func unloadModel() async
+```
+
+#### Usage Example
+
+```swift
+let provider = MLXVLMProvider()
+
+// Check device compatibility
+guard provider.isMLXSupported else {
+    print("MLX VLM not supported on this device")
+    return
+}
+
+// Load VLM model using registry
+try await provider.loadModel(VLMRegistry.gemma3n_E2B_4bit)
+
+// Text-only generation
+let textResponse = try await provider.generateResponse(to: "Describe a sunset")
+
+// Multimodal generation
+let images = [UIImage(named: "photo.jpg")!]
+let multimodalResponse = try await provider.generateResponse(
+    to: "What do you see in this image?", 
+    images: images
+)
 ```
 
 ### RealFoundationModelsProvider

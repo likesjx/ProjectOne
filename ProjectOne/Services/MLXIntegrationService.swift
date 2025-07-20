@@ -24,7 +24,7 @@ class MLXIntegrationService: ObservableObject {
     private let gemmaCore: Gemma3nCore?
     
     // Model configuration
-    private let modelConfig = MLXModelConfiguration()
+    private let modelConfig = MLXIntegrationConfiguration()
     
     // MARK: - Initialization
     
@@ -179,7 +179,7 @@ class MLXIntegrationService: ObservableObject {
 
 // MARK: - Supporting Types
 
-struct MLXModelConfiguration {
+struct MLXIntegrationConfiguration {
     let maxModelSize: Int = 1024 * 1024 * 1024 // 1GB max per model
     let enableQuantization: Bool = true
     let enableOptimization: Bool = true

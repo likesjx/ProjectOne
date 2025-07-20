@@ -32,6 +32,13 @@ Complete guide to production MLX Swift 0.25.6 implementation:
 - WorkingMLXProvider implementation details
 - Device compatibility and performance optimization
 
+### 🧠 [Gemma-3n Model Selection Guide](GEMMA_3N_MODEL_SELECTION.md) ⭐ **Latest Research**
+Comprehensive model selection strategy based on MLX community research:
+- Optimal Gemma-3n variants for Mac and iOS platforms
+- MatFormer architecture and selective parameter activation
+- Performance benchmarks and memory requirements
+- Platform-specific recommendations and deployment strategies
+
 ### ✅ [MLX Gemma3n Implementation Complete](MLX_GEMMA3N_IMPLEMENTATION_COMPLETE.md)
 End-to-end MLX Swift integration documentation:
 - Production-ready MLX provider implementation

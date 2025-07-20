@@ -1,28 +1,46 @@
 import Foundation
 import os.log
 
-#if canImport(MLXLMCommon)
-import MLXLMCommon
+#if canImport(MLXVLM)
+import MLXVLM
+import MLXLMCommon  // Still needed for some common utilities
+import CoreImage     // For image processing
 #endif
 
-/// A concrete AI provider that uses the MLXLLM library to run a Gemma-3n model locally.
+/// A concrete AI provider that uses the MLXVLM library to run a Gemma-3n VLM model locally.
 public class MLXGemma3nE2BProvider: BaseAIProvider {
 
-    #if canImport(MLXLMCommon)
-    private var chatSession: ChatSession?
+    #if canImport(MLXVLM)
+    private var vlmModel: VLMModel?
+    private var vlmSession: ChatSession?
     #endif
     private let modelId: String
 
     public override var identifier: String { "mlx-gemma-3n-e2b-llm" }
-    public override var displayName: String { "MLX Gemma 3n E2B (LLM)" }
+    public override var displayName: String { "MLX Gemma 3n E2B" }
     public override var maxContextLength: Int { 8192 }
     public override var estimatedResponseTime: TimeInterval { 5.0 }
     
     public override var isAvailable: Bool { 
-        #if canImport(MLXLMCommon)
-        return chatSession != nil
+        #if canImport(MLXVLM)
+        // MLX VLM requires Metal 4 and real Apple Silicon hardware
+        guard isMLXSupported else { return false }
+        return vlmModel != nil
         #else
         return false
+        #endif
+    }
+    
+    /// Check if MLX is supported on current device
+    public var isMLXSupported: Bool {
+        #if targetEnvironment(simulator)
+        return false // MLX requires real Apple Silicon hardware, not simulator
+        #else
+        #if arch(arm64)
+        return true // Apple Silicon Macs and iOS devices with Metal 4
+        #else
+        return false // Intel Macs not supported
+        #endif
         #endif
     }
 
@@ -32,40 +50,59 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
     }
 
     public override func prepareModel() async throws {
-        #if canImport(MLXLMCommon)
-        await MainActor.run {
-            modelLoadingStatus = .preparing
-            statusMessage = "Initializing MLXLLM model: \(self.modelId)"
+        #if canImport(MLXVLM)
+        // Early check: MLX VLM requires Metal 4 and real Apple Silicon hardware
+        guard isMLXSupported else {
+            await MainActor.run {
+                modelLoadingStatus = .unavailable
+                statusMessage = "MLX VLM requires real Apple Silicon hardware (not simulator)"
+                isModelLoaded = false
+            }
+            logger.error("MLX VLM not supported: running on simulator or Intel Mac")
+            throw AIModelProviderError.providerUnavailable("MLX VLM requires real Apple Silicon hardware")
         }
         
-        logger.info("Preparing MLXLLM model: \(self.modelId)")
+        await MainActor.run {
+            modelLoadingStatus = .preparing
+            statusMessage = "Initializing MLX VLM model: \(self.modelId)"
+        }
+        
+        logger.info("Preparing MLX VLM model: \(self.modelId)")
         
         do {
             await MainActor.run {
                 modelLoadingStatus = .downloading(progress: 0.0)
-                statusMessage = "Checking model availability..."
+                statusMessage = "Loading VLM model..."
                 loadingProgress = 0.1
             }
             
-            // Try to load the model with enhanced error handling
-            let modelContext = try await loadModelContainerWithRetry(id: modelId)
+            // Load VLM model using MLXVLM API (not MLXLMCommon)
+            let loadedVLMModel = try await MLXVLM.loadModel(id: modelId) { progress in
+                Task { @MainActor in
+                    self.loadingProgress = 0.1 + (progress.fractionCompleted * 0.8)
+                }
+            }
             
             await MainActor.run {
                 modelLoadingStatus = .loading
-                statusMessage = "Creating chat session..."
-                loadingProgress = 0.8
+                statusMessage = "Initializing VLM session..."
+                loadingProgress = 0.9
             }
             
-            self.chatSession = ChatSession(modelContext)
+            // Create VLM-capable chat session
+            let session = ChatSession(loadedVLMModel)
+            
+            self.vlmModel = loadedVLMModel
+            self.vlmSession = session
             
             await MainActor.run {
                 modelLoadingStatus = .ready
-                statusMessage = "MLXLLM model ready for inference"
+                statusMessage = "MLX VLM model ready for multimodal inference"
                 loadingProgress = 1.0
                 isModelLoaded = true
             }
             
-            logger.info("MLXLLM model \(self.modelId) loaded successfully.")
+            logger.info("MLX VLM model \(self.modelId) loaded successfully.")
             
         } catch {
             let errorMessage = handleModelLoadError(error)
@@ -77,122 +114,87 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
                 isModelLoaded = false
             }
             
-            logger.error("Failed to load MLXLLM model: \(error.localizedDescription)")
+            logger.error("Failed to load MLX VLM model: \(error.localizedDescription)")
             throw AIModelProviderError.modelNotLoaded
         }
         #else
         await MainActor.run {
             modelLoadingStatus = .unavailable
-            statusMessage = "MLXLMCommon framework not available at compile time"
+            statusMessage = "MLXVLM framework not available at compile time"
             isModelLoaded = false
         }
         
-        logger.error("MLXLMCommon framework not available at compile time.")
-        throw AIModelProviderError.providerUnavailable("MLXLMCommon framework not available")
+        logger.error("MLXVLM framework not available at compile time.")
+        throw AIModelProviderError.providerUnavailable("MLXVLM framework not available")
         #endif
     }
 
     public override func generateModelResponse(_ prompt: String) async throws -> String {
-        #if canImport(MLXLMCommon)
-        guard let session = chatSession else {
+        #if canImport(MLXVLM)
+        guard let session = vlmSession else {
             throw AIModelProviderError.modelNotLoaded
         }
 
         do {
-            logger.info("Generating response with MLXLLM for prompt: \(prompt.prefix(50))...")
+            logger.info("Generating VLM response for prompt: \(prompt.prefix(50))...")
             
+            // Use VLM session API for text-only queries
             let response = try await session.respond(to: prompt)
             
-            logger.info("Successfully generated response from MLXLLM")
+            logger.info("Successfully generated response from MLX VLM")
             return response
             
         } catch {
-            logger.error("Failed to generate response from MLXLLM: \(error.localizedDescription)")
+            logger.error("Failed to generate response from MLX VLM: \(error.localizedDescription)")
             throw AIModelProviderError.processingFailed(error.localizedDescription)
         }
         #else
-        throw AIModelProviderError.providerUnavailable("MLXLMCommon framework not available")
+        throw AIModelProviderError.providerUnavailable("MLXVLM framework not available")
+        #endif
+    }
+    
+    /// Generate multimodal response with text and image input
+    public func generateMultimodalResponse(_ prompt: String, image: UIImage) async throws -> String {
+        #if canImport(MLXVLM)
+        guard let session = vlmSession else {
+            throw AIModelProviderError.modelNotLoaded
+        }
+        
+        do {
+            logger.info("Generating VLM multimodal response for prompt: \(prompt.prefix(50))...")
+            
+            // Convert UIImage to CIImage for MLXVLM
+            guard let ciImage = CIImage(image: image) else {
+                throw AIModelProviderError.processingFailed("Failed to convert image to CIImage")
+            }
+            
+            // Use VLM session API for multimodal queries
+            let response = try await session.respond(
+                to: prompt,
+                image: .ciImage(ciImage)
+            )
+            
+            logger.info("Successfully generated multimodal response from MLX VLM")
+            return response
+            
+        } catch {
+            logger.error("Failed to generate multimodal response from MLX VLM: \(error.localizedDescription)")
+            throw AIModelProviderError.processingFailed(error.localizedDescription)
+        }
+        #else
+        throw AIModelProviderError.providerUnavailable("MLXVLM framework not available")
         #endif
     }
 
     public override func cleanupModel() async {
-        #if canImport(MLXLMCommon)
-        chatSession = nil
+        #if canImport(MLXVLM)
+        vlmSession = nil
+        vlmModel = nil
         #endif
-        logger.info("MLXLLM model cleaned up.")
+        logger.info("MLX VLM model cleaned up.")
     }
     
-    // MARK: - Enhanced Model Loading
-    
-    #if canImport(MLXLMCommon)
-    /// Load model context with retry logic and better error handling
-    private func loadModelContainerWithRetry(id: String, maxRetries: Int = 3) async throws -> ModelContext {
-        var lastError: Error?
-        
-        for attempt in 1...maxRetries {
-            do {
-                await MainActor.run {
-                    if attempt > 1 {
-                        statusMessage = "Network retry \(attempt)/\(maxRetries)..."
-                    } else {
-                        statusMessage = "Downloading/loading model..."
-                    }
-                    loadingProgress = 0.2 + (0.4 * Double(attempt - 1) / Double(maxRetries))
-                }
-                
-                logger.info("Model load attempt \(attempt) for: \(id)")
-                
-                // Clear any incomplete downloads first
-                if attempt > 1 {
-                    try await clearIncompleteDownloads(for: id)
-                    // Add network recovery delay for TCP reset issues
-                    await networkRecoveryDelay(attempt: attempt)
-                }
-                
-                // Create new URLSession for each retry to avoid stale connections
-                let modelContext = try await loadModelContainerWithFreshSession(id: id)
-                logger.info("Successfully loaded model on attempt \(attempt)")
-                return modelContext
-                
-            } catch {
-                lastError = error
-                logger.warning("Model load attempt \(attempt) failed: \(error.localizedDescription)")
-                
-                // Check if this is a network-related error
-                if isNetworkError(error) {
-                    logger.info("Network error detected, will retry with fresh connection")
-                }
-                
-                if attempt < maxRetries {
-                    // Progressive delay for network issues
-                    let delay = min(attempt * 2, 10) // Cap at 10 seconds
-                    try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
-                }
-            }
-        }
-        
-        throw lastError ?? AIModelProviderError.modelNotLoaded
-    }
-    
-    /// Load model with a fresh URLSession to avoid TCP connection reuse issues
-    private func loadModelContainerWithFreshSession(id: String) async throws -> ModelContext {
-        // Force a fresh network session by clearing any cached connections
-        URLCache.shared.removeAllCachedResponses()
-        
-        // Configure URLSession with fresh TCP connections
-        let config = URLSessionConfiguration.default
-        config.urlCache = nil
-        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        config.timeoutIntervalForRequest = 60.0
-        config.timeoutIntervalForResource = 300.0
-        
-        // Use the ACTUAL working MLX Swift API (same as WorkingMLXProvider)
-        return try await MLXLMCommon.loadModel(id: id) { progress in
-            Task { @MainActor in
-                self.loadingProgress = 0.2 + (progress.fractionCompleted * 0.6)
-            }
-        }
-    }
+    // MARK: - VLM Model Loading Support
     
     /// Implement network recovery delay with exponential backoff
     private func networkRecoveryDelay(attempt: Int) async {
@@ -222,6 +224,7 @@ public class MLXGemma3nE2BProvider: BaseAIProvider {
     }
     
     /// Clear incomplete model downloads
+    #if canImport(MLXVLM)
     private func clearIncompleteDownloads(for modelId: String) async throws {
         let fileManager = FileManager.default
         

@@ -67,6 +67,7 @@ public class RealFoundationModelsProvider: ObservableObject {
         self.languageModel = model
         
         // Check real availability using the documented API
+        logger.info("🔍 Checking SystemLanguageModel.default.availability...")
         switch model.availability {
         case .available:
             await MainActor.run {
@@ -84,7 +85,7 @@ public class RealFoundationModelsProvider: ObservableObject {
                 self.errorMessage = "Device does not support Apple Intelligence features"
                 self.isLoading = false
             }
-            logger.info("Device not eligible for Apple Intelligence")
+            logger.error("❌ Device not eligible for Apple Intelligence")
             
         case .unavailable(.appleIntelligenceNotEnabled):
             await MainActor.run {
@@ -93,7 +94,7 @@ public class RealFoundationModelsProvider: ObservableObject {
                 self.errorMessage = "Apple Intelligence must be enabled in Settings"
                 self.isLoading = false
             }
-            logger.info("Apple Intelligence not enabled in Settings")
+            logger.error("❌ Apple Intelligence not enabled in Settings")
             
         case .unavailable(.modelNotReady):
             await MainActor.run {
@@ -102,7 +103,7 @@ public class RealFoundationModelsProvider: ObservableObject {
                 self.errorMessage = "Foundation Models is downloading or system is busy"
                 self.isLoading = false
             }
-            logger.info("Foundation Models not ready")
+            logger.error("❌ Foundation Models not ready (downloading or system busy)")
             
         case .unavailable(let other):
             await MainActor.run {
@@ -111,7 +112,7 @@ public class RealFoundationModelsProvider: ObservableObject {
                 self.errorMessage = "Unknown availability issue: \(other)"
                 self.isLoading = false
             }
-            logger.info("Foundation Models unavailable: \(String(describing: other))")
+            logger.error("❌ Foundation Models unavailable: \(String(describing: other))")
         }
         
         #else

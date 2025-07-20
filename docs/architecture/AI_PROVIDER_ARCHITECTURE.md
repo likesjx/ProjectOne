@@ -19,43 +19,54 @@ This architecture provides both privacy-preserving on-device processing and syst
 ### High-Level Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    ProjectOne AI System                         │
-├─────────────────────────────────────────────────────────────────┤
-│  UI Layer                                                       │
-│  ┌─────────────────┐  ┌──────────────────┐                     │
-│  │ UnifiedAITestView│  │ Memory Dashboard │                     │
-│  └─────────────────┘  └──────────────────┘                     │
-├─────────────────────────────────────────────────────────────────┤
-│  Orchestration Layer                                            │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │              EnhancedGemma3nCore                            │ │
-│  │  ┌─────────────────┐  ┌─────────────────┐                  │ │
-│  │  │ Provider Router │  │ Request Analyzer│                  │ │
-│  │  └─────────────────┘  └─────────────────┘                  │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│  AI Provider Layer                                              │
-│  ┌─────────────────────┐  ┌─────────────────────────────────────┐ │
-│  │   WorkingMLXProvider│  │  RealFoundationModelsProvider      │ │
-│  │                     │  │                                     │ │
-│  │ ┌─────────────────┐ │  │ ┌─────────────────────────────────┐ │ │
-│  │ │ Model Manager   │ │  │ │ SystemLanguageModel Access    │ │ │
-│  │ │ Chat Session    │ │  │ │ Session Management            │ │ │
-│  │ │ Stream Handler  │ │  │ │ @Generable Support            │ │ │
-│  │ └─────────────────┘ │  │ └─────────────────────────────────┘ │ │
-│  └─────────────────────┘  └─────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│  Framework Layer                                                │
-│  ┌─────────────────────┐  ┌─────────────────────────────────────┐ │
-│  │    MLX Swift 0.25.6 │  │     Foundation Models (iOS 26.0+)  │ │
-│  │                     │  │                                     │ │
-│  │ • MLXLMCommon       │  │ • SystemLanguageModel              │ │
-│  │ • ChatSession       │  │ • LanguageModelSession             │ │
-│  │ • ModelContext      │  │ • @Generable Protocol              │ │
-│  │ • Community Models  │  │ • Device Eligibility               │ │
-│  └─────────────────────┘  └─────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         ProjectOne AI System                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  UI Layer                                                                   │
+│  ┌─────────────────┐  ┌──────────────────┐                                 │
+│  │ UnifiedAITestView│  │ Memory Dashboard │                                 │
+│  └─────────────────┘  └──────────────────┘                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Orchestration Layer                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                        EnhancedGemma3nCore                              │ │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐ │ │
+│  │  │ Provider Router │  │ Request Analyzer│  │ Multimodal Detector     │ │ │
+│  │  └─────────────────┘  └─────────────────┘  └─────────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  AI Provider Layer                                                          │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────────────┐ │
+│  │ MLXLLMProvider  │ │ MLXVLMProvider  │ │  RealFoundationModelsProvider  │ │
+│  │                 │ │                 │ │                                 │ │
+│  │ ┌─────────────┐ │ │ ┌─────────────┐ │ │ ┌─────────────────────────────┐ │ │
+│  │ │Text Chat API│ │ │ │Multimodal   │ │ │ │ SystemLanguageModel Access  │ │ │
+│  │ │Interface    │ │ │ │Chat API     │ │ │ │ Session Management          │ │ │
+│  │ └─────────────┘ │ │ │Interface    │ │ │ │ @Generable Support          │ │ │
+│  │       ↓         │ │ └─────────────┘ │ │ └─────────────────────────────┘ │ │
+│  └───────┼─────────┘ │       ↓         │ └─────────────────────────────────┘ │
+│          └───────────┼─────────────────┘                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  MLX Service Layer                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                          MLXService                                     │ │
+│  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────────┐ │ │
+│  │  │ Model Cache     │ │ Factory Pattern │ │ Core Generation Engine      │ │ │
+│  │  │ Management      │ │ LLM/VLM Factory │ │ ModelContainer.perform()    │ │ │
+│  │  └─────────────────┘ └─────────────────┘ └─────────────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Framework Layer                                                            │
+│  ┌─────────────────────────────────────┐ ┌─────────────────────────────────┐ │
+│  │         MLX Swift 0.25.6            │ │   Foundation Models (iOS 26.0+) │ │
+│  │                                     │ │                                 │ │
+│  │ • MLX, MLXLLM, MLXLMCommon, MLXVLM  │ │ • SystemLanguageModel          │ │
+│  │ • LLMModelFactory, VLMModelFactory  │ │ • LanguageModelSession         │ │
+│  │ • ModelContainer, ModelContext      │ │ • @Generable Protocol          │ │
+│  │ • UserInput, Chat.Message           │ │ • Device Eligibility           │ │
+│  │ • LLMRegistry, VLMRegistry          │ │                                 │ │
+│  └─────────────────────────────────────┘ └─────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components
@@ -86,36 +97,108 @@ class EnhancedGemma3nCore: ObservableObject {
 }
 ```
 
-### WorkingMLXProvider
+### MLX Three-Layer Architecture
 
-Production MLX Swift implementation with real community models.
+**NEW**: Redesigned MLX integration with three distinct layers for optimal separation of concerns.
 
-#### Model Ecosystem
-
-| Model | Size | Memory | Use Case |
-|-------|------|--------|----------|
-| Qwen3-4B | 4B params | ~3GB | General purpose, mobile-optimized |
-| Gemma-2-2B | 2B params | ~3GB | Lightweight, fast inference |
-| Gemma-2-9B | 9B params | ~6-8GB | High-quality responses, desktop |
-| Llama-3.1-8B | 8B params | ~6-8GB | Instruction following, reasoning |
-| Mistral-7B | 7B params | ~6-8GB | Conversational, creative tasks |
-
-#### Architecture Details
+#### 1. MLXService (Core Service Layer)
+Low-level MLX model management based on real MLX Swift Examples patterns.
 
 ```swift
-public class WorkingMLXProvider: ObservableObject {
-    private var chatSession: ChatSession?
-    private var modelContext: ModelContext?
+public class MLXService: ObservableObject {
+    private let modelCache = NSCache<NSString, ModelContainer>()
     
-    // Real MLX Swift API integration
-    public func loadModel(_ model: MLXModel) async throws {
-        let loadedModel = try await MLXLMCommon.loadModel(id: model.rawValue) { progress in
-            // Real progress tracking
+    // Factory pattern for model loading
+    public func loadModel(_ configuration: Any, type: ModelType) async throws -> ModelContainer {
+        let factory = type == .vlm ? VLMModelFactory.shared : LLMModelFactory.shared
+        return try await factory.loadContainer(
+            hub: .default,
+            configuration: configuration
+        ) { progress in
+            // Progress tracking
         }
-        self.chatSession = ChatSession(loadedModel)
+    }
+    
+    // Core generation execution
+    public func generate(with container: ModelContainer, input: UserInput) async throws -> String {
+        return try await container.perform { (context: ModelContext) in
+            let lmInput = try await context.processor.prepare(input: input)
+            let parameters = GenerateParameters(temperature: 0.7)
+            let result = try MLXLMCommon.generate(
+                input: lmInput,
+                parameters: parameters,
+                context: context
+            )
+            return result.output
+        }
     }
 }
 ```
+
+#### 2. MLXLLMProvider (Text-Only Interface)
+Clean chat interface for text-only language models.
+
+```swift
+public class MLXLLMProvider: ObservableObject {
+    private let mlxService = MLXService()
+    private var modelContainer: ModelContainer?
+    
+    // Simple text chat interface
+    public func generateResponse(to prompt: String) async throws -> String {
+        guard let container = modelContainer else {
+            throw MLXError.modelNotLoaded
+        }
+        
+        let messages = [Chat.Message(role: .user, content: prompt)]
+        let userInput = UserInput(chat: messages)
+        
+        return try await mlxService.generate(with: container, input: userInput)
+    }
+}
+```
+
+#### 3. MLXVLMProvider (Multimodal Interface)
+Chat interface for vision-language models with image support.
+
+```swift
+public class MLXVLMProvider: ObservableObject {
+    private let mlxService = MLXService()
+    private var modelContainer: ModelContainer?
+    
+    // Multimodal chat interface
+    public func generateResponse(to prompt: String, images: [UIImage] = []) async throws -> String {
+        guard let container = modelContainer else {
+            throw MLXError.modelNotLoaded
+        }
+        
+        // Convert images to UserInput format
+        let userImages = images.compactMap { convertToUserInputImage($0) }
+        let messages = [Chat.Message(role: .user, content: prompt)]
+        let userInput = UserInput(
+            chat: messages,
+            images: userImages,
+            processing: .init(resize: .init(width: 1024, height: 1024))
+        )
+        
+        return try await mlxService.generate(with: container, input: userInput)
+    }
+}
+```
+
+#### Model Ecosystem
+
+| Model Type | Examples | Provider | Use Case |
+|------------|----------|----------|----------|
+| **LLM** | Qwen3-4B, Gemma-2-9B, Llama-3.1-8B | MLXLLMProvider | Text-only conversations |
+| **VLM** | Gemma-3n, Qwen2-VL, LLaVA | MLXVLMProvider | Text + image understanding |
+
+#### Architecture Benefits
+
+- **Separation of Concerns**: Model management vs chat interface
+- **Reusability**: Single MLXService supports both LLM and VLM providers
+- **Maintainability**: MLX API changes only affect MLXService
+- **Testability**: Each layer can be tested independently
+- **Flexibility**: Multiple chat interfaces can share the service
 
 ### RealFoundationModelsProvider
 
@@ -150,51 +233,69 @@ public class RealFoundationModelsProvider: ObservableObject {
 
 ## Provider Selection Strategy
 
-### Automatic Routing Logic
+### Automatic Routing Logic (NEW)
 
 ```mermaid
 graph TD
-    A[Request Received] --> B{iOS 26.0+ Available?}
-    B -->|Yes| C{Foundation Models Available?}
-    B -->|No| D{MLX Supported?}
+    A[Request Received] --> B{Contains Images/Media?}
+    B -->|Yes| C[Multimodal Request]
+    B -->|No| D[Text-Only Request]
     
-    C -->|Yes| E[Use Foundation Models]
-    C -->|No| F{MLX Ready?}
+    C --> E{MLX VLM Available?}
+    E -->|Yes| F[Use MLXVLMProvider]
+    E -->|No| G{Foundation Models Available?}
+    G -->|Yes| H[Use Foundation Models]
+    G -->|No| I[Error: No Multimodal Support]
     
-    D -->|Yes| G{MLX Model Loaded?}
-    D -->|No| H[Error: No Providers]
+    D --> J{Preferred Provider?}
+    J -->|Foundation| K{Foundation Models Available?}
+    J -->|MLX| L{MLX LLM Available?}
+    J -->|Auto| M[Smart Selection]
     
-    F -->|Yes| I[Use MLX Swift]
-    F -->|No| H
+    K -->|Yes| H
+    K -->|No| N{MLX LLM Available?}
     
-    G -->|Yes| I
-    G -->|No| J[Load MLX Model]
+    L -->|Yes| O[Use MLXLLMProvider]
+    L -->|No| K
     
-    J --> K{Load Success?}
-    K -->|Yes| I
-    K -->|No| H
+    M --> P{iOS 26.0+ & Foundation Available?}
+    P -->|Yes| H
+    P -->|No| N
     
-    E --> L[Generate Response]
-    I --> L
-    H --> M[Return Error]
+    N -->|Yes| O
+    N -->|No| I
+    
+    F --> Q[Generate Response]
+    H --> Q
+    O --> Q
+    I --> R[Return Error]
 ```
 
-### Decision Factors
+### Decision Factors (Updated)
 
-1. **Platform Availability**
-   - iOS 26.0+ → Foundation Models preferred
-   - Apple Silicon → MLX Swift supported
-   - iOS Simulator → Foundation Models only
+1. **Request Type**
+   - **Multimodal (images/video)** → MLXVLMProvider required
+   - **Text-only** → MLXLLMProvider or Foundation Models
 
-2. **Content Sensitivity**
-   - High sensitivity → Prefer MLX (on-device)
-   - General content → Foundation Models (system-optimized)
-   - Structured generation → Foundation Models (@Generable)
+2. **Platform Availability**
+   - **iOS 26.0+** → Foundation Models preferred for text-only
+   - **Apple Silicon** → Both MLX providers supported
+   - **iOS Simulator** → Foundation Models only (MLX requires real hardware)
 
-3. **Performance Requirements**
-   - Real-time → Foundation Models (system-optimized)
-   - Batch processing → MLX Swift (dedicated resources)
-   - Memory constrained → Lighter MLX models
+3. **Content Sensitivity**
+   - **High privacy** → Prefer MLX providers (on-device processing)
+   - **General content** → Foundation Models (system-optimized)
+   - **Structured generation** → Foundation Models (@Generable support)
+
+4. **Performance Requirements**
+   - **Real-time chat** → Foundation Models (system-optimized)
+   - **Batch processing** → MLX providers (dedicated resources)
+   - **Memory constrained** → Foundation Models (system-managed)
+
+5. **Model Capabilities**
+   - **Vision understanding** → MLXVLMProvider (Gemma-3n, Qwen2-VL)
+   - **Text generation** → MLXLLMProvider (Qwen3, Gemma-2, Llama)
+   - **Structured output** → Foundation Models (@Generable)
 
 ## Structured Generation Architecture
 

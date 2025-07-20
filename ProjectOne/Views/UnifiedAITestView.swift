@@ -28,35 +28,40 @@ struct ProviderTestResult {
 
 // MARK: - Provider Type Enumeration
 
-enum AIProviderType: String, CaseIterable {
-    case mlxGemma3n = "MLX Gemma3n"
-    case workingMLX = "Working MLX"
+enum TestProviderType: String, CaseIterable {
+    case mlxLLM = "MLX LLM (Text-Only)"
+    case mlxVLM = "MLX VLM (Multimodal)"
     case realFoundationModels = "Foundation Models (Real)"
-    case appleFoundationModels = "Foundation Models (Legacy)"
     case enhancedGemma3nCore = "Enhanced Gemma3n Core"
-    case appleIntelligence = "Apple Intelligence"
     
     var icon: String {
         switch self {
-        case .mlxGemma3n, .workingMLX: return "brain"
-        case .realFoundationModels, .appleFoundationModels: return "apple.logo"
+        case .mlxLLM: return "textformat"
+        case .mlxVLM: return "photo.on.rectangle"
+        case .realFoundationModels: return "apple.logo"
         case .enhancedGemma3nCore: return "cpu"
-        case .appleIntelligence: return "sparkles"
         }
     }
     
     var color: Color {
         switch self {
-        case .mlxGemma3n, .workingMLX: return .blue
-        case .realFoundationModels, .appleFoundationModels: return .green
+        case .mlxLLM: return .blue
+        case .mlxVLM: return .purple
+        case .realFoundationModels: return .green
         case .enhancedGemma3nCore: return .orange
-        case .appleIntelligence: return .purple
         }
     }
     
     var requiresIOS26: Bool {
         switch self {
         case .realFoundationModels, .enhancedGemma3nCore: return true
+        default: return false
+        }
+    }
+    
+    var supportsImages: Bool {
+        switch self {
+        case .mlxVLM, .enhancedGemma3nCore: return true
         default: return false
         }
     }
@@ -67,17 +72,19 @@ enum AIProviderType: String, CaseIterable {
 @available(iOS 18.0, iPadOS 18.0, macOS 15.0, *)
 struct UnifiedAITestView: View {
     @State private var testPrompt = "Hello, how are you? Please tell me a short joke."
-    @State private var selectedProviders: Set<AIProviderType> = [.workingMLX, .realFoundationModels]
+    @State private var selectedProviders: Set<TestProviderType> = [.mlxLLM, .realFoundationModels]
     @State private var testResults: [ProviderTestResult] = []
     @State private var isLoading = false
     @State private var showComparison = false
-    @State private var loadingProviders: Set<AIProviderType> = []
+    @State private var loadingProviders: Set<TestProviderType> = []
+    @State private var selectedImages: [UIImage] = []
+    @State private var showImagePicker = false
     
-    // Provider instances
-    @StateObject private var mlxGemma3nProvider = MLXGemma3nE2BProvider()
-    @StateObject private var workingMLXProvider = WorkingMLXProvider()
-    @StateObject private var appleFoundationProvider = AppleFoundationModelsProvider()
-    @StateObject private var appleIntelligenceProvider = AppleIntelligenceProvider()
+    // Provider instances - Three-Layer Architecture
+    @StateObject private var mlxLLMProvider = MLXLLMProvider()
+    @StateObject private var mlxVLMProvider = MLXVLMProvider()
+    @StateObject private var realFoundationProvider = RealFoundationModelsProvider()
+    @StateObject private var enhancedCore = EnhancedGemma3nCore()
     
     var body: some View {
         NavigationStack {
@@ -90,7 +97,7 @@ struct UnifiedAITestView: View {
                             .font(.headline)
                         
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            ForEach(AIProviderType.allCases, id: \.self) { providerType in
+                            ForEach(TestProviderType.allCases, id: \.self) { providerType in
                                 ProviderSelectionCard(
                                     providerType: providerType,
                                     isSelected: selectedProviders.contains(providerType),
@@ -208,6 +215,7 @@ struct UnifiedAITestView: View {
             #endif
             .onAppear {
                 setupProviders()
+                debugProviderAvailability()
             }
         }
     }
@@ -235,8 +243,12 @@ struct UnifiedAITestView: View {
             } else {
                 return false
             }
-        case .workingMLX, .mlxGemma3n:
+        case .workingMLX:
+            // Check if MLX is supported on this hardware (not simulator)
             return workingMLXProvider.isMLXSupported
+        case .mlxGemma3n:
+            // Check if MLX is supported on this hardware (not simulator) 
+            return mlxGemma3nProvider.isMLXSupported
         case .appleFoundationModels:
             return appleFoundationProvider.isAvailable
         case .appleIntelligence:
@@ -261,6 +273,15 @@ struct UnifiedAITestView: View {
                     try await workingMLXProvider.loadModel(recommendedModel)
                 } catch {
                     print("Failed to setup Working MLX Provider: \(error)")
+                }
+            }
+            
+            // Prepare MLX Gemma3n provider
+            if mlxGemma3nProvider.isMLXSupported {
+                do {
+                    try await mlxGemma3nProvider.prepareModel()
+                } catch {
+                    print("Failed to setup MLX Gemma3n Provider: \(error)")
                 }
             }
             
@@ -372,6 +393,39 @@ struct UnifiedAITestView: View {
                 return "Apple Intelligence consumer features: \(features.currentFeatures.joined(separator: ", "))"
             }
         }
+    }
+    
+    // MARK: - Debug Methods
+    
+    private func debugProviderAvailability() {
+        print("=== Provider Availability Debug ===")
+        print("Target Environment: macOS")
+        print("Architecture: arm64")
+        
+        #if targetEnvironment(simulator)
+        print("❌ Running in simulator")
+        #else
+        print("✅ Running on real hardware")
+        #endif
+        
+        #if arch(arm64)
+        print("✅ Apple Silicon (arm64)")
+        #else
+        print("❌ Intel architecture")
+        #endif
+        
+        #if canImport(MLXLMCommon)
+        print("✅ MLXLMCommon framework available")
+        #else
+        print("❌ MLXLMCommon framework NOT available")
+        #endif
+        
+        
+        print("WorkingMLXProvider.isMLXSupported: \(workingMLXProvider.isMLXSupported)")
+        print("MLXGemma3nProvider.isMLXSupported: \(mlxGemma3nProvider.isMLXSupported)")
+        print("AppleFoundationProvider.isAvailable: \(appleFoundationProvider.isAvailable)")
+        print("AppleIntelligenceProvider.supportsAppleIntelligence: \(appleIntelligenceProvider.supportsAppleIntelligence)")
+        print("====================================")
     }
 }
 

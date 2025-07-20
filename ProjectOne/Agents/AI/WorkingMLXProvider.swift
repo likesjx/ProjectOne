@@ -29,26 +29,45 @@ public class WorkingMLXProvider: ObservableObject {
     // MARK: - Supported Models (Real MLX Models from Hub)
     
     public enum MLXModel: String, CaseIterable {
+        // Optimal Gemma-3n variants based on MLX community research
+        case gemma3n_E4B_5bit = "mlx-community/gemma-3n-E4B-it-5bit"     // Mac optimized
+        case gemma3n_E2B_4bit = "mlx-community/gemma-3n-E2B-it-4bit"     // iOS optimized
+        case gemma3n_E4B_8bit = "mlx-community/gemma-3n-E4B-it-8bit"     // High quality Mac
+        case gemma3n_E2B_5bit = "mlx-community/gemma-3n-E2B-it-5bit"     // Balanced mobile
+        
+        // Legacy models for compatibility
         case qwen3_4B = "mlx-community/Qwen3-4B-4bit"
         case gemma2_2B = "mlx-community/Gemma-2-2b-it-4bit" 
-        case gemma2_9B = "mlx-community/Gemma-2-9b-it-4bit"
         case llama3_8B = "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
-        case mistral_7B = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
         
         public var displayName: String {
             switch self {
+            case .gemma3n_E4B_5bit: return "Gemma-3n E4B (5-bit) - Mac Optimized"
+            case .gemma3n_E2B_4bit: return "Gemma-3n E2B (4-bit) - iOS Optimized"
+            case .gemma3n_E4B_8bit: return "Gemma-3n E4B (8-bit) - High Quality"
+            case .gemma3n_E2B_5bit: return "Gemma-3n E2B (5-bit) - Balanced Mobile"
             case .qwen3_4B: return "Qwen3 4B (4-bit)"
             case .gemma2_2B: return "Gemma 2 2B (4-bit)"
-            case .gemma2_9B: return "Gemma 2 9B (4-bit)" 
             case .llama3_8B: return "Llama 3.1 8B (4-bit)"
-            case .mistral_7B: return "Mistral 7B (4-bit)"
             }
         }
         
         public var memoryRequirement: String {
             switch self {
+            case .gemma3n_E2B_4bit: return "~1.7GB RAM"
+            case .gemma3n_E2B_5bit: return "~2.1GB RAM"
+            case .gemma3n_E4B_5bit: return "~3-4GB RAM"
+            case .gemma3n_E4B_8bit: return "~8GB RAM"
             case .qwen3_4B, .gemma2_2B: return "~3GB RAM"
-            case .gemma2_9B, .llama3_8B, .mistral_7B: return "~6-8GB RAM"
+            case .llama3_8B: return "~6-8GB RAM"
+            }
+        }
+        
+        public var targetPlatform: String {
+            switch self {
+            case .gemma3n_E2B_4bit, .gemma3n_E2B_5bit: return "iOS/Mobile"
+            case .gemma3n_E4B_5bit, .gemma3n_E4B_8bit: return "Mac/Desktop"
+            case .qwen3_4B, .gemma2_2B, .llama3_8B: return "Cross-platform"
             }
         }
     }
@@ -63,6 +82,17 @@ public class WorkingMLXProvider: ObservableObject {
     
     /// Load a model using the actual MLX Swift API
     public func loadModel(_ model: MLXModel) async throws {
+        // Early check: MLX requires Metal 4 and real Apple Silicon hardware
+        guard isMLXSupported else {
+            await MainActor.run {
+                isLoading = false
+                isReady = false
+                errorMessage = "MLX requires real Apple Silicon hardware (not simulator)"
+            }
+            logger.error("MLX not supported: running on simulator or Intel Mac")
+            throw WorkingMLXError.loadingError("MLX requires real Apple Silicon hardware")
+        }
+        
         await MainActor.run {
             isLoading = true
             loadingProgress = 0.0
@@ -254,13 +284,32 @@ extension WorkingMLXProvider {
         #endif
     }
     
-    /// Get recommended model based on available memory
+    /// Get recommended model based on platform and available memory
     public func getRecommendedModel() -> MLXModel {
-        // Simple heuristic - in production you'd check actual available memory
         #if os(iOS)
-        return .gemma2_2B // More conservative for mobile
+        // iOS: Use optimized Gemma-3n E2B variants
+        return .gemma3n_E2B_4bit // Best for iOS constraints
         #else
-        return .qwen3_4B // Desktop can handle slightly larger models
+        // macOS: Use more capable Gemma-3n E4B variants
+        return .gemma3n_E4B_5bit // Optimal balance for Mac
+        #endif
+    }
+    
+    /// Get high-performance model recommendation
+    public func getHighPerformanceModel() -> MLXModel {
+        #if os(iOS)
+        return .gemma3n_E2B_5bit // Best quality for iOS
+        #else
+        return .gemma3n_E4B_8bit // High quality for Mac
+        #endif
+    }
+    
+    /// Get memory-efficient model recommendation
+    public func getMemoryEfficientModel() -> MLXModel {
+        #if os(iOS)
+        return .gemma3n_E2B_4bit // Most efficient for iOS
+        #else
+        return .gemma3n_E4B_5bit // Efficient for Mac
         #endif
     }
 }

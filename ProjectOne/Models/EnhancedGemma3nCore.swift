@@ -21,9 +21,10 @@ class EnhancedGemma3nCore: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "EnhancedGemma3nCore")
     
-    // MARK: - AI Providers
+    // MARK: - AI Providers (Three-Layer Architecture)
     
-    @StateObject private var mlxProvider = WorkingMLXProvider()
+    @StateObject private var mlxLLMProvider = MLXLLMProvider()
+    @StateObject private var mlxVLMProvider = MLXVLMProvider()
     @StateObject private var foundationProvider = RealFoundationModelsProvider()
     
     // MARK: - State
@@ -36,13 +37,15 @@ class EnhancedGemma3nCore: ObservableObject {
     
     public enum AIProviderType: String, CaseIterable {
         case automatic = "automatic"
-        case mlx = "mlx"
+        case mlxLLM = "mlx_llm"
+        case mlxVLM = "mlx_vlm"
         case foundation = "foundation"
         
         var displayName: String {
             switch self {
             case .automatic: return "Automatic (Best Available)"
-            case .mlx: return "MLX Swift (On-Device)"
+            case .mlxLLM: return "MLX LLM (Text-Only)"
+            case .mlxVLM: return "MLX VLM (Multimodal)"
             case .foundation: return "Foundation Models (System)"
             }
         }
@@ -60,17 +63,19 @@ class EnhancedGemma3nCore: ObservableObject {
             errorMessage = nil
         }
         
-        logger.info("Setting up dual AI providers...")
+        logger.info("Setting up MLX three-layer and Foundation providers...")
         
-        // Setup both providers in parallel
-        async let mlxSetup: () = setupMLXProvider()
+        // Setup all providers in parallel
+        async let mlxLLMSetup: () = setupMLXLLMProvider()
+        async let mlxVLMSetup: () = setupMLXVLMProvider()
         async let foundationSetup: () = setupFoundationProvider()
         
-        await mlxSetup
+        await mlxLLMSetup
+        await mlxVLMSetup
         await foundationSetup
         
         await MainActor.run {
-            isReady = mlxProvider.isReady || foundationProvider.isAvailable
+            isReady = mlxLLMProvider.isReady || mlxVLMProvider.isReady || foundationProvider.isAvailable
             isLoading = false
             
             if isReady {
@@ -84,18 +89,31 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - Provider Setup
     
-    private func setupMLXProvider() async {
-        guard mlxProvider.isMLXSupported else {
-            logger.info("MLX not supported on this device")
+    private func setupMLXLLMProvider() async {
+        guard mlxLLMProvider.isSupported else {
+            logger.info("MLX LLM not supported on this device")
             return
         }
         
         do {
-            let recommendedModel = mlxProvider.getRecommendedModel()
-            try await mlxProvider.loadModel(recommendedModel)
-            logger.info("✅ MLX provider ready with \(recommendedModel.displayName)")
+            try await mlxLLMProvider.loadRecommendedModel()
+            logger.info("✅ MLX LLM provider ready")
         } catch {
-            logger.error("❌ MLX provider setup failed: \(error.localizedDescription)")
+            logger.error("❌ MLX LLM provider setup failed: \(error.localizedDescription)")
+        }
+    }
+    
+    private func setupMLXVLMProvider() async {
+        guard mlxVLMProvider.isSupported else {
+            logger.info("MLX VLM not supported on this device")
+            return
+        }
+        
+        do {
+            try await mlxVLMProvider.loadRecommendedModel()
+            logger.info("✅ MLX VLM provider ready")
+        } catch {
+            logger.error("❌ MLX VLM provider setup failed: \(error.localizedDescription)")
         }
     }
     
@@ -119,27 +137,27 @@ class EnhancedGemma3nCore: ObservableObject {
     
     /// Process text using the best available AI provider
     public func processText(_ text: String, forceProvider: AIProviderType? = nil) async -> String {
-        let provider = forceProvider ?? selectBestProvider()
+        return await processText(text, images: [], forceProvider: forceProvider)
+    }
+    
+    /// Process text with optional images using smart routing
+    public func processText(_ text: String, images: [UIImage] = [], forceProvider: AIProviderType? = nil) async -> String {
+        let provider = forceProvider ?? selectBestProvider(for: text, images: images)
         
-        logger.info("Processing text with \(provider.displayName)")
+        logger.info("Processing \(images.isEmpty ? "text" : "multimodal") request with \(provider.displayName)")
         
         do {
             let response: String
             
             switch provider {
-            case .mlx:
-                response = try await processWithMLX(text)
+            case .mlxLLM:
+                response = try await processWithMLXLLM(text)
+            case .mlxVLM:
+                response = try await processWithMLXVLM(text, images: images)
             case .foundation:
                 response = try await processWithFoundation(text)
             case .automatic:
-                // Try Foundation Models first (system-integrated), fall back to MLX
-                if foundationProvider.isAvailable {
-                    response = try await processWithFoundation(text)
-                } else if mlxProvider.isReady {
-                    response = try await processWithMLX(text)
-                } else {
-                    throw EnhancedGemmaError.noProvidersAvailable
-                }
+                response = try await processWithAutomatic(text, images: images)
             }
             
             await MainActor.run {
@@ -150,7 +168,7 @@ class EnhancedGemma3nCore: ObservableObject {
             
         } catch {
             let errorResponse = "Error processing request: \(error.localizedDescription)"
-            logger.error("Text processing failed: \(error.localizedDescription)")
+            logger.error("Processing failed: \(error.localizedDescription)")
             
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -163,12 +181,41 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - Private Processing Methods
     
-    private func processWithMLX(_ text: String) async throws -> String {
-        guard mlxProvider.isReady else {
+    private func processWithMLXLLM(_ text: String) async throws -> String {
+        guard mlxLLMProvider.isReady else {
             throw EnhancedGemmaError.mlxNotReady
         }
         
-        return try await mlxProvider.generateResponse(to: text)
+        return try await mlxLLMProvider.generateResponse(to: text)
+    }
+    
+    private func processWithMLXVLM(_ text: String, images: [UIImage] = []) async throws -> String {
+        guard mlxVLMProvider.isReady else {
+            throw EnhancedGemmaError.mlxNotReady
+        }
+        
+        return try await mlxVLMProvider.generateResponse(to: text, images: images)
+    }
+    
+    private func processWithAutomatic(_ text: String, images: [UIImage] = []) async throws -> String {
+        // Smart routing based on request type
+        if !images.isEmpty {
+            // Multimodal request - requires VLM provider
+            if mlxVLMProvider.isReady {
+                return try await processWithMLXVLM(text, images: images)
+            } else {
+                throw EnhancedGemmaError.noMultimodalProvider
+            }
+        } else {
+            // Text-only request - try Foundation Models first, then MLX LLM
+            if foundationProvider.isAvailable {
+                return try await processWithFoundation(text)
+            } else if mlxLLMProvider.isReady {
+                return try await processWithMLXLLM(text)
+            } else {
+                throw EnhancedGemmaError.noProvidersAvailable
+            }
+        }
     }
     
     private func processWithFoundation(_ text: String) async throws -> String {
@@ -204,22 +251,34 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - Provider Management
     
-    private func selectBestProvider() -> AIProviderType {
-        // For iOS 26.0+, prefer Foundation Models for system integration
-        if foundationProvider.isAvailable {
-            return .foundation
-        } else if mlxProvider.isReady {
-            return .mlx
+    private func selectBestProvider(for text: String, images: [UIImage] = []) -> AIProviderType {
+        // Smart routing based on request type
+        if !images.isEmpty {
+            // Multimodal request - requires VLM provider
+            if mlxVLMProvider.isReady {
+                return .mlxVLM
+            } else {
+                return .automatic // Will handle error in processing
+            }
         } else {
-            return .automatic // Will handle error in processing
+            // Text-only request - prefer Foundation Models for system integration
+            if foundationProvider.isAvailable {
+                return .foundation
+            } else if mlxLLMProvider.isReady {
+                return .mlxLLM
+            } else {
+                return .automatic // Will handle error in processing
+            }
         }
     }
     
     /// Get current provider status
     public func getProviderStatus() -> ProviderStatus {
         return ProviderStatus(
-            mlxAvailable: mlxProvider.isReady,
-            mlxModel: mlxProvider.getModelInfo()?.displayName,
+            mlxLLMAvailable: mlxLLMProvider.isReady,
+            mlxLLMModel: mlxLLMProvider.getModelInfo()?.displayName,
+            mlxVLMAvailable: mlxVLMProvider.isReady,
+            mlxVLMModel: mlxVLMProvider.getModelInfo()?.displayName,
             foundationAvailable: foundationProvider.isAvailable,
             foundationStatus: foundationProvider.modelStatus,
             activeProvider: activeProvider.displayName,
@@ -249,18 +308,29 @@ class EnhancedGemma3nCore: ObservableObject {
 // MARK: - Supporting Types
 
 public struct ProviderStatus {
-    public let mlxAvailable: Bool
-    public let mlxModel: String?
+    public let mlxLLMAvailable: Bool
+    public let mlxLLMModel: String?
+    public let mlxVLMAvailable: Bool
+    public let mlxVLMModel: String?
     public let foundationAvailable: Bool
     public let foundationStatus: String
     public let activeProvider: String
     public let isReady: Bool
+    
+    public var hasMultimodalSupport: Bool {
+        return mlxVLMAvailable
+    }
+    
+    public var hasTextSupport: Bool {
+        return mlxLLMAvailable || foundationAvailable
+    }
 }
 
 public enum EnhancedGemmaError: Error, LocalizedError {
     case noProvidersAvailable
     case mlxNotReady
     case foundationNotAvailable
+    case noMultimodalProvider
     case processingFailed(String)
     
     public var errorDescription: String? {
@@ -271,6 +341,8 @@ public enum EnhancedGemmaError: Error, LocalizedError {
             return "MLX provider is not ready"
         case .foundationNotAvailable:
             return "Foundation Models not available"
+        case .noMultimodalProvider:
+            return "No multimodal provider available for image processing"
         case .processingFailed(let reason):
             return "Processing failed: \(reason)"
         }
