@@ -1359,7 +1359,7 @@ struct SoundWaveVisualization: View {
 }
 
 #Preview {
-    @Previewable @State var modelContainer = try! ModelContainer(for: Entity.self, Relationship.self)
+    @Previewable @State var modelContainer = try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)
     NavigationView {
         VoiceMemoView(modelContext: modelContainer.mainContext)
     }

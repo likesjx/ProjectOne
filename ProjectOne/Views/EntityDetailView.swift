@@ -674,13 +674,16 @@ struct ConnectedEntityRowView: View {
 // MARK: - Preview
 
 #Preview {
-    let entity = Entity(name: "John Doe", type: .person)
-    entity.entityDescription = "Software engineer working on AI projects"
-    entity.mentions = 15
-    entity.confidence = 0.85
-    entity.importance = 0.7
-    entity.aliases = ["John", "Johnny"]
-    entity.tags = ["engineer", "AI", "colleague"]
+    let entity = {
+        let entity = Entity(name: "John Doe", type: .person)
+        entity.entityDescription = "Software engineer working on AI projects"
+        entity.mentions = 15
+        entity.confidence = 0.85
+        entity.importance = 0.7
+        entity.aliases = ["John", "Johnny"]
+        entity.tags = ["engineer", "AI", "colleague"]
+        return entity
+    }()
     
-    return EntityDetailView(entity: entity, modelContext: ModelContext(try! ModelContainer(for: Entity.self)))
+    return EntityDetailView(entity: entity, modelContext: ModelContext(try! SwiftData.ModelContainer(for: Entity.self)))
 }

@@ -310,7 +310,7 @@ struct NoteCard: View {
 
 extension ModelContext {
     static var preview: ModelContext {
-        let container = try! ModelContainer(for: ProcessedNote.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let container = try! SwiftData.ModelContainer(for: ProcessedNote.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         
         // Add sample notes
         let context = container.mainContext

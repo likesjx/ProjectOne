@@ -64,7 +64,7 @@ class MLXIntegrationService: ObservableObject {
             loadingProgress = 0.3
             print("🧠 Loading MLX Gemma3n model for Memory Agent...")
             
-            // The actual Gemma3n model loading is handled by MLXGemma3nE2BProvider
+            // The actual MLX model loading is handled by WorkingMLXProvider
             // This service now coordinates with the Gemma3nCore
             guard let gemmaCore = self.gemmaCore else {
                 print("⚠️ No Gemma3nCore instance provided, skipping MLX model coordination")

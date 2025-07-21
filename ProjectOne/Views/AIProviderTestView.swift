@@ -9,7 +9,7 @@ import SwiftUI
 
 struct AIProviderTestView: View {
     @StateObject private var mlxProvider = WorkingMLXProvider()
-    @StateObject private var appleProvider = AppleIntelligenceProvider()
+    @StateObject private var appleProvider = AppleFoundationModelsProvider()
     
     @State private var testPrompt = "Hello! Can you tell me about the capabilities of this AI model?"
     @State private var mlxResponse = ""

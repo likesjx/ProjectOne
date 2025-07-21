@@ -172,7 +172,7 @@ public func getCapabilities() -> FoundationModelCapabilities
 
 ```swift
 @available(iOS 26.0, *)
-let provider = RealFoundationModelsProvider()
+let provider = AppleFoundationModelsProvider()
 
 // Wait for availability check
 while provider.isLoading { 

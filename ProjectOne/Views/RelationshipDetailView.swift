@@ -689,17 +689,20 @@ struct EntityButton: View {
 // MARK: - Preview
 
 #Preview {
-    let relationship = Relationship(
-        subjectEntityId: UUID(),
-        predicateType: .worksFor,
-        objectEntityId: UUID()
-    )
-    relationship.context = "Mentioned during discussion about team structure"
-    relationship.confidence = 0.85
-    relationship.strength = 0.9
-    relationship.mentions = 5
-    relationship.addEvidence("John works for Apple according to his LinkedIn profile")
-    relationship.addEvidence("He mentioned Apple as his employer in the meeting")
+    let relationship = {
+        let relationship = Relationship(
+            subjectEntityId: UUID(),
+            predicateType: .worksFor,
+            objectEntityId: UUID()
+        )
+        relationship.context = "Mentioned during discussion about team structure"
+        relationship.confidence = 0.85
+        relationship.strength = 0.9
+        relationship.mentions = 5
+        relationship.addEvidence("John works for Apple according to his LinkedIn profile")
+        relationship.addEvidence("He mentioned Apple as his employer in the meeting")
+        return relationship
+    }()
     
-    return RelationshipDetailView(relationship: relationship, modelContext: ModelContext(try! ModelContainer(for: Relationship.self)))
+    return RelationshipDetailView(relationship: relationship, modelContext: ModelContext(try! SwiftData.ModelContainer(for: Relationship.self)))
 }

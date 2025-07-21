@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-@available(iOS 26.0, iPadOS 26.0, macOS 26.0, tvOS 26.0, watchOS 11.0, *)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 11.0, *)
 struct PromptEditView: View {
     var template: PromptTemplate
     @ObservedObject var promptManager: PromptManager
@@ -506,7 +506,7 @@ struct ErrorMessage: View {
     if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let schema = Schema([PromptTemplate.self])
-        let container = try! ModelContainer(for: schema, configurations: [config])
+        let container = try! SwiftData.ModelContainer(for: schema, configurations: [config])
         let promptManager = PromptManager(modelContext: container.mainContext)
         
         let template = PromptTemplate(
@@ -519,8 +519,8 @@ struct ErrorMessage: View {
             tags: ["test", "preview"]
         )
         
-        return PromptEditView(template: template, promptManager: promptManager)
+        PromptEditView(template: template, promptManager: promptManager)
     } else {
-        return Text("Requires iOS 17.0+")
+        Text("Requires iOS 17.0+")
     }
 }

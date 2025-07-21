@@ -10,7 +10,8 @@ import os.log
 class Gemma3nCore: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "Gemma3nCore")
-    private var mlxProvider: UnifiedMLXProvider?
+    private var mlxProvider: WorkingMLXProvider?
+    private var currentModelId: String?
     
     @Published var isReady = false
     @Published var isLoading = false
@@ -22,7 +23,7 @@ class Gemma3nCore: ObservableObject {
     
     public func setup() {
         logger.debug("Setting up MLX Gemma3n provider")
-        mlxProvider = UnifiedMLXProvider()
+        mlxProvider = WorkingMLXProvider()
         
         Task {
             await prepareProvider()
@@ -37,9 +38,9 @@ class Gemma3nCore: ObservableObject {
         errorMessage = nil
         
         do {
-            try await provider.prepare(modelTypes: [.multimodal])
-            // Load the specific Gemma3n model
-            try await provider.loadModel(name: "mlx-community/gemma-3n-E2B-it-lm-bf16", type: .multimodal)
+            // Load the specific Gemma3n model using WorkingMLXProvider API
+            try await provider.loadModel(.gemma3n_E2B_4bit)
+            currentModelId = WorkingMLXProvider.MLXModel.gemma3n_E2B_4bit.rawValue
             isReady = true
             logger.info("Gemma3nCore is ready with MLX provider")
         } catch {
@@ -55,15 +56,14 @@ class Gemma3nCore: ObservableObject {
     
     /// Process text using MLX Gemma3n model
     func processText(_ text: String) async -> String {
-        guard let provider = mlxProvider, provider.isAvailable else {
+        guard let provider = mlxProvider, isReady else {
             logger.warning("MLX provider not available, returning original text")
             return text
         }
         
         do {
-            let input = UnifiedModelInput(text: text)
-            let response = try await provider.process(input: input, modelType: .multimodal)
-            return response.text ?? "No response generated"
+            let response = try await provider.generateResponse(to: text)
+            return response
         } catch {
             logger.error("Text processing failed: \(error.localizedDescription)")
             return "Error processing text: \(error.localizedDescription)"
@@ -72,11 +72,11 @@ class Gemma3nCore: ObservableObject {
     
     /// Check if Gemma3n is available and ready
     func isAvailable() -> Bool {
-        return isReady && mlxProvider?.isAvailable == true
+        return isReady && mlxProvider?.isReady == true
     }
     
     /// Get the MLX provider for direct access
-    func getMLXProvider() -> UnifiedMLXProvider? {
+    func getMLXProvider() -> WorkingMLXProvider? {
         return mlxProvider
     }
     
@@ -84,7 +84,7 @@ class Gemma3nCore: ObservableObject {
     func reloadModel() async {
         logger.info("Reloading Gemma3n model")
         
-        await mlxProvider?.cleanup(modelTypes: [.multimodal])
+        await mlxProvider?.unloadModel()
         await prepareProvider()
     }
     
@@ -94,8 +94,8 @@ class Gemma3nCore: ObservableObject {
             isReady: isReady,
             isLoading: isLoading,
             errorMessage: errorMessage,
-            providerAvailable: mlxProvider?.isAvailable ?? false,
-            modelIdentifier: mlxProvider?.identifier ?? "none"
+            providerAvailable: mlxProvider?.isReady ?? false,
+            modelIdentifier: currentModelId ?? "none"
         )
     }
 }

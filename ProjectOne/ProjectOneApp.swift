@@ -7,7 +7,7 @@ struct ProjectOneApp: App {
     @State private var memoryAgentService: MemoryAgentService?
     @StateObject private var gemmaCore = Gemma3nCore()
     
-    var sharedModelContainer: ModelContainer = {
+    var sharedModelContainer: SwiftData.ModelContainer = {
         let schema = Schema([
             // Analytics models
             MemoryAnalytics.self,
@@ -38,7 +38,7 @@ struct ProjectOneApp: App {
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

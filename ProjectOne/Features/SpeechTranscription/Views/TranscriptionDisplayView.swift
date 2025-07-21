@@ -141,7 +141,7 @@ struct TranscriptionDisplayView: View {
 
 #Preview {
     @Previewable @State var isPresented = true
-    @Previewable @State var modelContainer = try! ModelContainer(for: Entity.self, Relationship.self)
+    @Previewable @State var modelContainer = try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)
     
     TranscriptionDisplayView(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),

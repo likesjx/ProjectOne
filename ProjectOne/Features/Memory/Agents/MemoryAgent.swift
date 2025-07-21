@@ -71,7 +71,7 @@ public class MemoryAgent: ObservableObject {
         logger.info("Starting Memory Agent initialization")
         
         // Register and initialize AI providers
-        aiModelProvider.registerProvider(MLXGemma3nE2BProvider())
+        aiModelProvider.registerProvider(WorkingMLXProvider())
         if #available(iOS 26.0, macOS 26.0, *) {
             aiModelProvider.registerProvider(AppleFoundationModelsProvider())
         }

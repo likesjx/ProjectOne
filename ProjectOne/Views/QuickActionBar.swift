@@ -198,7 +198,7 @@ extension Notification.Name {
 }
 
 #Preview {
-    @Previewable @State var modelContainer = try! ModelContainer(for: Entity.self, Relationship.self)
+    @Previewable @State var modelContainer = try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)
     QuickActionBar(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),
         gemmaCore: Gemma3nCore(),

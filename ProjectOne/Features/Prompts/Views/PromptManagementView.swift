@@ -905,10 +905,10 @@ struct EditPromptTemplateView: View {
     if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let schema = Schema([PromptTemplate.self])
-        let container = try! ModelContainer(for: schema, configurations: [config])
+        let container = try! SwiftData.ModelContainer(for: schema, configurations: [config])
         
-        return PromptManagementView(modelContext: container.mainContext)
+        PromptManagementView(modelContext: container.mainContext)
     } else {
-        return Text("Requires iOS 17.0+")
+        Text("Requires iOS 17.0+")
     }
 }

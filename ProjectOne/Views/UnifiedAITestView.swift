@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
-#if os(iOS) || os(iPadOS)
+#if os(iOS)
 import UIKit
+typealias UImage = UIImage
 #elseif os(macOS)
 import AppKit
+typealias UImage = NSImage
 #endif
 
 // MARK: - Provider Test Result
@@ -31,14 +33,14 @@ struct ProviderTestResult {
 enum TestProviderType: String, CaseIterable {
     case mlxLLM = "MLX LLM (Text-Only)"
     case mlxVLM = "MLX VLM (Multimodal)"
-    case realFoundationModels = "Foundation Models (Real)"
+    case appleFoundationModels = "Apple Foundation Models"
     case enhancedGemma3nCore = "Enhanced Gemma3n Core"
     
     var icon: String {
         switch self {
         case .mlxLLM: return "textformat"
         case .mlxVLM: return "photo.on.rectangle"
-        case .realFoundationModels: return "apple.logo"
+        case .appleFoundationModels: return "apple.logo"
         case .enhancedGemma3nCore: return "cpu"
         }
     }
@@ -47,14 +49,14 @@ enum TestProviderType: String, CaseIterable {
         switch self {
         case .mlxLLM: return .blue
         case .mlxVLM: return .purple
-        case .realFoundationModels: return .green
+        case .appleFoundationModels: return .green
         case .enhancedGemma3nCore: return .orange
         }
     }
     
     var requiresIOS26: Bool {
         switch self {
-        case .realFoundationModels, .enhancedGemma3nCore: return true
+        case .appleFoundationModels, .enhancedGemma3nCore: return true
         default: return false
         }
     }
@@ -69,21 +71,22 @@ enum TestProviderType: String, CaseIterable {
 
 // MARK: - Main Test View
 
-@available(iOS 18.0, iPadOS 18.0, macOS 15.0, *)
+@available(iOS 26.0, macOS 26.0, *)
 struct UnifiedAITestView: View {
     @State private var testPrompt = "Hello, how are you? Please tell me a short joke."
-    @State private var selectedProviders: Set<TestProviderType> = [.mlxLLM, .realFoundationModels]
+    @State private var selectedProviders: Set<TestProviderType> = [.mlxLLM, .appleFoundationModels]
     @State private var testResults: [ProviderTestResult] = []
     @State private var isLoading = false
     @State private var showComparison = false
     @State private var loadingProviders: Set<TestProviderType> = []
-    @State private var selectedImages: [UIImage] = []
+    @State private var selectedImages: [UImage] = []
     @State private var showImagePicker = false
     
     // Provider instances - Three-Layer Architecture
     @StateObject private var mlxLLMProvider = MLXLLMProvider()
     @StateObject private var mlxVLMProvider = MLXVLMProvider()
-    @StateObject private var realFoundationProvider = RealFoundationModelsProvider()
+    @StateObject private var workingMLXProvider = WorkingMLXProvider()
+    @StateObject private var appleFoundationProvider = AppleFoundationModelsProvider()
     @StateObject private var enhancedCore = EnhancedGemma3nCore()
     
     var body: some View {
@@ -153,10 +156,8 @@ struct UnifiedAITestView: View {
                             .font(.headline)
                         
                         ProviderStatusGrid(
-                            mlxGemma3nProvider: mlxGemma3nProvider,
                             workingMLXProvider: workingMLXProvider,
-                            appleFoundationProvider: appleFoundationProvider,
-                            appleIntelligenceProvider: appleIntelligenceProvider
+                            appleFoundationProvider: appleFoundationProvider
                         )
                     }
                     .padding()
@@ -235,28 +236,22 @@ struct UnifiedAITestView: View {
     
     // MARK: - Helper Methods
     
-    private func isProviderAvailable(_ providerType: AIProviderType) -> Bool {
+    private func isProviderAvailable(_ providerType: TestProviderType) -> Bool {
         switch providerType {
-        case .realFoundationModels, .enhancedGemma3nCore:
-            if #available(iOS 26.0, iPadOS 26.0, macOS 26.0, *) {
-                return true
-            } else {
-                return false
-            }
-        case .workingMLX:
+        case .enhancedGemma3nCore:
+            return true
+        case .mlxVLM:
             // Check if MLX is supported on this hardware (not simulator)
-            return workingMLXProvider.isMLXSupported
-        case .mlxGemma3n:
+            return mlxVLMProvider.isSupported
+        case .mlxLLM:
             // Check if MLX is supported on this hardware (not simulator) 
-            return mlxGemma3nProvider.isMLXSupported
+            return mlxLLMProvider.isSupported
         case .appleFoundationModels:
             return appleFoundationProvider.isAvailable
-        case .appleIntelligence:
-            return appleIntelligenceProvider.supportsAppleIntelligence
         }
     }
     
-    private func toggleProvider(_ providerType: AIProviderType) {
+    private func toggleProvider(_ providerType: TestProviderType) {
         if selectedProviders.contains(providerType) {
             selectedProviders.remove(providerType)
         } else {
@@ -277,9 +272,9 @@ struct UnifiedAITestView: View {
             }
             
             // Prepare MLX Gemma3n provider
-            if mlxGemma3nProvider.isMLXSupported {
+            if mlxLLMProvider.isSupported {
                 do {
-                    try await mlxGemma3nProvider.prepareModel()
+                    try await mlxLLMProvider.loadRecommendedModel()
                 } catch {
                     print("Failed to setup MLX Gemma3n Provider: \(error)")
                 }
@@ -297,11 +292,11 @@ struct UnifiedAITestView: View {
     
     private func testAllAvailableProviders() {
         guard !testPrompt.isEmpty else { return }
-        let availableProviders = AIProviderType.allCases.filter { isProviderAvailable($0) }
+        let availableProviders = TestProviderType.allCases.filter { isProviderAvailable($0) }
         testProviders(availableProviders)
     }
     
-    private func testProviders(_ providers: [AIProviderType]) {
+    private func testProviders(_ providers: [TestProviderType]) {
         isLoading = true
         loadingProviders = Set(providers)
         testResults.removeAll()
@@ -330,7 +325,7 @@ struct UnifiedAITestView: View {
         }
     }
     
-    private func testProvider(_ providerType: AIProviderType) async -> ProviderTestResult {
+    private func testProvider(_ providerType: TestProviderType) async -> ProviderTestResult {
         let startTime = Date()
         
         do {
@@ -357,41 +352,24 @@ struct UnifiedAITestView: View {
         }
     }
     
-    private func generateResponse(for providerType: AIProviderType, prompt: String) async throws -> String {
+    private func generateResponse(for providerType: TestProviderType, prompt: String) async throws -> String {
         switch providerType {
-        case .mlxGemma3n:
-            return try await mlxGemma3nProvider.generateModelResponse(prompt)
+        case .mlxLLM:
+            return try await mlxLLMProvider.generateResponse(to: prompt)
             
-        case .workingMLX:
-            return try await workingMLXProvider.generateResponse(to: prompt)
-            
-        case .realFoundationModels:
-            if #available(iOS 26.0, iPadOS 26.0, macOS 26.0, *) {
-                let provider = RealFoundationModelsProvider()
-                return try await provider.generateText(prompt: prompt)
-            } else {
-                throw AIProviderError.notAvailable("iOS 26.0+ required")
-            }
-            
-        case .enhancedGemma3nCore:
-            if #available(iOS 26.0, iPadOS 26.0, macOS 26.0, *) {
-                let core = EnhancedGemma3nCore()
-                await core.setup()
-                return await core.processText(prompt)
-            } else {
-                throw AIProviderError.notAvailable("iOS 26.0+ required")
-            }
+        case .mlxVLM:
+            return try await mlxVLMProvider.generateResponse(to: prompt)
             
         case .appleFoundationModels:
-            return try await appleFoundationProvider.generateModelResponse(prompt)
+            let provider = AppleFoundationModelsProvider()
+            return try await provider.generateModelResponse(prompt)
             
-        case .appleIntelligence:
-            if #available(iOS 26.0, iPadOS 26.0, macOS 26.0, *) {
-                return try await appleIntelligenceProvider.generateText(prompt: prompt)
-            } else {
-                let features = appleIntelligenceProvider.getAvailableFeatures()
-                return "Apple Intelligence consumer features: \(features.currentFeatures.joined(separator: ", "))"
-            }
+        case .enhancedGemma3nCore:
+            let core = EnhancedGemma3nCore()
+            await core.setup()
+            return await core.processText(prompt)
+            
+            
         }
     }
     
@@ -422,9 +400,9 @@ struct UnifiedAITestView: View {
         
         
         print("WorkingMLXProvider.isMLXSupported: \(workingMLXProvider.isMLXSupported)")
-        print("MLXGemma3nProvider.isMLXSupported: \(mlxGemma3nProvider.isMLXSupported)")
+        print("MLXLLMProvider.isSupported: \(mlxLLMProvider.isSupported)")
+        print("MLXVLMProvider.isSupported: \(mlxVLMProvider.isSupported)")
         print("AppleFoundationProvider.isAvailable: \(appleFoundationProvider.isAvailable)")
-        print("AppleIntelligenceProvider.supportsAppleIntelligence: \(appleIntelligenceProvider.supportsAppleIntelligence)")
         print("====================================")
     }
 }
@@ -432,7 +410,7 @@ struct UnifiedAITestView: View {
 // MARK: - Supporting Views
 
 struct ProviderSelectionCard: View {
-    let providerType: AIProviderType
+    let providerType: TestProviderType
     let isSelected: Bool
     let isAvailable: Bool
     let onToggle: () -> Void
@@ -486,20 +464,11 @@ struct ProviderSelectionCard: View {
 }
 
 struct ProviderStatusGrid: View {
-    let mlxGemma3nProvider: MLXGemma3nE2BProvider
     let workingMLXProvider: WorkingMLXProvider
     let appleFoundationProvider: AppleFoundationModelsProvider
-    let appleIntelligenceProvider: AppleIntelligenceProvider
     
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            ProviderStatusCard(
-                name: "MLX Gemma3n",
-                status: mlxGemma3nProvider.modelLoadingStatus.description,
-                isReady: mlxGemma3nProvider.isModelLoaded,
-                color: .blue
-            )
-            
             ProviderStatusCard(
                 name: "Working MLX",
                 status: workingMLXProvider.isReady ? "Ready" : "Not loaded",
@@ -512,13 +481,6 @@ struct ProviderStatusGrid: View {
                 status: appleFoundationProvider.isAvailable ? "Available" : "Not available",
                 isReady: appleFoundationProvider.isAvailable,
                 color: .green
-            )
-            
-            ProviderStatusCard(
-                name: "Apple Intelligence",
-                status: appleIntelligenceProvider.isAvailable ? "Available" : "Not available",
-                isReady: appleIntelligenceProvider.isAvailable,
-                color: .purple
             )
         }
     }
@@ -649,7 +611,7 @@ enum AIProviderError: Error, LocalizedError {
 // MARK: - Preview
 
 #Preview {
-    if #available(iOS 18.0, iPadOS 18.0, macOS 15.0, *) {
+    if #available(iOS 26.0, macOS 26.0, *) {
         UnifiedAITestView()
     }
 }

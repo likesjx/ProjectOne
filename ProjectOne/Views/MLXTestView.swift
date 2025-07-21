@@ -38,7 +38,7 @@ extension ModelLoadingStatus {
     }
 }
 
-@available(iOS 26.0, iPadOS 26.0, macOS 26.0, *)
+@available(iOS 26.0, macOS 26.0, *)
 struct MLXTestView: View {
     @State private var testPrompt = "Hello, how are you?"
     @State private var testResult = ""
@@ -325,7 +325,18 @@ struct MLXTestView: View {
     
     private func setupProviderInfo() {
         let activeProvider = useVLM ? "VLM Provider" : "LLM Provider"
-        let modelInfo = useVLM ? vlmProvider.getModelInfo() : llmProvider.getModelInfo()
+        let modelInfo: (displayName: String, memoryRequirement: String)? = {
+            if useVLM {
+                if let info = vlmProvider.getModelInfo() {
+                    return (displayName: info.displayName, memoryRequirement: info.memoryRequirement)
+                }
+            } else {
+                if let info = llmProvider.getModelInfo() {
+                    return (displayName: info.displayName, memoryRequirement: info.memoryRequirement)
+                }
+            }
+            return nil
+        }()
         
         providerInfo = """
         Active Provider: \(activeProvider)
@@ -509,7 +520,7 @@ struct MLXTestView: View {
 }
 
 #Preview {
-    if #available(iOS 26.0, iPadOS 26.0, macOS 26.0, *) {
+    if #available(iOS 26.0, macOS 26.0, *) {
         MLXTestView()
     }
 }

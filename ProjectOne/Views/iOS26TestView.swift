@@ -25,9 +25,9 @@ struct iOS26TestView: View {
                     let status = enhancedCore.getProviderStatus()
                     
                     HStack {
-                        Image(systemName: status.mlxAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(status.mlxAvailable ? .green : .red)
-                        Text("MLX Swift: \(status.mlxModel ?? "Not loaded")")
+                        Image(systemName: status.mlxLLMAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(status.mlxLLMAvailable ? .green : .red)
+                        Text("MLX Swift: \(status.mlxLLMModel ?? "Not loaded")")
                     }
                     
                     HStack {
@@ -58,10 +58,10 @@ struct iOS26TestView: View {
                 
                 // Action Buttons
                 HStack(spacing: 16) {
-                    Button("Test MLX") {
-                        testWithProvider(.mlx)
+                    Button("Test MLX LLM") {
+                        testWithProvider(.mlxLLM)
                     }
-                    .disabled(!enhancedCore.getProviderStatus().mlxAvailable || isProcessing)
+                    .disabled(!enhancedCore.getProviderStatus().mlxLLMAvailable || isProcessing)
                     
                     Button("Test Foundation") {
                         testWithProvider(.foundation)
