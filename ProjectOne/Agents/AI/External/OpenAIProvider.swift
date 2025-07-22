@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os.log
 
 /// OpenAI API provider
 public class OpenAIProvider: ExternalAIProvider {
@@ -65,9 +66,9 @@ public class OpenAIProvider: ExternalAIProvider {
     // MARK: - OpenAI-Specific Features
     
     override func prepareModel() async throws {
-        logger.info("Preparing OpenAI model: \(configuration.model)")
+        self.logger.info("Preparing OpenAI model: \(self.configuration.model)")
         
-        guard configuration.apiKey != nil else {
+        guard self.configuration.apiKey != nil else {
             throw ExternalAIError.configurationInvalid("OpenAI API key required")
         }
         
@@ -83,7 +84,7 @@ public class OpenAIProvider: ExternalAIProvider {
             throw ExternalAIError.modelNotReady
         }
         
-        logger.info("Generating OpenAI response with functions")
+        self.logger.info("Generating OpenAI response with functions")
         
         let request = OpenAIFunctionRequest(
             model: configuration.model,
@@ -127,9 +128,9 @@ public class OpenAIProvider: ExternalAIProvider {
 public struct OpenAIFunction: Codable {
     let name: String
     let description: String
-    let parameters: [String: Any]
+    let parameters: [String: String] // Simplified to String values for Codable compliance
     
-    public init(name: String, description: String, parameters: [String: Any]) {
+    public init(name: String, description: String, parameters: [String: String]) {
         self.name = name
         self.description = description
         self.parameters = parameters

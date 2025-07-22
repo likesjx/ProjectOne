@@ -16,6 +16,7 @@ public class ExternalProviderFactory: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "ExternalProviderFactory")
     private let settings: AIProviderSettings
+    private var configurations = ProviderConfigurations()
     
     // MARK: - Configuration Management
     
@@ -133,8 +134,15 @@ public class ExternalProviderFactory: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(settings: AIProviderSettings = AIProviderSettings()) {
+    public init(settings: AIProviderSettings) {
         self.settings = settings
+    }
+    
+    public static func createWithDefaultSettings() async -> ExternalProviderFactory {
+        return await MainActor.run {
+            let settings = AIProviderSettings()
+            return ExternalProviderFactory(settings: settings)
+        }
     }
     
     // MARK: - Configuration Methods
@@ -174,7 +182,7 @@ public class ExternalProviderFactory: ObservableObject {
         
         do {
             let provider = createOpenAIProvider(config)
-            try await provider.initialize()
+            try await provider.prepare()
             
             activeProviders["openai"] = provider
             providerStatus["openai"] = .ready
@@ -193,7 +201,7 @@ public class ExternalProviderFactory: ObservableObject {
         
         do {
             let provider = createOpenRouterProvider(config)
-            try await provider.initialize()
+            try await provider.prepare()
             
             activeProviders["openrouter"] = provider
             providerStatus["openrouter"] = .ready
@@ -212,7 +220,7 @@ public class ExternalProviderFactory: ObservableObject {
         
         do {
             let provider = createOllamaProvider(config)
-            try await provider.initialize()
+            try await provider.prepare()
             
             activeProviders["ollama"] = provider
             providerStatus["ollama"] = .ready
@@ -237,8 +245,10 @@ public class ExternalProviderFactory: ObservableObject {
         providerStatus["mlx"] = .configuring
         
         do {
-            let provider = createMLXProvider(config)
-            try await provider.initialize()
+            guard let provider = createMLXProvider(config) else {
+                throw ExternalAIError.configurationInvalid("Failed to create MLX provider")
+            }
+            try await provider.prepare()
             
             activeProviders["mlx"] = provider
             providerStatus["mlx"] = .ready
@@ -256,7 +266,7 @@ public class ExternalProviderFactory: ObservableObject {
         
         do {
             let provider = createAnthropicProvider(config)
-            try await provider.initialize()
+            try await provider.prepare()
             
             activeProviders["anthropic"] = provider
             providerStatus["anthropic"] = .ready
@@ -275,7 +285,7 @@ public class ExternalProviderFactory: ObservableObject {
         
         do {
             let provider = createCustomProvider(config)
-            try await provider.initialize()
+            try await provider.prepare()
             
             activeProviders[id] = provider
             providerStatus[id] = .ready
@@ -418,7 +428,7 @@ public class ExternalProviderFactory: ObservableObject {
         providerStatus[id] = .configuring
         
         do {
-            try await provider.initialize()
+            try await provider.prepare()
             providerStatus[id] = .ready
             logger.info("✅ Provider \(id) refreshed successfully")
         } catch {

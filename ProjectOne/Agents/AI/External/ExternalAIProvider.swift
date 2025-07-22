@@ -47,10 +47,10 @@ public class ExternalAIProvider: BaseAIProvider {
     }
     
     // MARK: - Properties
-    
-    internal let configuration: Configuration
-    internal let httpClient: HTTPClient  
-    internal let providerType: ExternalProviderType
+    // Fixed: Removed protected keyword (Swift doesn't have protected access level)
+    let configuration: Configuration
+    let httpClient: HTTPClient
+    let providerType: ExternalProviderType
     
     // MARK: - BaseAIProvider Implementation
     
@@ -76,7 +76,7 @@ public class ExternalAIProvider: BaseAIProvider {
     // MARK: - BaseAIProvider Implementation
     
     override func prepareModel() async throws {
-        logger.info("Preparing \(providerType.displayName) model: \(configuration.model)")
+        logger.info("Preparing \(self.providerType.displayName) model: \(self.configuration.model)")
         
         await MainActor.run {
             self.modelLoadingStatus = .preparing
@@ -89,7 +89,7 @@ public class ExternalAIProvider: BaseAIProvider {
                 await MainActor.run {
                     self.modelLoadingStatus = .ready
                 }
-                logger.info("✅ \(providerType.displayName) model ready")
+                logger.info("✅ \(self.providerType.displayName) model ready")
             } else {
                 throw ExternalAIError.modelNotAvailable(configuration.model)
             }
@@ -106,7 +106,7 @@ public class ExternalAIProvider: BaseAIProvider {
             throw ExternalAIError.modelNotReady
         }
         
-        logger.info("Generating response with \(providerType.displayName)")
+        logger.info("Generating response with \(self.providerType.displayName)")
         
         let request = ChatRequest(
             model: configuration.model,
@@ -119,14 +119,14 @@ public class ExternalAIProvider: BaseAIProvider {
             let response = try await httpClient.sendChatRequest(request)
             return response.choices.first?.message.content ?? ""
         } catch {
-            logger.error("❌ \(providerType.displayName) generation failed: \(error.localizedDescription)")
+            logger.error("❌ \(self.providerType.displayName) generation failed: \(error.localizedDescription)")
             throw ExternalAIError.generationFailed(error.localizedDescription)
         }
     }
     
     override func cleanupModel() async {
         await httpClient.cleanup()
-        logger.info("\(providerType.displayName) provider cleaned up")
+        logger.info("\(self.providerType.displayName) provider cleaned up")
     }
     
     override func getModelConfidence() -> Double {
@@ -233,8 +233,8 @@ public enum ExternalAIError: Error, LocalizedError {
 // MARK: - HTTP Client
 
 public class HTTPClient {
-    private let configuration: ExternalAIProvider.Configuration
-    private let urlSession: URLSession
+    internal let configuration: ExternalAIProvider.Configuration
+    internal let urlSession: URLSession
     
     public init(configuration: ExternalAIProvider.Configuration) {
         self.configuration = configuration

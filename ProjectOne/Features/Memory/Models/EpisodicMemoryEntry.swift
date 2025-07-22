@@ -16,7 +16,7 @@ public final class EpisodicMemoryEntry {
     var timestamp: Date
     var location: String?
     var participants: [String]
-    var emotionalTone: EmotionalTone
+    var emotionalTone: EpisodicMemoryEntry.EmotionalTone
     var importance: Double
     var contextualCues: [String]
     var relatedEntities: [UUID]
@@ -32,7 +32,7 @@ public final class EpisodicMemoryEntry {
         eventDescription: String,
         location: String? = nil,
         participants: [String] = [],
-        emotionalTone: EmotionalTone = .neutral,
+        emotionalTone: EpisodicMemoryEntry.EmotionalTone = .neutral,
         importance: Double = 0.5,
         contextualCues: [String] = [],
         duration: TimeInterval? = nil,
@@ -80,7 +80,7 @@ public final class EpisodicMemoryEntry {
         }
     }
     
-    func updateEmotionalTone(_ tone: EmotionalTone) {
+    func updateEmotionalTone(_ tone: EpisodicMemoryEntry.EmotionalTone) {
         emotionalTone = tone
         
         // Emotional events are more memorable
@@ -101,32 +101,34 @@ public final class EpisodicMemoryEntry {
     var isSignificant: Bool {
         return memoryStrength > 0.7 || emotionalTone != .neutral
     }
-}
-
-enum EmotionalTone: String, Codable, CaseIterable {
+    
+    // MARK: - Nested Types
+    
+    public enum EmotionalTone: String, Codable, CaseIterable {
     case veryPositive = "very_positive"
     case positive = "positive"
     case neutral = "neutral"
     case negative = "negative"
     case veryNegative = "very_negative"
     
-    var displayName: String {
-        switch self {
-        case .veryPositive: return "Very Positive"
-        case .positive: return "Positive"
-        case .neutral: return "Neutral"
-        case .negative: return "Negative"
-        case .veryNegative: return "Very Negative"
+        var displayName: String {
+            switch self {
+            case .veryPositive: return "Very Positive"
+            case .positive: return "Positive"
+            case .neutral: return "Neutral"
+            case .negative: return "Negative"
+            case .veryNegative: return "Very Negative"
+            }
         }
-    }
-    
-    var emotionalWeight: Double {
-        switch self {
-        case .veryPositive: return 1.0
-        case .positive: return 0.6
-        case .neutral: return 0.0
-        case .negative: return 0.6
-        case .veryNegative: return 1.0
+        
+        var emotionalWeight: Double {
+            switch self {
+            case .veryPositive: return 1.0
+            case .positive: return 0.6
+            case .neutral: return 0.0
+            case .negative: return 0.6
+            case .veryNegative: return 1.0
+            }
         }
     }
 }

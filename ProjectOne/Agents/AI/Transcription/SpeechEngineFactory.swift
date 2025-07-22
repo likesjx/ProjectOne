@@ -619,6 +619,16 @@ public class SpeechEngineFactory {
         // For other errors, allow retry
         return true
     }
+    
+    /// Create SpeechAnalyzer engine for iOS 26.0+
+    @available(iOS 26.0, macOS 26.0, *)
+    private func createSpeechAnalyzerEngine() async throws -> SpeechTranscriptionProtocol {
+        logger.info("Creating SpeechAnalyzer transcription engine")
+        
+        // This would create a SpeechAnalyzer-based engine
+        // For now, fallback to creating an Apple Speech engine since SpeechAnalyzer is not yet implemented
+        return try AppleSpeechTranscriber(locale: Locale(identifier: "en-US"))
+    }
 }
 
 // MARK: - Singleton Access

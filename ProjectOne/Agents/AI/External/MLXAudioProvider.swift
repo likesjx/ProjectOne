@@ -9,6 +9,7 @@
 import Foundation
 import AVFoundation
 import Combine
+import os.log
 
 #if canImport(MLX)
 import MLX
@@ -62,13 +63,7 @@ public class MLXAudioProvider: BaseAIProvider {
     public override var displayName: String { "MLX Audio VLM" }
     public override var maxContextLength: Int { 8192 }
     
-    public override var isAvailable: Bool {
-        #if canImport(MLX)
-        return MLXProvider.isMLXSupported && vlmModel != nil
-        #else
-        return false
-        #endif
-    }
+    // isAvailable is now managed by BaseAIProvider as @Published property
     
     // MARK: - Initialization
     
@@ -103,16 +98,14 @@ public class MLXAudioProvider: BaseAIProvider {
             // Initialize audio processor
             audioProcessor = MLXAudioProcessor(configuration: audioConfig)
             
-            await MainActor.run {
-                self.modelLoadingStatus = .ready
-            }
+            await updateLoadingStatus(.ready)
+            await updateAvailability(true)
             
             logger.info("✅ MLX Audio VLM model loaded successfully")
             
         } catch {
-            await MainActor.run {
-                self.modelLoadingStatus = .failed(error.localizedDescription)
-            }
+            await updateLoadingStatus(.failed(error.localizedDescription))
+            await updateAvailability(false)
             logger.error("❌ MLX Audio VLM model loading failed: \(error.localizedDescription)")
             throw error
         }
@@ -131,6 +124,7 @@ public class MLXAudioProvider: BaseAIProvider {
         vlmModel = nil
         audioProcessor = nil
         #endif
+        await updateAvailability(false)
         logger.info("MLX Audio VLM provider cleaned up")
     }
     
@@ -177,8 +171,8 @@ public class MLXAudioProvider: BaseAIProvider {
     }
     
     /// Process real-time audio stream
-    public func processAudioStream(_ audioStream: AsyncStream<Data>, prompt: String) -> AsyncStream<AudioUnderstandingResult> {
-        return AsyncStream { continuation in
+    public func processAudioStream(_ audioStream: AsyncStream<Data>, prompt: String) -> AsyncThrowingStream<AudioUnderstandingResult, Error> {
+        return AsyncThrowingStream { continuation in
             Task {
                 do {
                     for try await audioChunk in audioStream {
@@ -228,7 +222,7 @@ public class MLXAudioProvider: BaseAIProvider {
     private func loadAudioVLMModel() async throws -> Module {
         // Load Gemma3n VLM model with audio capabilities
         // This would load the actual MLX model weights for audio understanding
-        logger.info("Loading audio-enabled VLM model from: \(audioConfig.modelPath)")
+        logger.info("Loading audio-enabled VLM model from: \(self.audioConfig.modelPath)")
         
         guard FileManager.default.fileExists(atPath: audioConfig.modelPath) else {
             throw ExternalAIError.modelNotAvailable("Model file not found at: \(audioConfig.modelPath)")
@@ -367,7 +361,7 @@ private class MLXAudioProcessor {
     
     private func generateWaveformFeatures(_ audioData: Data) async throws -> MLXArray {
         // Convert raw audio to MLXArray
-        let floatArray = audioData.withUnsafeBytes { bytes in
+        let _ = audioData.withUnsafeBytes { bytes in
             Array(bytes.bindMemory(to: Float.self))
         }
         
@@ -396,13 +390,13 @@ public struct AudioUnderstandingResult {
 }
 
 public struct AudioAnalysisResult {
-    public let emotionalTone: EmotionalTone
+    public let emotionalTone: MLXEmotionalTone
     public let speakerCharacteristics: SpeakerCharacteristics
     public let contentCategories: [String]
     public let environmentalContext: EnvironmentalContext
     public let confidence: Double
     
-    public init(emotionalTone: EmotionalTone, speakerCharacteristics: SpeakerCharacteristics, contentCategories: [String], environmentalContext: EnvironmentalContext, confidence: Double) {
+    public init(emotionalTone: MLXEmotionalTone, speakerCharacteristics: SpeakerCharacteristics, contentCategories: [String], environmentalContext: EnvironmentalContext, confidence: Double) {
         self.emotionalTone = emotionalTone
         self.speakerCharacteristics = speakerCharacteristics
         self.contentCategories = contentCategories
@@ -427,7 +421,7 @@ public struct AudioMetadata {
     }
 }
 
-public enum EmotionalTone: String, CaseIterable {
+public enum MLXEmotionalTone: String, CaseIterable {
     case neutral, happy, sad, angry, excited, calm, frustrated, confident, uncertain
     
     public var displayName: String {
@@ -463,34 +457,4 @@ public struct EnvironmentalContext {
     }
 }
 
-// MARK: - Provider Factory Extension
-
-extension ExternalProviderFactory {
-    
-    /// Configure MLX Audio VLM provider
-    public func configureMLXAudio(_ modelPath: String) async {
-        logger.info("Configuring MLX Audio VLM provider")
-        
-        guard MLXProvider.isMLXSupported else {
-            providerStatus["mlx-audio"] = .unavailable("MLX requires Apple Silicon hardware")
-            logger.warning("MLX Audio not supported on this device")
-            return
-        }
-        
-        providerStatus["mlx-audio"] = .configuring
-        
-        do {
-            let audioConfig = MLXAudioProvider.AudioConfiguration(modelPath: modelPath)
-            let provider = MLXAudioProvider(audioConfiguration: audioConfig)
-            try await provider.initialize()
-            
-            activeProviders["mlx-audio"] = provider
-            providerStatus["mlx-audio"] = .ready
-            
-            logger.info("✅ MLX Audio VLM provider configured successfully")
-        } catch {
-            providerStatus["mlx-audio"] = .error(error.localizedDescription)
-            logger.error("❌ MLX Audio configuration failed: \(error.localizedDescription)")
-        }
-    }
-}
+// Configuration integration with ExternalProviderFactory is handled separately

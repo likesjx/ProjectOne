@@ -82,7 +82,7 @@ public class AudioMemoryAgent: ObservableObject {
         
         // Initialize MLX Audio provider
         if configuration.enableDirectAudioProcessing {
-            try await mlxAudioProvider.initialize()
+            try await mlxAudioProvider.prepare()
         }
         
         // Initialize fallback memory agent
@@ -152,8 +152,8 @@ public class AudioMemoryAgent: ObservableObject {
     }
     
     /// Process real-time audio stream
-    public func processAudioStream(_ audioStream: AsyncStream<Data>, context: String = "") -> AsyncStream<AudioMemoryResult> {
-        return AsyncStream { continuation in
+    public func processAudioStream(_ audioStream: AsyncStream<Data>, context: String = "") -> AsyncThrowingStream<AudioMemoryResult, Error> {
+        return AsyncThrowingStream { continuation in
             Task {
                 do {
                     for try await audioChunk in audioStream {
@@ -300,19 +300,15 @@ public class AudioMemoryAgent: ObservableObject {
     private func storeAudioMemory(_ result: AudioMemoryResult, audioData: Data) async throws {
         logger.info("Storing audio memory with rich context")
         
-        // Create enhanced STM entry with audio understanding
-        let audioSTM = EnhancedSTMEntry(
+        // Create STM entry with audio context in tags and metadata
+        let audioSTM = STMEntry(
             content: result.understandingResult.content,
             memoryType: .episodic,
             importance: result.confidence,
-            sourceAudioData: audioData,
-            audioMetadata: result.understandingResult.audioMetadata,
-            emotionalContext: result.analysisResult?.emotionalTone,
-            speakerContext: result.analysisResult?.speakerCharacteristics,
-            relatedEntities: result.extractedEntities,
-            relatedConcepts: result.extractedConcepts,
-            processingMethod: result.processingMethod.rawValue,
-            contextTags: generateContextTags(from: result)
+            sourceNoteId: nil,
+            relatedEntities: result.extractedEntities.map { $0.id },
+            emotionalWeight: result.analysisResult?.emotionalTone != nil ? Double(result.analysisResult!.emotionalTone.rawValue.count) / 10.0 : 0.0,
+            contextTags: generateContextTags(from: result) + ["audio_processed", result.processingMethod.rawValue]
         )
         
         modelContext.insert(audioSTM)
@@ -368,15 +364,15 @@ public class AudioMemoryAgent: ObservableObject {
     
     // MARK: - Audio Memory Retrieval
     
-    private func retrieveAudioMemories(for query: String) async throws -> [EnhancedSTMEntry] {
-        // Retrieve audio memories relevant to the query
-        let descriptor = FetchDescriptor<EnhancedSTMEntry>(
+    private func retrieveAudioMemories(for query: String) async throws -> [STMEntry] {
+        // Retrieve audio memories relevant to the query (identified by context tags)
+        let descriptor = FetchDescriptor<STMEntry>(
             predicate: #Predicate { entry in
-                entry.sourceAudioData != nil &&
+                entry.contextTags.contains("audio_processed") &&
                 (entry.content.localizedStandardContains(query) ||
                  entry.contextTags.contains { $0.localizedStandardContains(query) })
             },
-            sortBy: [SortDescriptor(\.importance, order: .reverse)]
+            sortBy: [SortDescriptor<STMEntry>(\.importance, order: .reverse)]
         )
         
         return try modelContext.fetch(descriptor)
@@ -384,7 +380,7 @@ public class AudioMemoryAgent: ObservableObject {
     
     private func generateAudioContextualResponse(
         query: String,
-        audioMemories: [EnhancedSTMEntry],
+        audioMemories: [STMEntry],
         audioContext: AudioUnderstandingResult?
     ) async throws -> AudioMemoryResponse {
         
@@ -428,14 +424,11 @@ public class AudioMemoryAgent: ObservableObject {
         """
     }
     
-    private func createContextualPrompt(query: String, memories: [EnhancedSTMEntry], audioContext: AudioUnderstandingResult?) -> String {
+    private func createContextualPrompt(query: String, memories: [STMEntry], audioContext: AudioUnderstandingResult?) -> String {
         var prompt = "Query: \(query)\n\nRelevant Audio Memories:\n"
         
         for memory in memories.prefix(5) {
             prompt += "- \(memory.content)\n"
-            if let emotion = memory.emotionalContext {
-                prompt += "  (Emotional tone: \(emotion.rawValue))\n"
-            }
         }
         
         if let audioCtx = audioContext {
@@ -461,7 +454,7 @@ public struct AudioMemoryResult {
 
 public struct AudioMemoryResponse {
     public let content: String
-    public let audioMemoriesUsed: [EnhancedSTMEntry]
+    public let audioMemoriesUsed: [STMEntry]
     public let audioContext: AudioUnderstandingResult?
     public let confidence: Double
 }
@@ -499,44 +492,4 @@ public enum AudioMemoryError: Error, LocalizedError {
 }
 
 // MARK: - Enhanced Memory Models
-
-@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-@Model
-public class EnhancedSTMEntry: STMEntry {
-    // Additional audio-specific properties
-    public var sourceAudioData: Data?
-    public var audioMetadata: AudioMetadata?
-    public var emotionalContext: EmotionalTone?
-    public var speakerContext: SpeakerCharacteristics?
-    public var processingMethod: String
-    
-    public init(
-        content: String,
-        memoryType: MemoryType,
-        importance: Double,
-        sourceAudioData: Data? = nil,
-        audioMetadata: AudioMetadata? = nil,
-        emotionalContext: EmotionalTone? = nil,
-        speakerContext: SpeakerCharacteristics? = nil,
-        relatedEntities: [Entity] = [],
-        relatedConcepts: [String] = [],
-        processingMethod: String = "text",
-        contextTags: [String] = []
-    ) {
-        self.sourceAudioData = sourceAudioData
-        self.audioMetadata = audioMetadata
-        self.emotionalContext = emotionalContext
-        self.speakerContext = speakerContext
-        self.processingMethod = processingMethod
-        
-        super.init(
-            content: content,
-            memoryType: memoryType,
-            importance: importance,
-            sourceNoteId: nil,
-            relatedEntities: relatedEntities,
-            emotionalWeight: emotionalContext?.rawValue.count.map { Double($0) / 10.0 } ?? 0.0,
-            contextTags: contextTags
-        )
-    }
-}
+// Note: Using regular STMEntry with audio context stored in contextTags for SwiftData compatibility

@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 
+// Import transcription types - these are public types from the transcription protocol module
+// The types are defined in SpeechTranscriptionProtocol.swift
+public typealias TranscriptionResult = SpeechTranscriptionResult
+public typealias TranscriptionSegment = SpeechTranscriptionSegment
+
 /// Represents an audio recording with its metadata and transcription
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
@@ -111,7 +116,7 @@ final class RecordingItem {
         engine: String
     ) {
         self.transcriptionText = result.text
-        self.transcriptionConfidence = result.confidence
+        self.transcriptionConfidence = Double(result.confidence)
         self.transcriptionLanguage = result.language
         self.transcriptionEngine = engine
         self.transcriptionDate = Date()
@@ -200,7 +205,7 @@ final class RecordingItem {
 
 extension TranscriptionSegment: Codable {
     enum CodingKeys: String, CodingKey {
-        case text, confidence, startTime, endTime, isComplete
+        case text, confidence, startTime, endTime
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -209,15 +214,15 @@ extension TranscriptionSegment: Codable {
         try container.encode(confidence, forKey: .confidence)
         try container.encode(startTime, forKey: .startTime)
         try container.encode(endTime, forKey: .endTime)
-        try container.encode(isComplete, forKey: .isComplete)
     }
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        text = try container.decode(String.self, forKey: .text)
-        confidence = try container.decode(Double.self, forKey: .confidence)
-        startTime = try container.decode(TimeInterval.self, forKey: .startTime)
-        endTime = try container.decode(TimeInterval.self, forKey: .endTime)
-        isComplete = try container.decode(Bool.self, forKey: .isComplete)
+        let text = try container.decode(String.self, forKey: .text)
+        let confidence = try container.decode(Float.self, forKey: .confidence)
+        let startTime = try container.decode(TimeInterval.self, forKey: .startTime)
+        let endTime = try container.decode(TimeInterval.self, forKey: .endTime)
+        
+        self.init(text: text, startTime: startTime, endTime: endTime, confidence: confidence)
     }
 }

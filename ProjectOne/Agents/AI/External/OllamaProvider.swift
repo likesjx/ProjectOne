@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import os.log
 
 /// Ollama local AI provider
 public class OllamaProvider: ExternalAIProvider {
@@ -88,16 +89,16 @@ public class OllamaProvider: ExternalAIProvider {
     // MARK: - Ollama-Specific Features
     
     override func prepareModel() async throws {
-        logger.info("Preparing Ollama model: \(configuration.model)")
+        self.logger.info("Preparing Ollama model: \(self.configuration.model)")
         
         // Check if Ollama server is running
         guard try await isOllamaServerRunning() else {
-            throw ExternalAIError.networkError("Ollama server not running at \(configuration.baseURL)")
+            throw ExternalAIError.networkError("Ollama server not running at \(self.configuration.baseURL)")
         }
         
         // Check if model is available, pull if necessary
         if !(try await isModelAvailable()) {
-            logger.info("Model \(configuration.model) not found, attempting to pull...")
+            self.logger.info("Model \(self.configuration.model) not found, attempting to pull...")
             try await pullModel()
         }
         
@@ -109,14 +110,14 @@ public class OllamaProvider: ExternalAIProvider {
             throw ExternalAIError.modelNotReady
         }
         
-        logger.info("Generating Ollama response")
+        self.logger.info("Generating Ollama response")
         
         let request = OllamaGenerateRequest(
-            model: configuration.model,
+            model: self.configuration.model,
             prompt: prompt,
             options: OllamaOptions(
-                temperature: configuration.temperature,
-                numCtx: configuration.maxTokens
+                temperature: self.configuration.temperature,
+                numCtx: self.configuration.maxTokens
             ),
             stream: false
         )
@@ -125,14 +126,14 @@ public class OllamaProvider: ExternalAIProvider {
             let response = try await httpClient.sendOllamaGenerateRequest(request)
             return response.response
         } catch {
-            logger.error("❌ Ollama generation failed: \(error.localizedDescription)")
+            self.logger.error("❌ Ollama generation failed: \(error.localizedDescription)")
             throw ExternalAIError.generationFailed(error.localizedDescription)
         }
     }
     
     /// Check if Ollama server is running
     private func isOllamaServerRunning() async throws -> Bool {
-        guard let url = URL(string: "\(configuration.baseURL)/api/version") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/api/version") else {
             return false
         }
         
@@ -147,14 +148,14 @@ public class OllamaProvider: ExternalAIProvider {
     /// Check if model is available locally
     private func isModelAvailable() async throws -> Bool {
         let models = try await getLocalModels()
-        return models.models.contains { $0.name.hasPrefix(configuration.model) }
+        return models.models.contains { $0.name.hasPrefix(self.configuration.model) }
     }
     
     /// Pull model from Ollama registry
     private func pullModel() async throws {
-        logger.info("Pulling Ollama model: \(configuration.model)")
+        self.logger.info("Pulling Ollama model: \(self.configuration.model)")
         
-        guard let url = URL(string: "\(configuration.baseURL)/api/pull") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/api/pull") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
@@ -162,7 +163,7 @@ public class OllamaProvider: ExternalAIProvider {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let pullRequest = OllamaPullRequest(name: configuration.model, stream: false)
+        let pullRequest = OllamaPullRequest(name: self.configuration.model, stream: false)
         urlRequest.httpBody = try JSONEncoder().encode(pullRequest)
         
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
@@ -173,12 +174,12 @@ public class OllamaProvider: ExternalAIProvider {
             throw ExternalAIError.networkError("Failed to pull model: \(errorMessage)")
         }
         
-        logger.info("✅ Successfully pulled model: \(configuration.model)")
+        self.logger.info("✅ Successfully pulled model: \(self.configuration.model)")
     }
     
     /// Get list of local models
     public func getLocalModels() async throws -> OllamaModelsResponse {
-        guard let url = URL(string: "\(configuration.baseURL)/api/tags") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/api/tags") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
@@ -192,14 +193,14 @@ public class OllamaProvider: ExternalAIProvider {
             
             return try JSONDecoder().decode(OllamaModelsResponse.self, from: data)
         } catch {
-            logger.error("❌ Failed to fetch Ollama models: \(error.localizedDescription)")
+            self.logger.error("❌ Failed to fetch Ollama models: \(error.localizedDescription)")
             throw ExternalAIError.networkError("Failed to fetch models: \(error.localizedDescription)")
         }
     }
     
     /// Get model information
     public func getModelInfo() async throws -> OllamaModelInfo {
-        guard let url = URL(string: "\(configuration.baseURL)/api/show") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/api/show") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
@@ -207,7 +208,7 @@ public class OllamaProvider: ExternalAIProvider {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let showRequest = OllamaShowRequest(name: configuration.model)
+        let showRequest = OllamaShowRequest(name: self.configuration.model)
         urlRequest.httpBody = try JSONEncoder().encode(showRequest)
         
         do {
@@ -220,7 +221,7 @@ public class OllamaProvider: ExternalAIProvider {
             
             return try JSONDecoder().decode(OllamaModelInfo.self, from: data)
         } catch {
-            logger.error("❌ Failed to get Ollama model info: \(error.localizedDescription)")
+            self.logger.error("❌ Failed to get Ollama model info: \(error.localizedDescription)")
             throw ExternalAIError.networkError("Failed to get model info: \(error.localizedDescription)")
         }
     }
@@ -231,11 +232,11 @@ public class OllamaProvider: ExternalAIProvider {
             Task {
                 do {
                     let request = OllamaGenerateRequest(
-                        model: configuration.model,
+                        model: self.configuration.model,
                         prompt: prompt,
                         options: OllamaOptions(
-                            temperature: configuration.temperature,
-                            numCtx: configuration.maxTokens
+                            temperature: self.configuration.temperature,
+                            numCtx: self.configuration.maxTokens
                         ),
                         stream: true
                     )
@@ -361,7 +362,7 @@ public struct OllamaModelInfo: Codable {
 
 extension HTTPClient {
     func sendOllamaGenerateRequest(_ request: OllamaGenerateRequest) async throws -> OllamaGenerateResponse {
-        guard let url = URL(string: "\(configuration.baseURL)/api/generate") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/api/generate") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
@@ -382,7 +383,7 @@ extension HTTPClient {
     }
     
     func sendOllamaStreamingRequest(_ request: OllamaGenerateRequest) async throws -> AsyncThrowingStream<String, Error> {
-        guard let url = URL(string: "\(configuration.baseURL)/api/generate") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/api/generate") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         

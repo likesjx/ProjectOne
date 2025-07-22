@@ -9,13 +9,19 @@ import SwiftUI
 
 struct AIProviderTestView: View {
     @StateObject private var mlxProvider = WorkingMLXProvider()
-    @StateObject private var appleProvider = AppleFoundationModelsProvider()
+    @StateObject private var appleProvider: AppleFoundationModelsProvider
     
     @State private var testPrompt = "Hello! Can you tell me about the capabilities of this AI model?"
     @State private var mlxResponse = ""
     @State private var selectedModel: WorkingMLXProvider.MLXModel = .gemma2_2B
     @State private var showingError = false
     @State private var errorMessage = ""
+    
+    init() {
+        // Initialize the StateObject properly in the init method to avoid lifecycle issues
+        let provider = AppleFoundationModelsProvider()
+        _appleProvider = StateObject(wrappedValue: provider)
+    }
     
     var body: some View {
         NavigationView {
@@ -71,46 +77,92 @@ struct AIProviderTestView: View {
                 // Apple Intelligence Section
                 Section(header: Text("Apple Intelligence")) {
                     VStack(alignment: .leading, spacing: 8) {
-                        let status = appleProvider.getAvailableFeatures()
+                        Text("Status: ") + Text(appleProvider.isAvailable ? "✅ Available" : "❌ Not Available")
+                            .foregroundColor(appleProvider.isAvailable ? .green : .red)
                         
-                        Text("Consumer Features: ") + Text(status.consumerFeaturesAvailable ? "✅ Available" : "❌ Not Available")
-                            .foregroundColor(status.consumerFeaturesAvailable ? .green : .red)
-                        
-                        Text("Developer API: ") + Text(status.developerAPIAvailable ? "✅ Available" : "❌ Not Available")
-                            .foregroundColor(status.developerAPIAvailable ? .green : .red)
-                        
-                        Text("Required: iOS \(status.requiredIOSVersion)")
+                        Text("Provider: \(appleProvider.displayName)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text(status.recommendedAction)
+                        Text("Max Context: \(appleProvider.maxContextLength) tokens")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.secondary)
                         
-                        if status.consumerFeaturesAvailable && !status.currentFeatures.isEmpty {
-                            Text("Available Features:")
-                                .font(.headline)
-                            ForEach(status.currentFeatures, id: \.self) { feature in
-                                Text("• \(feature)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                        Text("Est. Response Time: \(appleProvider.estimatedResponseTime, specifier: "%.1f")s")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        if !appleProvider.isAvailable {
+                            Text("Requires iOS 26.0+ and Apple Intelligence enabled")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        
+                        if appleProvider.isAvailable {
+                            Button("Test Apple Foundation Models") {
+                                Task {
+                                    await testAppleFoundationModels()
+                                }
                             }
+                            .disabled(testPrompt.isEmpty)
                         }
                     }
                 }
                 
+                // Guidance Section
+                Section(header: Text("Usage Instructions")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("📋 To test inference:")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                        
+                        Text("**For MLX Models:**")
+                            .font(.subheadline)
+                        Text("1. Select a model in the MLX section above")
+                        Text("2. Click 'Load Model' and wait for completion")
+                        Text("3. Test interface will appear below")
+                        
+                        Text("**For Apple Foundation Models:**")
+                            .font(.subheadline)
+                        Text("• Requires iOS 26.0+ and Apple Intelligence enabled")
+                        Text("• If available, test button appears above")
+                        
+                        Text("**Current Status:**")
+                            .font(.subheadline)
+                        Text("MLX Ready: \(mlxProvider.isReady ? "✅" : "❌")")
+                        Text("Apple Available: \(appleProvider.isAvailable ? "✅" : "❌")")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                
                 // Test Interface
-                if mlxProvider.isReady {
-                    Section(header: Text("Test MLX Model")) {
+                if mlxProvider.isReady || appleProvider.isAvailable {
+                    Section(header: Text("AI Inference Testing")) {
                         TextEditor(text: $testPrompt)
                             .frame(minHeight: 60)
                         
-                        Button("Generate Response") {
-                            Task {
-                                await generateMLXResponse()
+                        HStack {
+                            if mlxProvider.isReady {
+                                Button("Test MLX") {
+                                    Task {
+                                        await generateMLXResponse()
+                                    }
+                                }
+                                .disabled(testPrompt.isEmpty)
+                                .buttonStyle(.bordered)
+                            }
+                            
+                            if appleProvider.isAvailable {
+                                Button("Test Apple FM") {
+                                    Task {
+                                        await testAppleFoundationModels()
+                                    }
+                                }
+                                .disabled(testPrompt.isEmpty)
+                                .buttonStyle(.bordered)
                             }
                         }
-                        .disabled(testPrompt.isEmpty)
                         
                         if !mlxResponse.isEmpty {
                             Text("Response:")
@@ -133,12 +185,24 @@ struct AIProviderTestView: View {
                 }
             }
             .navigationTitle("AI Provider Test")
+            .onAppear {
+                // Initialize providers on appear to ensure proper state management
+                Task {
+                    await initializeProviders()
+                }
+            }
         }
         .alert("Error", isPresented: $showingError) {
-            Button("OK") { }
+            Button("OK") {}
         } message: {
             Text(errorMessage)
         }
+    }
+    
+    // MARK: - Lifecycle
+    
+    private func initializeProviders() async {
+        // Initialize providers silently - providers automatically check availability on init
     }
     
     // MARK: - Actions
@@ -163,6 +227,32 @@ struct AIProviderTestView: View {
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
+                showingError = true
+            }
+        }
+    }
+    
+    private func testAppleFoundationModels() async {
+        do {
+            // Test Apple Foundation Models using the BaseAIProvider interface
+            let memoryContext = MemoryContext(
+                entities: [],
+                relationships: [],
+                shortTermMemories: [],
+                longTermMemories: [],
+                episodicMemories: [],
+                relevantNotes: [],
+                userQuery: testPrompt,
+                containsPersonalData: false
+            )
+            
+            let response = try await appleProvider.generateResponse(prompt: testPrompt, context: memoryContext)
+            await MainActor.run {
+                mlxResponse = response.content // Reuse the same response field for simplicity
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Apple Foundation Models Error: \(error.localizedDescription)"
                 showingError = true
             }
         }

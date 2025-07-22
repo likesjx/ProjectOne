@@ -21,7 +21,8 @@ public class MemoryAgentModelProvider {
     
     // MARK: - Provider Registry
     
-    private var providers: [AIModelProvider] = []
+    private var externalProviderFactory: ExternalProviderFactory?
+    private var appleFoundationProvider: AppleFoundationModelsProvider?
     private var providerHealth: [String: ProviderHealthStatus] = [:]
     
     // MARK: - Configuration
@@ -60,54 +61,66 @@ public class MemoryAgentModelProvider {
     
     // MARK: - Provider Management
     
-    /// Register an AI provider with the orchestrator
-    public func registerProvider(_ provider: AIModelProvider) {
-        providers.append(provider)
-        providerHealth[provider.identifier] = ProviderHealthStatus(
+    /// Register external provider factory
+    public func registerExternalProviderFactory(_ factory: ExternalProviderFactory) {
+        self.externalProviderFactory = factory
+        logger.info("Registered external provider factory")
+    }
+    
+    /// Register Apple Foundation Models provider
+    @available(iOS 26.0, macOS 26.0, *)
+    public func registerAppleFoundationProvider(_ provider: AppleFoundationModelsProvider) {
+        self.appleFoundationProvider = provider
+        providerHealth["apple_foundation"] = ProviderHealthStatus(
             isHealthy: true,
             lastSuccessfulResponse: nil,
             consecutiveFailures: 0,
-            averageResponseTime: provider.estimatedResponseTime,
+            averageResponseTime: 1.0, // On-device is fast
             errorRate: 0.0
         )
-        logger.info("Registered provider: \(provider.identifier)")
+        logger.info("Registered Apple Foundation Models provider")
     }
     
     /// Initialize all registered providers
     public func initializeProviders() async throws {
-        logger.info("Initializing \(self.providers.count) AI providers")
+        logger.info("Initializing AI providers")
         
-        var initializationErrors: [Error] = []
+        var hasHealthyProvider = false
         
-        for provider in providers {
+        // Initialize external providers through factory
+        if let factory = externalProviderFactory {
             do {
-                try await provider.prepare()
-                logger.info("Provider \(provider.identifier) initialized successfully")
+                await factory.configureFromSettings()
+                logger.info("External providers initialized successfully")
+                hasHealthyProvider = true
             } catch {
-                logger.error("Failed to initialize provider \(provider.identifier): \(error.localizedDescription)")
-                initializationErrors.append(error)
-                
-                // Mark provider as unhealthy
-                providerHealth[provider.identifier] = ProviderHealthStatus(
+                logger.error("Failed to initialize external providers: \(error.localizedDescription)")
+            }
+        }
+        
+        // Initialize Apple Foundation Models if available
+        if #available(iOS 26.0, macOS 26.0, *), let appleProvider = appleFoundationProvider {
+            do {
+                try await appleProvider.prepare()
+                logger.info("Apple Foundation Models initialized successfully")
+                hasHealthyProvider = true
+            } catch {
+                logger.error("Failed to initialize Apple Foundation Models: \(error.localizedDescription)")
+                providerHealth["apple_foundation"] = ProviderHealthStatus(
                     isHealthy: false,
                     lastSuccessfulResponse: nil,
                     consecutiveFailures: 1,
-                    averageResponseTime: provider.estimatedResponseTime,
+                    averageResponseTime: 1.0,
                     errorRate: 1.0
                 )
             }
         }
         
-        // Check if we have any healthy providers
-        let healthyProviders = providers.filter { provider in
-            provider.isAvailable && (providerHealth[provider.identifier]?.isHealthy ?? false)
-        }
-        
-        if healthyProviders.isEmpty {
+        if !hasHealthyProvider {
             throw MemoryAgentError.noAIProvidersAvailable
         }
         
-        logger.info("Initialization complete: \(healthyProviders.count)/\(self.providers.count) providers available")
+        logger.info("Provider initialization complete")
     }
     
     /// Cleanup all providers
@@ -115,14 +128,21 @@ public class MemoryAgentModelProvider {
         logger.info("Cleaning up AI providers")
         
         await withTaskGroup(of: Void.self) { group in
-            for provider in providers {
+            if let factory = externalProviderFactory {
                 group.addTask {
-                    await provider.cleanup()
+                    await factory.cleanup()
+                }
+            }
+            
+            if #available(iOS 26.0, macOS 26.0, *), let appleProvider = appleFoundationProvider {
+                group.addTask {
+                    await appleProvider.cleanup()
                 }
             }
         }
         
-        providers.removeAll()
+        externalProviderFactory = nil
+        appleFoundationProvider = nil
         providerHealth.removeAll()
     }
     
@@ -163,43 +183,59 @@ public class MemoryAgentModelProvider {
         var lastError: Error?
         var attemptCount = 0
         
-        // Get ordered list of providers based on criteria
-        let candidateProviders = providerSelector.selectProviders(
-            from: providers,
-            criteria: criteria,
-            healthStatus: providerHealth
-        )
-        
-        guard !candidateProviders.isEmpty else {
-            throw MemoryAgentError.noAvailableProvider
+        // Try Apple Foundation Models first for personal data (privacy first)
+        if criteria.requiresPersonalData || criteria.requiresOnDevice {
+            if #available(iOS 26.0, macOS 26.0, *), let appleProvider = appleFoundationProvider {
+                attemptCount += 1
+                do {
+                    logger.debug("Attempting generation with Apple Foundation Models (privacy mode)")
+                    let response = try await withTimeout(configuration.responseTimeoutInterval) {
+                        return try await self.generateWithAppleFoundation(prompt: prompt, context: context, provider: appleProvider)
+                    }
+                    updateProviderHealth("apple_foundation", success: true, responseTime: response.processingTime)
+                    return response
+                } catch {
+                    logger.warning("Apple Foundation Models failed: \(error.localizedDescription)")
+                    updateProviderHealth("apple_foundation", success: false, responseTime: nil)
+                    lastError = error
+                    
+                    // Stop trying if we've hit max retries or fallback is disabled
+                    if attemptCount >= configuration.maxRetries || !configuration.fallbackEnabled {
+                        throw lastError ?? MemoryAgentError.noAvailableProvider
+                    }
+                }
+            }
         }
         
-        // Try each provider in order
-        for provider in candidateProviders {
-            attemptCount += 1
-            
-            do {
-                logger.debug("Attempting generation with provider: \(provider.identifier) (attempt \(attemptCount))")
+        // Try external providers
+        if let factory = externalProviderFactory {
+            let activeProviders = factory.getAllActiveProviders()
+            for provider in activeProviders {
+                attemptCount += 1
                 
-                let response = try await withTimeout(configuration.responseTimeoutInterval) {
-                    try await provider.generateResponse(prompt: prompt, context: context)
-                }
-                
-                // Update health status on success
-                updateProviderHealth(provider.identifier, success: true, responseTime: response.processingTime)
-                
-                return response
-                
-            } catch {
-                logger.warning("Provider \(provider.identifier) failed: \(error.localizedDescription)")
-                lastError = error
-                
-                // Update health status on failure
-                updateProviderHealth(provider.identifier, success: false, responseTime: nil)
-                
-                // Stop trying if we've hit max retries or fallback is disabled
-                if attemptCount >= configuration.maxRetries || !configuration.fallbackEnabled {
-                    break
+                do {
+                    logger.debug("Attempting generation with provider: \(provider.identifier) (attempt \(attemptCount))")
+                    
+                    let response = try await withTimeout(configuration.responseTimeoutInterval) {
+                        return try await self.generateWithExternalProvider(prompt: prompt, context: context, provider: provider)
+                    }
+                    
+                    // Update health status on success
+                    updateProviderHealth(provider.identifier, success: true, responseTime: response.processingTime)
+                    
+                    return response
+                    
+                } catch {
+                    logger.warning("Provider \(provider.identifier) failed: \(error.localizedDescription)")
+                    lastError = error
+                    
+                    // Update health status on failure
+                    updateProviderHealth(provider.identifier, success: false, responseTime: nil)
+                    
+                    // Stop trying if we've hit max retries or fallback is disabled
+                    if attemptCount >= configuration.maxRetries || !configuration.fallbackEnabled {
+                        break
+                    }
                 }
             }
         }
@@ -297,6 +333,51 @@ public class MemoryAgentModelProvider {
             
             throw AIModelProviderError.processingFailed("Operation timeout")
         }
+    }
+    
+    // MARK: - Provider-Specific Generation Methods
+    
+    /// Generate response using Apple Foundation Models
+    @available(iOS 26.0, macOS 26.0, *)
+    private func generateWithAppleFoundation(
+        prompt: String,
+        context: MemoryContext,
+        provider: AppleFoundationModelsProvider
+    ) async throws -> AIModelResponse {
+        let startTime = Date()
+        let content = try await provider.generateModelResponse(prompt)
+        let processingTime = Date().timeIntervalSince(startTime)
+        
+        return AIModelResponse(
+            content: content,
+            confidence: 0.9,
+            processingTime: processingTime,
+            modelUsed: "Apple Foundation Models",
+            tokensUsed: nil,
+            isOnDevice: true,
+            containsPersonalData: context.containsPersonalData
+        )
+    }
+    
+    /// Generate response using external provider
+    private func generateWithExternalProvider(
+        prompt: String,
+        context: MemoryContext,
+        provider: ExternalAIProvider
+    ) async throws -> AIModelResponse {
+        let startTime = Date()
+        let response = try await provider.generateResponse(prompt: prompt, context: context)
+        let processingTime = Date().timeIntervalSince(startTime)
+        
+        return AIModelResponse(
+            content: response.content,
+            confidence: response.confidence ?? 0.8,
+            processingTime: processingTime,
+            modelUsed: provider.identifier,
+            tokensUsed: response.tokensUsed,
+            isOnDevice: provider.isOnDevice,
+            containsPersonalData: context.containsPersonalData
+        )
     }
 }
 

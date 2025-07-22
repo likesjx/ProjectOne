@@ -53,13 +53,14 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     @Published public var modelLoadingStatus: ModelLoadingStatus = .notStarted
     @Published public var loadingProgress: Double = 0.0
     @Published public var statusMessage: String = ""
+    @Published public var isAvailable: Bool = false
+    @Published public var lastUpdated: Date = Date()
     internal let processingQueue = DispatchQueue(label: "ai-provider", qos: .userInitiated)
     
     // MARK: - Abstract Properties (Override Required)
     
     public var identifier: String { fatalError("Must override identifier") }
     public var displayName: String { fatalError("Must override displayName") }
-    public var isAvailable: Bool { fatalError("Must override isAvailable") }
     public var estimatedResponseTime: TimeInterval { fatalError("Must override estimatedResponseTime") }
     public var maxContextLength: Int { fatalError("Must override maxContextLength") }
     
@@ -108,13 +109,26 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     public func prepare() async throws {
         logger.info("Preparing \(self.displayName) provider")
         
+        await MainActor.run {
+            modelLoadingStatus = .preparing
+            lastUpdated = Date()
+        }
+        
         do {
             try await prepareModel()
-            isModelLoaded = true
+            await MainActor.run {
+                isModelLoaded = true
+                modelLoadingStatus = .ready
+                lastUpdated = Date()
+            }
             logger.info("\(self.displayName) loaded successfully")
         } catch {
             logger.error("Failed to load \(self.displayName): \(error.localizedDescription)")
-            isModelLoaded = false
+            await MainActor.run {
+                isModelLoaded = false
+                modelLoadingStatus = .failed(error.localizedDescription)
+                lastUpdated = Date()
+            }
             throw error
         }
     }
@@ -122,7 +136,37 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     public func cleanup() async {
         logger.info("Cleaning up \(self.displayName) provider")
         await cleanupModel()
-        isModelLoaded = false
+        await MainActor.run {
+            isModelLoaded = false
+            modelLoadingStatus = .notStarted
+            lastUpdated = Date()
+        }
+    }
+    
+    // MARK: - State Management
+    
+    /// Safely update availability status from subclasses
+    @MainActor
+    public func updateAvailability(_ available: Bool) {
+        isAvailable = available
+        lastUpdated = Date()
+        objectWillChange.send()
+    }
+    
+    /// Safely update loading status from subclasses
+    @MainActor
+    public func updateLoadingStatus(_ status: ModelLoadingStatus) {
+        modelLoadingStatus = status
+        lastUpdated = Date()
+        objectWillChange.send()
+    }
+    
+    /// Safely update status message from subclasses
+    @MainActor
+    public func updateStatusMessage(_ message: String) {
+        statusMessage = message
+        lastUpdated = Date()
+        objectWillChange.send()
     }
     
     // MARK: - Abstract Methods (Override Required)

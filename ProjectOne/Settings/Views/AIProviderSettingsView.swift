@@ -319,8 +319,10 @@ public struct AIProviderSettingsView: View {
                 Text("Max Tokens")
                 Spacer()
                 TextField("4096", value: $settings.maxTokens, format: .number)
+                    #if os(iOS)
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)
+                    #endif
                     .frame(width: 80)
             }
             
@@ -333,8 +335,10 @@ public struct AIProviderSettingsView: View {
                 Text("Request Timeout")
                 Spacer()
                 TextField("60", value: $settings.requestTimeout, format: .number)
+                    #if os(iOS)
                     .keyboardType(.decimalPad)
                     .textFieldStyle(.roundedBorder)
+                    #endif
                     .frame(width: 80)
                 Text("seconds")
                     .font(.caption)
@@ -345,8 +349,10 @@ public struct AIProviderSettingsView: View {
                 Text("Max Retries")
                 Spacer()
                 TextField("3", value: $settings.maxRetries, format: .number)
+                    #if os(iOS)
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)
+                    #endif
                     .frame(width: 80)
             }
         }
@@ -572,7 +578,9 @@ struct APIKeyInputSheet: View {
                 }
             }
             .navigationTitle("API Key")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

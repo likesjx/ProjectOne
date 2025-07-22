@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import os.log
 
 /// OpenRouter API provider - unified access to multiple AI models
 public class OpenRouterProvider: ExternalAIProvider {
@@ -112,9 +113,9 @@ public class OpenRouterProvider: ExternalAIProvider {
     // MARK: - OpenRouter-Specific Features
     
     override func prepareModel() async throws {
-        logger.info("Preparing OpenRouter model: \(configuration.model)")
+        self.logger.info("Preparing OpenRouter model: \(self.configuration.model)")
         
-        guard configuration.apiKey != nil else {
+        guard self.configuration.apiKey != nil else {
             throw ExternalAIError.configurationInvalid("OpenRouter API key required")
         }
         
@@ -123,15 +124,15 @@ public class OpenRouterProvider: ExternalAIProvider {
     
     /// Get available models from OpenRouter
     public func getAvailableModels() async throws -> [OpenRouterModel] {
-        guard let url = URL(string: "\(configuration.baseURL)/models") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/models") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
         var urlRequest = URLRequest(url: url)
-        urlRequest.setValue("Bearer \(configuration.apiKey ?? "")", forHTTPHeaderField: "Authorization")
+        urlRequest.setValue("Bearer \(self.configuration.apiKey ?? "")", forHTTPHeaderField: "Authorization")
         
         // Add OpenRouter-specific headers
-        for (key, value) in configuration.customHeaders {
+        for (key, value) in self.configuration.customHeaders {
             urlRequest.setValue(value, forHTTPHeaderField: key)
         }
         
@@ -146,22 +147,22 @@ public class OpenRouterProvider: ExternalAIProvider {
             let modelResponse = try JSONDecoder().decode(OpenRouterModelsResponse.self, from: data)
             return modelResponse.data
         } catch {
-            logger.error("❌ Failed to fetch OpenRouter models: \(error.localizedDescription)")
+            self.logger.error("❌ Failed to fetch OpenRouter models: \(error.localizedDescription)")
             throw ExternalAIError.networkError("Failed to fetch models: \(error.localizedDescription)")
         }
     }
     
     /// Get usage statistics
     public func getUsageStats() async throws -> OpenRouterUsage {
-        guard let url = URL(string: "\(configuration.baseURL)/auth/key") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/auth/key") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
         var urlRequest = URLRequest(url: url)
-        urlRequest.setValue("Bearer \(configuration.apiKey ?? "")", forHTTPHeaderField: "Authorization")
+        urlRequest.setValue("Bearer \(self.configuration.apiKey ?? "")", forHTTPHeaderField: "Authorization")
         
         // Add OpenRouter-specific headers
-        for (key, value) in configuration.customHeaders {
+        for (key, value) in self.configuration.customHeaders {
             urlRequest.setValue(value, forHTTPHeaderField: key)
         }
         
@@ -175,7 +176,7 @@ public class OpenRouterProvider: ExternalAIProvider {
             
             return try JSONDecoder().decode(OpenRouterUsage.self, from: data)
         } catch {
-            logger.error("❌ Failed to fetch OpenRouter usage: \(error.localizedDescription)")
+            self.logger.error("❌ Failed to fetch OpenRouter usage: \(error.localizedDescription)")
             throw ExternalAIError.networkError("Failed to fetch usage: \(error.localizedDescription)")
         }
     }
@@ -186,26 +187,26 @@ public class OpenRouterProvider: ExternalAIProvider {
         fallbackModels: [String] = [],
         routePreference: RoutePreference = .balanced
     ) async throws -> String {
-        guard case .ready = modelLoadingStatus else {
+        guard case .ready = self.modelLoadingStatus else {
             throw ExternalAIError.modelNotReady
         }
         
-        logger.info("Generating OpenRouter response with preferences")
+        self.logger.info("Generating OpenRouter response with preferences")
         
         let request = OpenRouterRequest(
-            model: configuration.model,
+            model: self.configuration.model,
             messages: [ChatMessage(role: "user", content: prompt)],
-            maxTokens: configuration.maxTokens,
-            temperature: configuration.temperature,
+            maxTokens: self.configuration.maxTokens,
+            temperature: self.configuration.temperature,
             route: routePreference.rawValue,
             fallbacks: fallbackModels
         )
         
         do {
-            let response = try await httpClient.sendOpenRouterRequest(request)
+            let response = try await self.httpClient.sendOpenRouterRequest(request)
             return response.choices.first?.message.content ?? ""
         } catch {
-            logger.error("❌ OpenRouter generation failed: \(error.localizedDescription)")
+            self.logger.error("❌ OpenRouter generation failed: \(error.localizedDescription)")
             throw ExternalAIError.generationFailed(error.localizedDescription)
         }
     }
@@ -301,7 +302,7 @@ public enum RoutePreference: String, CaseIterable {
 
 extension HTTPClient {
     func sendOpenRouterRequest(_ request: OpenRouterRequest) async throws -> ChatResponse {
-        guard let url = URL(string: "\(configuration.baseURL)/chat/completions") else {
+        guard let url = URL(string: "\(self.configuration.baseURL)/chat/completions") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
         
@@ -309,18 +310,18 @@ extension HTTPClient {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        if let apiKey = configuration.apiKey {
+        if let apiKey = self.configuration.apiKey {
             urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         
         // Add custom headers (including OpenRouter-specific ones)
-        for (key, value) in configuration.customHeaders {
+        for (key, value) in self.configuration.customHeaders {
             urlRequest.setValue(value, forHTTPHeaderField: key)
         }
         
         urlRequest.httpBody = try JSONEncoder().encode(request)
         
-        let (data, response) = try await urlSession.data(for: urlRequest)
+        let (data, response) = try await self.urlSession.data(for: urlRequest)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ExternalAIError.networkError("Invalid response type")

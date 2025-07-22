@@ -36,18 +36,14 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     public override var estimatedResponseTime: TimeInterval { 0.2 }
     public override var maxContextLength: Int { 8192 }
     
+    // Override the computed property to use the @Published property from BaseAIProvider
     public override var isAvailable: Bool {
-        #if canImport(FoundationModels)
-        guard let model = languageModel else { return false }
-        switch model.availability {
-        case .available:
-            return true
-        default:
-            return false
+        get { super.isAvailable }
+        set { 
+            Task { @MainActor in
+                updateAvailability(newValue)
+            }
         }
-        #else
-        return false
-        #endif
     }
     
     // MARK: - Foundation Models Properties
@@ -57,8 +53,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     private var session: LanguageModelSession?
     #endif
     
-    private var lastAvailabilityCheck: Date = Date.distantPast
-    private let availabilityCheckInterval: TimeInterval = 30.0 // Check every 30 seconds
+    // Removed polling - using reactive architecture instead
     
     // MARK: - Initialization
     
@@ -70,8 +65,9 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
         
         logger.info("Initializing Apple Foundation Models Provider for iOS 26.0+")
         
-        Task {
-            await checkAvailability()
+        // Perform one-time availability check
+        Task { @MainActor in
+            await performInitialAvailabilityCheck()
         }
     }
     
@@ -288,62 +284,39 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     
     // MARK: - Private Methods
     
-    private func checkAvailability() async {
-        // Throttle availability checks
-        let now = Date()
-        guard now.timeIntervalSince(lastAvailabilityCheck) > availabilityCheckInterval else {
-            return
-        }
-        lastAvailabilityCheck = now
-        
+    private func performInitialAvailabilityCheck() async {
         #if canImport(FoundationModels)
-        await MainActor.run {
-            self.modelLoadingStatus = .preparing
-        }
+        await updateLoadingStatus(.preparing)
         
         // Initialize the model for availability checking
         let model = SystemLanguageModel.default
-        self.languageModel = model
+        self.languageModel = model  
         
-        // Check real availability using the documented API
-        logger.info("🔍 Checking SystemLanguageModel.default.availability...")
         switch model.availability {
         case .available:
-            await MainActor.run {
-                self.modelLoadingStatus = .ready
-            }
-            logger.info("✅ Foundation Models available and ready")
+            await updateLoadingStatus(.ready)
+            await updateAvailability(true)
             
         case .unavailable(.deviceNotEligible):
-            await MainActor.run {
-                self.modelLoadingStatus = .failed("Device not eligible for Apple Intelligence")
-            }
-            logger.error("❌ Device not eligible for Apple Intelligence")
+            await updateLoadingStatus(.failed("Device not eligible for Apple Intelligence"))
+            await updateAvailability(false)
             
         case .unavailable(.appleIntelligenceNotEnabled):
-            await MainActor.run {
-                self.modelLoadingStatus = .failed("Apple Intelligence not enabled")
-            }
-            logger.error("❌ Apple Intelligence not enabled in Settings")
+            await updateLoadingStatus(.failed("Apple Intelligence not enabled"))
+            await updateAvailability(false)
             
         case .unavailable(.modelNotReady):
-            await MainActor.run {
-                self.modelLoadingStatus = .failed("Model not ready")
-            }
-            logger.error("❌ Foundation Models not ready (downloading or system busy)")
+            await updateLoadingStatus(.failed("Model not ready"))
+            await updateAvailability(false)
             
         case .unavailable(let other):
-            await MainActor.run {
-                self.modelLoadingStatus = .failed("Unknown availability issue")
-            }
-            logger.error("❌ Foundation Models unavailable: \(String(describing: other))")
+            await updateLoadingStatus(.failed("Unknown availability issue"))
+            await updateAvailability(false)
         }
         
         #else
-        await MainActor.run {
-            self.modelLoadingStatus = .failed("Framework not available")
-        }
-        logger.error("❌ Foundation Models framework not available in this build")
+        await updateLoadingStatus(.failed("Framework not available"))
+        await updateAvailability(false)
         #endif
     }
 }

@@ -71,11 +71,10 @@ public class MemoryAgent: ObservableObject {
         logger.info("Starting Memory Agent initialization")
         
         // Register and initialize AI providers
-        aiModelProvider.registerProvider(WorkingMLXProvider())
-        if #available(iOS 26.0, macOS 26.0, *) {
-            aiModelProvider.registerProvider(AppleFoundationModelsProvider())
-        }
-        try await aiModelProvider.initializeProviders()
+        // Note: AI providers now managed through ExternalProviderFactory
+        // The new architecture uses settings-based configuration
+        // Provider initialization handled by factory, not directly here
+        logger.info("AI providers will be configured through ExternalProviderFactory")
         
         // Schedule memory consolidation if enabled
         if configuration.enableMemoryConsolidation {
@@ -260,7 +259,7 @@ public class MemoryAgent: ObservableObject {
             eventDescription: "Health Data Entry: \(content)",
             location: nil,
             participants: ["User"],
-            emotionalTone: .neutral,
+            emotionalTone: EpisodicMemoryEntry.EmotionalTone.neutral,
             importance: 0.7,
             contextualCues: ["HealthKit", "data"],
             duration: nil,
@@ -282,7 +281,7 @@ public class MemoryAgent: ObservableObject {
             eventDescription: "User Interaction: \(content)",
             location: nil,
             participants: ["User"],
-            emotionalTone: .neutral,
+            emotionalTone: EpisodicMemoryEntry.EmotionalTone.neutral,
             importance: 0.5,
             contextualCues: ["app", "interaction"],
             duration: nil,
@@ -393,7 +392,7 @@ public class MemoryAgent: ObservableObject {
             eventDescription: query,
             location: nil,
             participants: ["user"],
-            emotionalTone: .neutral,
+            emotionalTone: EpisodicMemoryEntry.EmotionalTone.neutral,
             importance: 0.7
         )
         modelContext.insert(queryEntry)
@@ -421,7 +420,7 @@ public class MemoryAgent: ObservableObject {
             eventDescription: "Conversation: User asked '\(query.prefix(100))...' and received response about \(self.extractMainTopics(from: responseContent).joined(separator: ", "))",
             location: nil,
             participants: ["user", "memory_agent"],
-            emotionalTone: .neutral,
+            emotionalTone: EpisodicMemoryEntry.EmotionalTone.neutral,
             importance: min(response.confidence, 0.9)
         )
         modelContext.insert(conversationEntry)

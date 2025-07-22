@@ -73,7 +73,7 @@ enum TestProviderType: String, CaseIterable {
 
 @available(iOS 26.0, macOS 26.0, *)
 struct UnifiedAITestView: View {
-    @State private var testPrompt = "Hello, how are you? Please tell me a short joke."
+    @State private var testPrompt = "Hello, how are you? Please tell me a short joke, Jared."
     @State private var selectedProviders: Set<TestProviderType> = [.mlxLLM, .appleFoundationModels]
     @State private var testResults: [ProviderTestResult] = []
     @State private var isLoading = false

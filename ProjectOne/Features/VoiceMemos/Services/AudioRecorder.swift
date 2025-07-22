@@ -12,6 +12,8 @@ import Combine
 import SwiftData
 import Speech
 
+// Import the transcription types from the protocol module
+
 class AudioRecorder: NSObject, ObservableObject {
     var audioRecorder: AVAudioRecorder?
     
@@ -337,17 +339,17 @@ class AudioRecorder: NSObject, ObservableObject {
                 // Convert SpeechTranscriptionResult to legacy TranscriptionResult for compatibility
                 let legacyResult = TranscriptionResult(
                     text: result.text,
-                    confidence: Double(result.confidence),
+                    confidence: result.confidence,
                     segments: result.segments.map { segment in
                         TranscriptionSegment(
                             text: segment.text,
-                            confidence: Double(segment.confidence),
                             startTime: segment.startTime,
                             endTime: segment.endTime,
-                            isComplete: true
+                            confidence: segment.confidence
                         )
                     },
                     processingTime: result.processingTime,
+                    method: result.method,
                     language: result.language ?? "en-US"
                 )
                 
@@ -427,7 +429,7 @@ class AudioRecorder: NSObject, ObservableObject {
     
     func getTranscriptionConfidence(for text: String) -> Double {
         // Return confidence from last transcription result
-        return currentTranscription?.confidence ?? 0.0
+        return Double(currentTranscription?.confidence ?? 0.0)
     }
     
     /// Get current speech engine status for diagnostics

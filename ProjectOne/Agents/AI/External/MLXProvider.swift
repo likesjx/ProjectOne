@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import os.log
 
 #if canImport(MLX)
 import MLX
@@ -148,54 +149,44 @@ public class MLXProvider: ExternalAIProvider {
     
     // MARK: - BaseAIProvider Implementation
     
-    public override var isAvailable: Bool {
-        #if canImport(MLX)
-        return Self.isMLXSupported && model != nil
-        #else
-        return false
-        #endif
-    }
+    // isAvailable is now managed by BaseAIProvider as @Published property
     
     override func prepareModel() async throws {
-        logger.info("Preparing MLX model: \(configuration.model)")
+        self.logger.info("Preparing MLX model: \(self.configuration.model)")
         
         guard Self.isMLXSupported else {
             throw ExternalAIError.configurationInvalid("MLX requires real Apple Silicon hardware")
         }
         
-        await MainActor.run {
-            self.modelLoadingStatus = .preparing
-        }
+        await updateLoadingStatus(.preparing)
         
         #if canImport(MLX)
         do {
-            logger.info("Loading MLX model from: \(mlxConfig.modelPath)")
+            self.logger.info("Loading MLX model from: \(self.mlxConfig.modelPath)")
             
             // Check if model file exists
-            guard FileManager.default.fileExists(atPath: mlxConfig.modelPath) else {
-                throw ExternalAIError.modelNotAvailable("Model file not found at: \(mlxConfig.modelPath)")
+            guard FileManager.default.fileExists(atPath: self.mlxConfig.modelPath) else {
+                throw ExternalAIError.modelNotAvailable("Model file not found at: \(self.mlxConfig.modelPath)")
             }
             
             // Load model (this is a simplified interface - real MLX loading would depend on model format)
             // The actual implementation would depend on the specific MLX model format being used
-            model = try await loadMLXModel()
+            self.model = try await loadMLXModel()
             
             // Load tokenizer if path provided
-            if let vocabPath = mlxConfig.vocabularyPath {
-                tokenizer = try await loadTokenizer(from: vocabPath)
+            if let vocabPath = self.mlxConfig.vocabularyPath {
+                self.tokenizer = try await loadTokenizer(from: vocabPath)
             }
             
-            await MainActor.run {
-                self.modelLoadingStatus = .ready
-            }
+            await updateLoadingStatus(.ready)
+            await updateAvailability(true)
             
-            logger.info("✅ MLX model loaded successfully")
+            self.logger.info("✅ MLX model loaded successfully")
             
         } catch {
-            await MainActor.run {
-                self.modelLoadingStatus = .failed(error.localizedDescription)
-            }
-            logger.error("❌ MLX model loading failed: \(error.localizedDescription)")
+            await updateLoadingStatus(.failed(error.localizedDescription))
+            await updateAvailability(false)
+            self.logger.error("❌ MLX model loading failed: \(error.localizedDescription)")
             throw ExternalAIError.modelNotAvailable(error.localizedDescription)
         }
         #else
@@ -204,16 +195,16 @@ public class MLXProvider: ExternalAIProvider {
     }
     
     override func generateModelResponse(_ prompt: String) async throws -> String {
-        guard case .ready = modelLoadingStatus else {
+        guard case .ready = self.modelLoadingStatus else {
             throw ExternalAIError.modelNotReady
         }
         
         #if canImport(MLX)
-        guard let model = model else {
+        guard let model = self.model else {
             throw ExternalAIError.modelNotReady
         }
         
-        logger.info("Generating MLX response")
+        self.logger.info("Generating MLX response")
         
         do {
             // Tokenize input
@@ -225,11 +216,11 @@ public class MLXProvider: ExternalAIProvider {
             // Decode tokens back to text
             let response = try detokenize(outputTokens)
             
-            logger.info("✅ MLX generation completed")
+            self.logger.info("✅ MLX generation completed")
             return response
             
         } catch {
-            logger.error("❌ MLX generation failed: \(error.localizedDescription)")
+            self.logger.error("❌ MLX generation failed: \(error.localizedDescription)")
             throw ExternalAIError.generationFailed(error.localizedDescription)
         }
         #else
@@ -239,10 +230,11 @@ public class MLXProvider: ExternalAIProvider {
     
     override func cleanupModel() async {
         #if canImport(MLX)
-        model = nil
-        tokenizer = nil
+        self.model = nil
+        self.tokenizer = nil
         #endif
-        logger.info("MLX provider cleaned up")
+        await updateAvailability(false)
+        self.logger.info("MLX provider cleaned up")
     }
     
     // MARK: - MLX-Specific Implementation
@@ -256,7 +248,7 @@ public class MLXProvider: ExternalAIProvider {
         
         // For now, we'll simulate the loading process
         // In a real implementation, this would load actual model weights:
-        // let weights = try MLX.loadSafetensors(url: URL(fileURLWithPath: mlxConfig.modelPath))
+        // let weights = try MLX.loadSafetensors(url: URL(fileURLWithPath: self.mlxConfig.modelPath))
         // let model = try createModelFromWeights(weights)
         
         throw ExternalAIError.modelNotAvailable("MLX model loading not yet implemented - requires actual MLX model format support")
@@ -271,7 +263,7 @@ public class MLXProvider: ExternalAIProvider {
     private func tokenize(_ text: String) throws -> [Int] {
         // Convert text to tokens
         // This would use the loaded tokenizer
-        if let tokenizer = tokenizer {
+        if let tokenizer = self.tokenizer {
             // Use actual tokenizer
             throw ExternalAIError.generationFailed("Tokenization not yet implemented")
         } else {
@@ -282,7 +274,7 @@ public class MLXProvider: ExternalAIProvider {
     
     private func detokenize(_ tokens: [Int]) throws -> String {
         // Convert tokens back to text
-        if let tokenizer = tokenizer {
+        if let tokenizer = self.tokenizer {
             // Use actual tokenizer
             throw ExternalAIError.generationFailed("Detokenization not yet implemented")
         } else {
@@ -293,7 +285,7 @@ public class MLXProvider: ExternalAIProvider {
     }
     
     private func generate(tokens: [Int]) async throws -> [Int] {
-        guard let model = model else {
+        guard let model = self.model else {
             throw ExternalAIError.modelNotReady
         }
         
