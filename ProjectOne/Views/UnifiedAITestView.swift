@@ -2,92 +2,159 @@
 //  UnifiedAITestView.swift
 //  ProjectOne
 //
+//  🎓 SWIFT LEARNING: This file demonstrates advanced SwiftUI and Swift concepts:
+//  • **SwiftUI State Management**: @State, @StateObject for reactive UI
+//  • **Conditional Compilation**: #if os() for cross-platform support
+//  • **TaskGroups**: Structured concurrency for parallel AI testing
+//  • **AsyncSequence**: Streaming async operations
+//  • **Custom View Components**: Reusable UI building blocks
+//  • **Cross-Platform Development**: iOS/macOS compatibility
+//  • **Protocol-Oriented Programming**: TestProviderType enum behavior
+//  • **Memory Management**: Weak references and lifecycle handling
+//
 //  Comprehensive AI provider testing interface for all available providers
 //
 
 import SwiftUI
+// 🎓 SWIFT LEARNING: Conditional compilation for cross-platform development
 #if os(iOS)
 import UIKit
-typealias UImage = UIImage
+typealias UImage = UIImage    // 🎓 Type alias allows using UImage for both platforms
 #elseif os(macOS)
 import AppKit
-typealias UImage = NSImage
+typealias UImage = NSImage    // 🎓 Same interface, different underlying types
 #endif
+
+// MARK: - Data Models
+// 🎓 SWIFT LEARNING: Custom data structures for UI state management
 
 // MARK: - Provider Test Result
 
+/// Data structure representing the result of testing an AI provider
+/// 
+/// 🎓 SWIFT LEARNING: Struct with computed properties and data formatting
+/// • Structs are value types (copied, not referenced)
+/// • Computed properties provide derived data from stored properties
+/// • Used to pass test results between view components
 struct ProviderTestResult {
-    let providerName: String
-    let response: String
-    let responseTime: TimeInterval
-    let success: Bool
-    let error: String?
+    // 🎓 SWIFT LEARNING: Stored properties - the actual data this struct holds
+    let providerName: String        // 🎓 Name of the AI provider tested
+    let response: String           // 🎓 Generated response or empty if failed
+    let responseTime: TimeInterval // 🎓 How long the generation took
+    let success: Bool             // 🎓 Whether the test succeeded
+    let error: String?            // 🎓 Optional - only set if test failed
     
+    // 🎓 SWIFT LEARNING: Computed property for formatted display
+    // Converts raw TimeInterval to user-friendly string
     var displayTime: String {
-        String(format: "%.2fs", responseTime)
+        String(format: "%.2fs", responseTime)  // 🎓 Format to 2 decimal places
     }
 }
 
 // MARK: - Provider Type Enumeration
+// 🎓 SWIFT LEARNING: Enum with raw values, computed properties, and protocol conformance
 
+/// Enumeration of all AI providers available for testing
+/// 
+/// 🎓 SWIFT LEARNING: This enum demonstrates several advanced Swift features:
+/// • **Raw Values**: String literals that can be used for display
+/// • **CaseIterable**: Automatically provides .allCases array
+/// • **Computed Properties**: Different behavior per case (icon, color, capabilities)
+/// • **Switch Statements**: Pattern matching for case-specific behavior
+/// • **Protocol Conformance**: Hashable for Set<TestProviderType> usage
 enum TestProviderType: String, CaseIterable {
-    case mlxLLM = "MLX LLM (Text-Only)"
+    case mlxLLM = "MLX LLM (Text-Only)"                // 🎓 Raw value for display
     case mlxVLM = "MLX VLM (Multimodal)"
     case appleFoundationModels = "Apple Foundation Models"
     case enhancedGemma3nCore = "Enhanced Gemma3n Core"
     
+    // 🎓 SWIFT LEARNING: Computed property using switch statement
+    // Each provider type gets a different SF Symbol icon
     var icon: String {
         switch self {
-        case .mlxLLM: return "textformat"
-        case .mlxVLM: return "photo.on.rectangle"
-        case .appleFoundationModels: return "apple.logo"
-        case .enhancedGemma3nCore: return "cpu"
+        case .mlxLLM: return "textformat"           // 🎓 Text-only icon
+        case .mlxVLM: return "photo.on.rectangle"   // 🎓 Multimodal icon
+        case .appleFoundationModels: return "apple.logo"  // 🎓 Apple icon
+        case .enhancedGemma3nCore: return "cpu"     // 🎓 Processing icon
         }
     }
     
+    // 🎓 SWIFT LEARNING: Another computed property for UI theming
+    // Each provider gets a distinctive color in the UI
     var color: Color {
         switch self {
-        case .mlxLLM: return .blue
+        case .mlxLLM: return .blue      // 🎓 SwiftUI built-in colors
         case .mlxVLM: return .purple
         case .appleFoundationModels: return .green
         case .enhancedGemma3nCore: return .orange
         }
     }
     
+    // 🎓 SWIFT LEARNING: Computed property for capability checking
+    // Determines which providers need iOS 26.0+
     var requiresIOS26: Bool {
         switch self {
-        case .appleFoundationModels, .enhancedGemma3nCore: return true
-        default: return false
+        case .appleFoundationModels, .enhancedGemma3nCore: 
+            return true   // 🎓 These need iOS 26+ Foundation Models
+        default: 
+            return false  // 🎓 MLX providers work on older iOS
         }
     }
     
+    // 🎓 SWIFT LEARNING: Feature capability detection
+    // Determines which providers can handle images
     var supportsImages: Bool {
         switch self {
-        case .mlxVLM, .enhancedGemma3nCore: return true
-        default: return false
+        case .mlxVLM, .enhancedGemma3nCore: 
+            return true   // 🎓 Vision-language models support images
+        default: 
+            return false  // 🎓 Text-only models don't support images
         }
     }
 }
 
 // MARK: - Main Test View
+// 🎓 SWIFT LEARNING: SwiftUI view with complex state management
 
-@available(iOS 26.0, macOS 26.0, *)
+/// Main SwiftUI view for testing all AI providers
+/// 
+/// 🎓 SWIFT LEARNING: This view demonstrates advanced SwiftUI patterns:
+/// • **@available**: Conditional API availability (requires iOS 26.0+)
+/// • **@State**: Local view state that triggers UI updates when changed
+/// • **@StateObject**: Creates and owns ObservableObject instances
+/// • **Complex State Management**: Multiple coordinated @State properties
+/// • **Set<T>**: Swift collections for unique items (selectedProviders)
+/// • **Arrays**: Ordered collections for results and images
+/// • **Three-Layer Architecture**: Service → Provider → Core instances
+@available(iOS 26.0, macOS 26.0, *)  // 🎓 Only available on iOS 26+ for Foundation Models
 struct UnifiedAITestView: View {
+    
+    // MARK: - UI State Properties
+    // 🎓 SWIFT LEARNING: @State properties for reactive UI updates
+    
+    // 🎓 SWIFT LEARNING: @State creates reactive data binding
+    // When these properties change, SwiftUI automatically re-renders affected UI components
     @State private var testPrompt = "Hello, how are you? Please tell me a short joke, Jared."
     @State private var selectedProviders: Set<TestProviderType> = [.mlxLLM, .appleFoundationModels]
-    @State private var testResults: [ProviderTestResult] = []
-    @State private var isLoading = false
-    @State private var showComparison = false
-    @State private var loadingProviders: Set<TestProviderType> = []
-    @State private var selectedImages: [UImage] = []
-    @State private var showImagePicker = false
+    @State private var testResults: [ProviderTestResult] = []       // 🎓 Array of test results
+    @State private var isLoading = false                           // 🎓 Overall loading state
+    @State private var showComparison = false                      // 🎓 UI mode toggle
+    @State private var loadingProviders: Set<TestProviderType> = [] // 🎓 Which providers are currently loading
+    @State private var selectedImages: [UImage] = []               // 🎓 Images for multimodal testing
+    @State private var showImagePicker = false                     // 🎓 Image picker sheet state
     
-    // Provider instances - Three-Layer Architecture
-    @StateObject private var mlxLLMProvider = MLXLLMProvider()
-    @StateObject private var mlxVLMProvider = MLXVLMProvider()
-    @StateObject private var workingMLXProvider = WorkingMLXProvider()
-    @StateObject private var appleFoundationProvider = AppleFoundationModelsProvider()
-    @StateObject private var enhancedCore = EnhancedGemma3nCore()
+    // MARK: - AI Provider Instances
+    // 🎓 SWIFT LEARNING: @StateObject for ObservableObject lifecycle management
+    
+    // 🎓 SWIFT LEARNING: @StateObject vs @ObservedObject:
+    // • @StateObject: View OWNS the object, creates it once and keeps it alive
+    // • @ObservedObject: View OBSERVES object owned by someone else
+    // • These create the actual AI provider instances this view will test
+    @StateObject private var mlxLLMProvider = MLXLLMProvider()                      // 🎓 Text-only MLX
+    @StateObject private var mlxVLMProvider = MLXVLMProvider()                      // 🎓 Multimodal MLX  
+    @StateObject private var workingMLXProvider = WorkingMLXProvider()              // 🎓 Working MLX implementation
+    @StateObject private var appleFoundationProvider = AppleFoundationModelsProvider() // 🎓 Apple's Foundation Models
+    @StateObject private var enhancedCore = EnhancedGemma3nCore()                  // 🎓 Enhanced Gemma3n orchestrator
     
     var body: some View {
         NavigationStack {
@@ -296,31 +363,51 @@ struct UnifiedAITestView: View {
         testProviders(availableProviders)
     }
     
+    /// Tests multiple AI providers concurrently using TaskGroup
+    /// 
+    /// 🎓 SWIFT LEARNING: This method demonstrates advanced Swift concurrency:
+    /// • **TaskGroup**: Structured concurrency for parallel operations
+    /// • **Task**: Creates concurrent execution context  
+    /// • **MainActor.run**: Thread-safe UI updates
+    /// • **await**: Suspends function until async operations complete
+    /// • **Concurrent Collection**: Building results from parallel operations
     private func testProviders(_ providers: [TestProviderType]) {
-        isLoading = true
-        loadingProviders = Set(providers)
-        testResults.removeAll()
+        // 🎓 SWIFT LEARNING: Update UI state before starting async work
+        isLoading = true                        // 🎓 Show loading UI
+        loadingProviders = Set(providers)       // 🎓 Track which providers are loading
+        testResults.removeAll()                 // 🎓 Clear previous results
         
+        // 🎓 SWIFT LEARNING: Task creates a new concurrent context
+        // This prevents the UI from blocking while tests run
         Task {
-            var results: [ProviderTestResult] = []
+            var results: [ProviderTestResult] = []  // 🎓 Collect results from parallel tests
             
-            // Test providers concurrently
+            // 🎓 SWIFT LEARNING: withTaskGroup enables structured concurrency
+            // This is the safe way to run multiple async operations in parallel
             await withTaskGroup(of: ProviderTestResult.self) { group in
+                
+                // 🎓 SWIFT LEARNING: Add a task for each provider
+                // All these tasks will run concurrently (in parallel)
                 for providerType in providers {
-                    group.addTask {
-                        await testProvider(providerType)
+                    group.addTask {  // 🎓 Each addTask creates a parallel operation
+                        await testProvider(providerType)  // 🎓 Test this provider
                     }
                 }
                 
+                // 🎓 SWIFT LEARNING: Collect results as they complete
+                // 'for await' iterates over results as they finish (not in order!)
                 for await result in group {
-                    results.append(result)
+                    results.append(result)  // 🎓 Add each completed test result
                 }
             }
             
+            // 🎓 SWIFT LEARNING: Update UI on main thread when all tests complete
+            // MainActor.run ensures UI updates happen safely
             await MainActor.run {
+                // 🎓 Sort results by response time (fastest first)
                 testResults = results.sorted { $0.responseTime < $1.responseTime }
-                isLoading = false
-                loadingProviders.removeAll()
+                isLoading = false           // 🎓 Hide loading UI
+                loadingProviders.removeAll() // 🎓 Clear loading state
             }
         }
     }

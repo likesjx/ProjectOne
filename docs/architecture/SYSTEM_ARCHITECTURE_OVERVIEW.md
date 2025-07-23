@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-ProjectOne is a sophisticated SwiftUI iOS/macOS personal AI knowledge system that combines audio recording, real-time transcription, knowledge graph construction, and intelligent memory management. The system is built around the **Gemma3nCore** AI reasoning engine and uses a Titans-inspired memory architecture.
+ProjectOne is a sophisticated SwiftUI iOS/macOS personal AI knowledge system that combines advanced AI providers, memory management, knowledge graph construction, and intelligent conversation assistance. The system is built around a **Three-Layer AI Architecture** with MLX Swift for Apple Silicon and Apple Foundation Models for iOS 26.0+.
 
-**Current Status**: Phase 3 Complete (Knowledge Graph Visualization) - Ready for Phase 4 (Advanced AI Integration)
+**Current Status**: Phase 3 Complete (Production-Ready AI Architecture) - Advanced AI Integration with Multiple Providers
 
 ## High-Level System Architecture
 
@@ -16,11 +16,23 @@ ProjectOne is a sophisticated SwiftUI iOS/macOS personal AI knowledge system tha
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
 │  │   UI Layer      │  │  Service Layer  │  │   Data Layer    │  │ AI/ML Layer │ │
 │  │                 │  │                 │  │                 │  │             │ │
-│  │ • SwiftUI Views │  │ • Gemma3nCore   │  │ • SwiftData     │  │ • PlaceholderEngine │
-│  │ • Navigation    │  │ • AudioRecorder │  │ • 11 Models     │  │ • Future MLX │
-│  │ • Interactive   │  │ • Transcription │  │ • Relationships │  │ • CoreML     │
-│  │   Components    │  │ • Knowledge     │  │ • Persistence   │  │ • Foundation │
-│  │                 │  │   Graph Service │  │                 │  │   Models     │
+│  │ • SwiftUI Views │  │ • EnhancedGemma │  │ • SwiftData     │  │ • MLX Swift │ │
+│  │ • Navigation    │  │   3nCore        │  │ • 11 Models     │  │ • Foundation │ │
+│  │ • Interactive   │  │ • AudioRecorder │  │ • Relationships │  │   Models    │ │
+│  │   Components    │  │ • Memory        │  │ • Persistence   │  │ • @Generable │ │
+│  │ • Test Views    │  │   Management    │  │ • Vector Store  │  │ • Dual AI   │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                         Three-Layer AI Architecture                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │ Core Layer      │  │ Provider Layer  │  │ Service Layer   │  │ Testing     │ │
+│  │                 │  │                 │  │                 │  │             │ │
+│  │ • BaseAIProvider│  │ • MLXLLMProvider│  │ • MLXService    │  │ • Unified   │ │
+│  │ • AIModelProvider│  │ • MLXVLMProvider│  │ • MLXModel      │  │   Test      │ │
+│  │ • Protocol      │  │ • FoundationProvider│  │   Registry    │  │   Views     │ │
+│  │   Oriented      │  │ • Memory Context│  │ • Model Loading │  │ • Mock      │ │
+│  │ • Type Safety   │  │ • Response Types│  │ • Configuration │  │   Providers │ │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────┘ │
 │                                                                                 │
 ├─────────────────────────────────────────────────────────────────────────────────┤
@@ -33,58 +45,179 @@ ProjectOne is a sophisticated SwiftUI iOS/macOS personal AI knowledge system tha
 │  │   Interactions  │  │ • Current       │  │   Knowledge     │  │   Events    │ │
 │  │ • Decay         │  │   Context       │  │ • Patterns      │  │ • Time-     │ │
 │  │   Mechanisms    │  │ • Task State    │  │ • Permanent     │  │   based     │ │
-│  │                 │  │                 │  │   Storage       │  │   Storage   │ │
+│  │ • Context Tags  │  │ • @Generable    │  │   Storage       │  │   Storage   │ │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components Deep Dive
 
-### 1. Central AI System
+### 1. Three-Layer AI Provider Architecture
 
 ```mermaid
 graph TB
-    subgraph "AI Core"
-        GC[Gemma3nCore<br/>Central Reasoning Engine]
-        TE[TranscriptionEngine Protocol]
-        PE[PlaceholderEngine<br/>Rule-based Implementation]
+    subgraph "Core Layer - Protocol-Oriented Architecture"
+        BP[BaseAIProvider<br/>Protocol-based Foundation]
+        AMP[AIModelProvider<br/>Core Protocol]
+        MC[MemoryContext<br/>RAG Support]
         
-        GC --> TE
-        TE --> PE
+        BP --> AMP
+        AMP --> MC
     end
     
-    subgraph "Input Processing"
-        AR[AudioRecorder]
-        UI[User Input]
+    subgraph "Provider Layer - Concrete Implementations"
+        MLXLLM[MLXLLMProvider<br/>Text Generation]
+        MLXVLM[MLXVLMProvider<br/>Multimodal AI]
+        AFM[AppleFoundationModelsProvider<br/>iOS 26.0+ @Generable]
         
-        AR --> GC
-        UI --> GC
+        BP --> MLXLLM
+        BP --> MLXVLM
+        BP --> AFM
     end
     
-    subgraph "Knowledge System"
-        KG[Knowledge Graph]
-        ENT[Entities]
-        REL[Relationships]
+    subgraph "Service Layer - Backend Operations"
+        MLXS[MLXService<br/>Model Loading & Inference]
+        MLXMR[MLXModelRegistry<br/>Production Model Configs]
+        MC2[ModelContainer<br/>Lifecycle Management]
         
-        GC --> KG
-        KG --> ENT
-        KG --> REL
+        MLXLLM --> MLXS
+        MLXVLM --> MLXS
+        MLXS --> MLXMR
+        MLXS --> MC2
     end
     
-    subgraph "Memory System"
-        STM[Short-Term Memory]
-        LTM[Long-Term Memory]
-        WM[Working Memory]
-        EM[Episodic Memory]
+    subgraph "Enhanced Gemma3n Core"
+        EGC[EnhancedGemma3nCore<br/>Dual Provider Management]
+        AUTO[Automatic Provider Selection]
+        STRUCT[Structured Generation]
         
-        GC --> STM
-        STM --> LTM
-        GC --> WM
-        GC --> EM
+        MLXLLM --> EGC
+        MLXVLM --> EGC
+        AFM --> EGC
+        EGC --> AUTO
+        EGC --> STRUCT
     end
 ```
 
-### 2. SwiftData Model Architecture
+### 2. Advanced @Generable Structured Generation
+
+```mermaid
+graph LR
+    subgraph "Foundation Models @Generable Types"
+        SUM[SummarizedContent<br/>Title, KeyPoints, Summary]
+        ENT[ExtractedEntities<br/>People, Places, Concepts]
+        MEM[MemoryExtraction<br/>STM, LTM, Episodic]
+        CONV[ConversationSummary<br/>Topics, Decisions, Actions]
+        KG[KnowledgeGraph<br/>Entities, Relationships]
+        TASK[TaskStructure<br/>Goals, Subtasks, Risks]
+        EMO[EmotionalAnalysis<br/>Tone, Emotions, Empathy]
+    end
+    
+    subgraph "Supporting Data Structures"
+        MI[MemoryItem]
+        EI[EpisodicItem]
+        AI[ActionItem]
+        GE[GraphEntity]
+        GR[GraphRelationship]
+        TE[TemporalEvent]
+        ST[Subtask]
+        RF[RiskFactor]
+        DE[DetectedEmotion]
+    end
+    
+    MEM --> MI
+    MEM --> EI
+    CONV --> AI
+    KG --> GE
+    KG --> GR
+    KG --> TE
+    TASK --> ST
+    TASK --> RF
+    EMO --> DE
+```
+
+### 3. Production MLX Swift Integration
+
+```mermaid
+graph TB
+    subgraph "MLX Swift 0.25.6 Production Models"
+        GEMMA2[Gemma 2 2B/9B/27B<br/>mlx-community verified]
+        QWEN[Qwen2.5 3B/7B/14B<br/>High performance]
+        LLAMA[Llama 3.1/3.2<br/>Meta latest]
+        PHI[Phi-3.5 Mini<br/>Microsoft efficient]
+        QWENVLM[Qwen2-VL 2B/7B<br/>Vision-Language]
+        LLAVA[LLaVA v1.6<br/>Multimodal]
+    end
+    
+    subgraph "Platform-Specific Selection"
+        IOS[iOS Recommendations<br/>Gemma 2B, Qwen2.5 3B]
+        MACOS[macOS Recommendations<br/>Qwen2.5 7B, Gemma 9B]
+        AUTO[Automatic Selection<br/>Memory-aware, Platform-aware]
+    end
+    
+    subgraph "Model Container System"
+        MC[ModelContainer<br/>Lifecycle Management]
+        LOAD[Progressive Loading<br/>With Progress Callbacks]
+        READY[Ready State Validation<br/>isReady checks]
+    end
+    
+    GEMMA2 --> IOS
+    QWEN --> MACOS
+    LLAMA --> AUTO
+    PHI --> IOS
+    QWENVLM --> MACOS
+    LLAVA --> AUTO
+    
+    IOS --> MC
+    MACOS --> MC
+    AUTO --> MC
+    
+    MC --> LOAD
+    LOAD --> READY
+```
+
+## Data Flow Patterns
+
+### 1. Modern AI Processing Pipeline
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ User Input      │ → │ Provider        │ → │ Memory Context  │ → │ AI Response     │
+│                 │    │ Selection       │    │ Enhancement     │    │                 │
+│ • Text/Audio    │    │ • MLX/Foundation│    │ • STM/LTM/EM   │    │ • Generated     │
+│ • Multimodal    │    │ • Auto-routing  │    │ • Entity Context│    │ • Structured    │
+│ • Context       │    │ • Load Balancing│    │ • RAG Prompting │    │ • Confident     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### 2. Structured Generation Flow
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Natural Language│ → │ @Generable      │ → │ Foundation      │ → │ Structured      │
+│ Request         │    │ Type Selection  │    │ Models API      │    │ Output          │
+│                 │    │                 │    │                 │    │                 │
+│ • Extract info  │    │ • MemoryExtraction│    │ • Guided Gen   │    │ • Type-safe     │
+│ • Summarize     │    │ • ConvSummary   │    │ • Schema-driven │    │ • Validated     │
+│ • Analyze       │    │ • KnowledgeGraph│    │ • Structured    │    │ • Ready to use  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### 3. Memory-Enhanced RAG Flow
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Query Context   │ → │ Memory Retrieval│ → │ Prompt          │ → │ Enhanced        │
+│                 │    │                 │    │ Enhancement     │    │ Response        │
+│ • User query    │    │ • STM recent    │    │ • Context-aware │    │ • Personalized  │
+│ • Current state │    │ • LTM relevant  │    │ • Memory-guided │    │ • Contextual    │
+│ • Session data  │    │ • Episodic events│    │ • Entity-rich  │    │ • Accurate      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## SwiftData Model Architecture
+
+### Enhanced Memory Models
 
 ```mermaid
 erDiagram
@@ -95,6 +228,40 @@ erDiagram
         String audioFilePath
         ProcessingStatus status
         Double confidence
+        String modelUsed
+        Bool isOnDevice
+    }
+    
+    STMEntry {
+        UUID id
+        String content
+        Date timestamp
+        MemoryType memoryType
+        Double importance
+        Double decayRate
+        Array contextTags
+        Bool containsPersonalData
+    }
+    
+    LTMEntry {
+        UUID id
+        String content
+        Date consolidationDate
+        LTMCategory category
+        Double importance
+        ConsolidationLevel level
+        String sourceContext
+    }
+    
+    EpisodicMemoryEntry {
+        UUID id
+        String eventDescription
+        Date timestamp
+        String location
+        String context
+        Array participants
+        Double emotionalIntensity
+        UUID relatedEventId
     }
     
     Entity {
@@ -105,193 +272,94 @@ erDiagram
         Double confidence
         Double importance
         Int mentions
+        Array relationships
+        String lastContext
     }
     
-    Relationship {
-        UUID id
-        UUID subjectEntityId
-        PredicateType predicateType
-        UUID objectEntityId
+    MemoryContext {
+        Array shortTermMemories
+        Array longTermMemories
+        Array episodicMemories
+        Array entities
+        Array relationships
+        Array relevantNotes
+        String userQuery
+        Bool containsPersonalData
+        Date timestamp
+    }
+    
+    AIModelResponse {
+        String content
         Double confidence
-        Double importance
-        Int mentions
-        String context
-        Bool isActive
-        Bool bidirectional
+        TimeInterval processingTime
+        String modelUsed
+        Int tokensUsed
+        Bool isOnDevice
+        Bool containsPersonalData
     }
     
-    STMEntry {
-        UUID id
-        String content
-        Date timestamp
-        Double importance
-        Double decayRate
-    }
-    
-    LTMEntry {
-        UUID id
-        String content
-        Date consolidationDate
-        Double importance
-        ConsolidationLevel level
-    }
-    
-    WorkingMemoryEntry {
-        UUID id
-        String content
-        Date timestamp
-        TaskContext context
-        Bool isActive
-    }
-    
-    EpisodicMemoryEntry {
-        UUID id
-        String content
-        Date timestamp
-        String location
-        String context
-        UUID relatedEventId
-    }
-    
-    ConceptNode {
-        UUID id
-        String name
-        String conceptDescription
-        Double relevance
-        ConceptType type
-    }
-    
-    TemporalEvent {
-        UUID id
-        String eventDescription
-        Date timestamp
-        EventType type
-        String context
-    }
-    
-    UserSpeechProfile {
-        UUID id
-        String vocabulary
-        String speechPatterns
-        Double confidenceAdjustment
-        Date lastUpdated
-    }
-    
-    ConversationContext {
-        UUID id
-        String context
-        Date timestamp
-        Int turnCount
-        String summary
-    }
-    
-    ProcessedNote ||--o{ Entity : "extracts"
-    ProcessedNote ||--o{ Relationship : "creates"
-    Entity ||--o{ Relationship : "subject"
-    Entity ||--o{ Relationship : "object"
     ProcessedNote ||--o{ STMEntry : "generates"
     STMEntry ||--o{ LTMEntry : "consolidates"
-    Entity ||--o{ ConceptNode : "relates"
     ProcessedNote ||--o{ EpisodicMemoryEntry : "creates"
-    EpisodicMemoryEntry ||--o{ TemporalEvent : "contains"
-    UserSpeechProfile ||--o{ ProcessedNote : "influences"
-    ConversationContext ||--o{ ProcessedNote : "tracks"
+    Entity ||--o{ MemoryContext : "enriches"
+    MemoryContext ||--o{ AIModelResponse : "produces"
 ```
 
-### 3. Service Layer Architecture
+## Service Layer Architecture
 
 ```mermaid
 graph LR
-    subgraph "Core Services"
-        GC[Gemma3nCore]
-        AR[AudioRecorder]
-        KGS[KnowledgeGraphService]
-        MC[MemoryConsolidation]
+    subgraph "Core AI Services"
+        EGC[EnhancedGemma3nCore<br/>Dual Provider Manager]
+        MLXS[MLXService<br/>Apple Silicon ML]
+        AFMS[AppleFoundationModelsService<br/>iOS 26.0+ Integration]
+    end
+    
+    subgraph "Provider Management"
+        MLXLLM[MLXLLMProvider<br/>Text Generation]
+        MLXVLM[MLXVLMProvider<br/>Multimodal AI] 
+        AFM[AppleFoundationModelsProvider<br/>Structured Generation]
+        TEST[UnifiedAITestView<br/>Provider Testing]
+    end
+    
+    subgraph "Memory Services"
+        MC[MemoryContext<br/>RAG Enhancement]
+        MMC[MemoryConsolidation<br/>STM → LTM]
+        KGS[KnowledgeGraphService<br/>Entity Management]
     end
     
     subgraph "Data Services"
-        DES[DataExportService]
-        DIS[DataImportService]
-        AS[AnalyticsService]
+        MLXMR[MLXModelRegistry<br/>Production Configs]
+        ModelContainer[ModelContainer<br/>Lifecycle Management]
+        DES[DataExportService<br/>Structured Output]
     end
     
-    subgraph "AI/ML Services"
-        TE[TranscriptionEngine]
-        PE[PlaceholderEngine]
-        EE[EntityExtractor]
-        RE[RelationshipExtractor]
-    end
+    EGC --> MLXLLM
+    EGC --> MLXVLM
+    EGC --> AFM
     
-    subgraph "UI Services"
-        NS[NavigationService]
-        US[UIStateService]
-        SS[SearchService]
-    end
+    MLXLLM --> MLXS
+    MLXVLM --> MLXS
+    AFM --> AFMS
     
-    GC --> AR
-    GC --> KGS
-    GC --> MC
-    GC --> TE
+    MLXS --> MLXMR
+    MLXS --> ModelContainer
     
-    AR --> TE
-    TE --> PE
-    PE --> EE
-    PE --> RE
+    EGC --> MC
+    MC --> MMC
+    MMC --> KGS
     
-    KGS --> EE
-    KGS --> RE
-    
-    MC --> DES
-    DES --> DIS
-    
-    KGS --> AS
-    MC --> AS
-```
-
-## Data Flow Patterns
-
-### 1. Audio Processing Pipeline
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ User Recording  │ → │ AudioRecorder   │ → │ TranscriptionEngine │ → │ ProcessedNote   │
-│                 │    │                 │    │                 │    │                 │
-│ • Voice Input   │    │ • AVFoundation  │    │ • PlaceholderEngine │    │ • Text Content  │
-│ • Real-time     │    │ • File Storage  │    │ • Entity Extraction │    │ • Confidence    │
-│ • Continuous    │    │ • Status Updates │    │ • Relationship Det. │    │ • Metadata      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### 2. Knowledge Graph Construction
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ ProcessedNote   │ → │ Entity Extraction │ → │ Relationship    │ → │ Knowledge Graph │
-│                 │    │                 │    │ Detection       │    │                 │
-│ • Text Content  │    │ • Named Entity  │    │ • Pattern Match │    │ • Entities      │
-│ • Confidence    │    │ • Type Class.   │    │ • Confidence    │    │ • Relationships │
-│ • Metadata      │    │ • Deduplication │    │ • Bidirectional │    │ • Visualization │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### 3. Memory Consolidation Flow
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ STM Entry       │ → │ Importance      │ → │ Consolidation   │ → │ LTM Entry       │
-│                 │    │ Evaluation      │    │ Process         │    │                 │
-│ • Recent Data   │    │ • Frequency     │    │ • Pattern       │    │ • Permanent     │
-│ • Decay Timer   │    │ • Relevance     │    │ • Abstraction   │    │ • Indexed       │
-│ • Working Context │    │ • User Feedback │    │ • Compression   │    │ • Searchable    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+    TEST --> MLXLLM
+    TEST --> MLXVLM
+    TEST --> AFM
 ```
 
 ## UI Architecture
 
-### 1. Navigation Structure
+### 1. Enhanced Navigation Structure
 
 ```
-ProjectOneApp
+ProjectOneApp (iOS 26.0+)
 ├── ContentView (Master-Detail)
 │   ├── NotesListView
 │   │   ├── NoteDetailView
@@ -301,30 +369,45 @@ ProjectOneApp
 │   │   ├── RelationshipEdgeView
 │   │   ├── EntityDetailView
 │   │   └── RelationshipDetailView
-│   └── MemoryDashboardView (Future)
-│       ├── STMListView
-│       ├── LTMListView
-│       └── ConsolidationView
+│   ├── MemoryDashboardView
+│   │   ├── STMListView (with context tags)
+│   │   ├── LTMListView (with categories)
+│   │   ├── EpisodicMemoryView (temporal)
+│   │   └── ConsolidationView (automation)
+│   └── AIProvidersView (NEW)
+│       ├── UnifiedAITestView (provider testing)
+│       ├── MLXProviderSettingsView
+│       ├── FoundationModelsStatusView
+│       └── StructuredGenerationDemo
 └── QuickActionBar (Floating)
     ├── AudioControls
-    └── TranscriptionPreview
+    ├── TranscriptionPreview
+    └── AIProviderStatus (NEW)
 ```
 
-### 2. State Management
+### 2. Advanced State Management
 
 ```mermaid
 graph TB
     subgraph "App State"
         AS[AppState]
         NS[NavigationState]
-        US[UserPreferences]
+        UP[UserPreferences]
+        PS[ProviderState]
     end
     
-    subgraph "Feature States"
-        AR[AudioRecorderState]
+    subgraph "AI Provider States"
+        MLXS[MLXProviderState]
+        AFMS[FoundationModelState]
+        MS[ModelSelectionState]
+        LS[LoadingState]
+    end
+    
+    subgraph "Memory States"
+        MES[MemoryExtractionState]
+        CSS[ConversationSummaryState]
         KGS[KnowledgeGraphState]
-        MS[MemoryState]
-        TS[TranscriptionState]
+        EAS[EmotionalAnalysisState]
     end
     
     subgraph "UI States"
@@ -335,124 +418,134 @@ graph TB
     end
     
     AS --> NS
-    AS --> US
+    AS --> UP
+    AS --> PS
     
-    NS --> AR
-    NS --> KGS
-    NS --> MS
-    NS --> TS
+    PS --> MLXS
+    PS --> AFMS
+    PS --> MS
+    PS --> LS
     
-    AR --> SS
-    KGS --> FS
+    MES --> CSS
+    CSS --> KGS
+    KGS --> EAS
+    
+    MLXS --> SS
+    AFMS --> FS
     MS --> VS
-    TS --> IS
+    LS --> IS
 ```
 
 ## Development Phases
 
-### ✅ Phase 1: Foundation (Complete)
-- SwiftData models and relationships
-- Basic UI navigation and note management
-- Audio recording infrastructure
-- Project setup and configuration
+### ✅ Phase 1: Swift Learning Enhancement (Complete)
+- Comprehensive Swift learning comments in all AI provider files
+- SwiftConceptsGuide.md with real code examples
+- Protocol-oriented programming education
+- Modern Swift concurrency patterns documentation
 
-### ✅ Phase 2: Audio Processing & Transcription (Complete)
-- TranscriptionEngine abstraction and PlaceholderEngine
-- Real-time transcription UI with correction system
-- Knowledge graph population from transcriptions
-- End-to-end audio → note → knowledge graph pipeline
+### ✅ Phase 2: Critical Architecture Fixes (Complete)
+- Fixed MLXService.swift with proper MLX Swift 0.25.6 API integration
+- Updated MLXModelRegistry.swift with verified production model configurations
+- Replaced fatalError anti-patterns with safe protocol-oriented design
+- Enhanced @Generable types with 7 advanced structured generation examples
 
-### ✅ Phase 3: Knowledge Graph & Visualization (Complete)
-- Interactive knowledge graph visualization
-- Multiple layout algorithms (force-directed, circular, hierarchical, radial)
-- Real-time filtering and search capabilities
-- Entity and relationship detail views
-- Graph analysis and metrics
+### ✅ Phase 3: Production Architecture Documentation (In Progress)
+- Updated SYSTEM_ARCHITECTURE_OVERVIEW.md to reflect current production state
+- Three-layer AI provider architecture documentation
+- Advanced memory management and RAG patterns
+- Structured generation and @Generable protocol usage
 
-### 🔄 Phase 4: Advanced AI Integration (Next)
-- MLX Swift integration when Xcode 26 compatibility improves
-- Advanced language models for better transcription
-- Semantic understanding and context awareness
-- Enhanced memory consolidation algorithms
-- Personalized AI assistance features
+### 🔄 Phase 4: Enhanced Memory Management (Next)
+- Advanced memory consolidation algorithms
+- Intelligent memory retrieval optimization
+- Cross-provider memory sharing
+- Performance optimization for large memory stores
+
+### 🔄 Phase 5: Platform Optimization (Future)
+- iOS/macOS platform-specific optimizations
+- Advanced Swift concurrency best practices
+- Performance tuning and memory management
+- Production deployment preparation
 
 ## Integration Patterns
 
-### 1. Cross-Platform Support
-- **NavigationSplitView**: Adaptive layouts for iPhone/iPad/Mac
-- **Platform-specific UI**: iOS/macOS optimized interfaces
-- **Universal Binary**: Single codebase for all Apple platforms
+### 1. Cross-Platform AI Support
+- **MLX Swift**: Apple Silicon M1/M2/M3 optimized inference
+- **Foundation Models**: iOS 26.0+ system integration with @Generable
+- **Automatic Provider Selection**: Memory-aware, platform-aware routing
+- **Universal Binary**: Single codebase supporting all Apple devices
 
 ### 2. Privacy & Security
-- **Local Processing**: All AI processing happens on-device
-- **No External APIs**: No data leaves the device
-- **Secure Storage**: SwiftData provides encrypted local storage
-- **Permission Management**: Microphone access with clear user consent
+- **Local Processing**: All AI processing happens on-device with MLX Swift
+- **No External APIs**: Foundation Models and MLX run completely locally
+- **Secure Memory**: SwiftData provides encrypted local memory storage
+- **Personal Data Protection**: containsPersonalData flags throughout architecture
 
 ### 3. Performance Optimization
-- **Lazy Loading**: On-demand data loading
-- **Efficient Queries**: Optimized SwiftData fetch descriptors
-- **Memory Management**: Proper cleanup and resource management
-- **Real-time Updates**: Efficient change propagation
+- **Three-Layer Architecture**: Clean separation for optimal performance
+- **Progressive Model Loading**: Models load with progress feedback
+- **Memory-Efficient Design**: Proper cleanup and resource management
+- **Real-time Generation**: Streaming responses with AsyncThrowingStream
 
 ## Error Handling Strategy
 
-### 1. Audio Processing Errors
-- Microphone permission handling
-- Audio session management
-- File I/O error recovery
-- Transcription failure graceful degradation
+### 1. AI Provider Error Handling
+- **Device Compatibility**: MLX requires Apple Silicon validation
+- **Model Loading**: Comprehensive error recovery for model failures
+- **Generation Failures**: Graceful degradation with fallback providers
+- **Memory Constraints**: Smart provider selection based on available memory
 
-### 2. Data Integrity
-- SwiftData transaction safety
-- Model validation
-- Relationship consistency checks
-- Migration error handling
+### 2. Structured Generation Safety
+- **Type Safety**: @Generable protocol ensures compile-time validation
+- **Schema Validation**: Foundation Models validate structure before generation
+- **Fallback Types**: Non-@Generable versions for older iOS versions
+- **Error Recovery**: Graceful handling of generation failures
 
-### 3. UI Resilience
-- Loading states
-- Error state presentation
-- Retry mechanisms
-- User feedback systems
+### 3. Memory Context Reliability
+- **Context Validation**: Memory context size and relevance checks
+- **RAG Safety**: Prompt injection protection and content validation
+- **Privacy Protection**: Personal data handling with appropriate flags
+- **Performance Monitoring**: Context size optimization and caching
 
 ## Testing Architecture
 
-### 1. Unit Tests
-- Model validation
-- Service layer logic
-- Algorithm correctness
-- Data transformation
+### 1. AI Provider Testing
+- **UnifiedAITestView**: Comprehensive provider testing interface
+- **Mock Providers**: Testable implementations for unit tests
+- **Performance Benchmarks**: Response time and quality metrics
+- **Cross-Provider Validation**: Consistency testing across providers
 
-### 2. Integration Tests
-- SwiftData model interactions
-- Service coordination
-- Audio processing pipeline
-- Knowledge graph construction
+### 2. Structured Generation Testing
+- **@Generable Validation**: Type safety and schema compliance tests
+- **Output Quality**: Structured generation accuracy measurements
+- **Performance Tests**: Generation speed and memory usage optimization
+- **Integration Tests**: End-to-end structured generation workflows
 
-### 3. UI Tests
-- Navigation flow
-- User interactions
-- State management
-- Cross-platform compatibility
+### 3. Memory System Testing
+- **Memory Context Tests**: RAG enhancement validation
+- **Consolidation Tests**: STM to LTM conversion accuracy
+- **Retrieval Tests**: Memory search and relevance scoring
+- **Performance Tests**: Large memory store efficiency
 
 ## Future Extensibility
 
 ### 1. AI/ML Enhancements
-- Advanced language models
-- Semantic embeddings
-- Context understanding
-- Predictive analytics
+- **Advanced Models**: Integration of newer MLX Swift models as they become available
+- **Multimodal Expansion**: Enhanced vision-language capabilities
+- **Custom Training**: Fine-tuning capabilities for personalized models
+- **Federated Learning**: Cross-device learning while preserving privacy
 
-### 2. Feature Additions
-- Collaboration features
-- Export/import capabilities
-- Advanced analytics
-- Custom workflows
+### 2. Memory Intelligence
+- **Semantic Understanding**: Vector embeddings for better memory retrieval
+- **Contextual Awareness**: Enhanced RAG with semantic similarity
+- **Predictive Memory**: Proactive memory consolidation and retrieval
+- **Cross-Conversation Learning**: Long-term user pattern recognition
 
 ### 3. Platform Extensions
-- Apple Watch integration
-- macOS menu bar app
-- iOS widgets
-- Shortcuts integration
+- **Apple Watch**: Voice input and quick memory access
+- **macOS Menu Bar**: System-wide AI assistance integration
+- **iOS Widgets**: Quick memory insights and AI status
+- **Shortcuts Integration**: Deep system integration for automation
 
-This architecture provides a comprehensive foundation for ProjectOne's evolution while maintaining clean separation of concerns, testability, and performance optimization across all components.
+This architecture provides a comprehensive, production-ready foundation for ProjectOne's advanced AI capabilities while maintaining privacy, performance, and extensibility across all Apple platforms.

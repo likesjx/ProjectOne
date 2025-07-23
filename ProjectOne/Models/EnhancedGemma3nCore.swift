@@ -135,7 +135,7 @@ class EnhancedGemma3nCore: ObservableObject {
         if self.foundationProvider.isAvailable {
             logger.info("✅ Foundation Models provider ready")
         } else {
-            logger.info("Foundation Models not available: \(self.foundationProvider.statusMessage ?? "Unknown error")")
+            logger.info("Foundation Models not available: \(self.foundationProvider.statusMessage)")
         }
     }
     
@@ -255,6 +255,80 @@ class EnhancedGemma3nCore: ObservableObject {
         return try await generateStructured(prompt: prompt, type: SummarizedContent.self)
     }
     
+    /// Extract memory-relevant information from conversation
+    public func extractMemoryContent(from conversation: String) async throws -> MemoryExtraction {
+        let prompt = """
+        Analyze this conversation and extract memory-relevant information. Identify what should be stored in different memory types:
+        - Short-term: Current context, ongoing topics, recent decisions
+        - Long-term: Facts learned, important insights, user preferences 
+        - Episodic: Significant events, experiences, temporal context
+        - Entities: People, places, concepts mentioned with their roles/relationships
+        
+        Conversation: \(conversation)
+        """
+        return try await generateStructured(prompt: prompt, type: MemoryExtraction.self)
+    }
+    
+    /// Generate comprehensive conversation summary with context
+    public func summarizeConversation(_ conversation: String) async throws -> ConversationSummary {
+        let prompt = """
+        Create a comprehensive conversation summary including:
+        - Main topics discussed
+        - Key decisions or outcomes
+        - Action items or follow-ups
+        - Participant roles and contributions
+        - Important context for future reference
+        
+        Conversation: \(conversation)
+        """
+        return try await generateStructured(prompt: prompt, type: ConversationSummary.self)
+    }
+    
+    /// Extract knowledge graph relationships and connections
+    public func extractKnowledgeGraph(from text: String) async throws -> KnowledgeGraph {
+        let prompt = """
+        Analyze this text and create a knowledge graph structure with:
+        - Entities (people, places, concepts, objects)
+        - Relationships between entities (types and descriptions)
+        - Temporal information (when events occurred)
+        - Hierarchical structures (categories, containment)
+        - Contextual metadata (importance, confidence)
+        
+        Text: \(text)
+        """
+        return try await generateStructured(prompt: prompt, type: KnowledgeGraph.self)
+    }
+    
+    /// Generate task breakdown from natural language request
+    public func extractTaskStructure(from request: String) async throws -> TaskStructure {
+        let prompt = """
+        Break down this request into a structured task format:
+        - Primary goal and success criteria
+        - Dependencies and prerequisites  
+        - Subtasks with priorities and estimates
+        - Required resources and skills
+        - Potential risks and mitigation strategies
+        
+        Request: \(request)
+        """
+        return try await generateStructured(prompt: prompt, type: TaskStructure.self)
+    }
+    
+    /// Analyze emotional context and sentiment
+    public func analyzeEmotionalContext(from text: String) async throws -> EmotionalAnalysis {
+        let prompt = """
+        Analyze the emotional context and sentiment of this text:
+        - Overall emotional tone and intensity
+        - Specific emotions detected with confidence levels
+        - Emotional triggers and themes
+        - Suggested response approaches
+        - Empathy and support recommendations
+        
+        Text: \(text)
+        """
+        return try await generateStructured(prompt: prompt, type: EmotionalAnalysis.self)
+    }
+    
     // MARK: - Provider Management
     
     private func selectBestProvider(for text: String, images: [PlatformImage] = []) -> AIProviderType {
@@ -286,7 +360,7 @@ class EnhancedGemma3nCore: ObservableObject {
             mlxVLMAvailable: mlxVLMProvider.isReady,
             mlxVLMModel: mlxVLMProvider.getModelInfo()?.displayName,
             foundationAvailable: foundationProvider.isAvailable,
-            foundationStatus: foundationProvider.statusMessage ?? "Unknown",
+            foundationStatus: foundationProvider.statusMessage,
             activeProvider: activeProvider.displayName,
             isReady: isReady
         )
@@ -357,7 +431,9 @@ public enum EnhancedGemmaError: Error, LocalizedError {
 
 // MARK: - @Generable Protocol and Types Support
 
-#if canImport(FoundationModels)
+// Disable Foundation Models @Generable features to avoid compilation complexity
+// These advanced features can be re-enabled once the core app is working
+#if false && canImport(FoundationModels)
 // These would be the real protocol definitions in iOS 26.0+ Foundation Models
 // Using types from RealFoundationModelsProvider
 #else
@@ -365,13 +441,118 @@ public enum EnhancedGemmaError: Error, LocalizedError {
 public protocol Generable {}
 #endif
 
+// MARK: - Simple Types for @Generable Support (separate from SwiftData models)
+
+// These simple struct versions avoid naming conflicts with SwiftData @Model classes
+public struct SimpleMemoryItem {
+    public let content: String
+    public let timestamp: Date
+    public let importance: Double
+    public let category: String
+    
+    public init(content: String, timestamp: Date, importance: Double, category: String) {
+        self.content = content
+        self.timestamp = timestamp
+        self.importance = importance
+        self.category = category
+    }
+}
+
+public struct SimpleEpisodicItem {
+    public let event: String
+    public let timestamp: Date
+    public let participants: [String]
+    public let significance: Double
+    
+    public init(event: String, timestamp: Date, participants: [String], significance: Double) {
+        self.event = event
+        self.timestamp = timestamp
+        self.participants = participants
+        self.significance = significance
+    }
+}
+
+public struct SimpleEntityItem {
+    public let name: String
+    public let type: String
+    public let description: String
+    public let relationships: [String]
+    
+    public init(name: String, type: String, description: String, relationships: [String]) {
+        self.name = name
+        self.type = type
+        self.description = description
+        self.relationships = relationships
+    }
+}
+
+public struct SimpleTemporalEvent {
+    public let event: String
+    public let timestamp: String
+    public let duration: String
+    public let relatedEntities: [String]
+    
+    public init(event: String, timestamp: String, duration: String, relatedEntities: [String]) {
+        self.event = event
+        self.timestamp = timestamp
+        self.duration = duration
+        self.relatedEntities = relatedEntities
+    }
+}
+
+// MARK: - Required Enums for @Generable Protocol
+
+public enum ImportanceLevel: String, Codable, CaseIterable {
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
+    case critical = "critical"
+    
+    // Required for @Generable - PartiallyGenerated cases
+    public enum PartiallyGenerated: String, Codable, CaseIterable {
+        case pending = "pending"
+        case incomplete = "incomplete"
+    }
+}
+
+public enum EmotionalTone: String, Codable, CaseIterable {
+    case positive = "positive"
+    case negative = "negative"
+    case neutral = "neutral"
+    case mixed = "mixed"
+    
+    // Required for @Generable - PartiallyGenerated cases
+    public enum PartiallyGenerated: String, Codable, CaseIterable {
+        case pending = "pending"
+        case incomplete = "incomplete"
+    }
+}
+
+public enum Priority: String, Codable, CaseIterable {
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
+    case urgent = "urgent"
+    
+    // Required for @Generable - PartiallyGenerated cases
+    public enum PartiallyGenerated: String, Codable, CaseIterable {
+        case pending = "pending"
+        case incomplete = "incomplete"
+    }
+}
+
 // Define the structured content types that conform to the real Generable protocol
-#if canImport(FoundationModels)
+#if false && canImport(FoundationModels)
+
+// MARK: - Basic Structured Generation Types
+
 @Generable
 public struct SummarizedContent {
     public let title: String
     public let keyPoints: [String]
     public let summary: String
+    public let wordCount: Int
+    public let readingTimeMinutes: Int
 }
 
 @Generable
@@ -380,13 +561,149 @@ public struct ExtractedEntities {
     public let places: [String]
     public let organizations: [String]
     public let concepts: [String]
+    public let relationships: [String]
 }
+
+// MARK: - Simple Memory Types for @Generable
+
+// These conflicting structs have been removed to avoid naming conflicts with SwiftData models
+// The @Generable types use GeneratedMemoryItem, GeneratedEpisodicItem, GeneratedEntityItem instead
+
+// MARK: - Advanced Memory and Knowledge Graph Types
+
+@Generable
+public struct MemoryExtraction {
+    public let shortTermMemories: [SimpleMemoryItem]
+    public let longTermMemories: [SimpleMemoryItem]
+    public let episodicMemories: [SimpleEpisodicItem]
+    public let extractedEntities: [SimpleEntityItem]
+    public let contextualTags: [String]
+    public let importanceLevel: String // Simplified from enum
+}
+
+@Generable
+public struct ConversationSummary {
+    public let mainTopics: [String]
+    public let keyDecisions: [String]
+    public let actionItems: [ActionItem]
+    public let participants: [ParticipantInfo]
+    public let timeframe: String
+    public let nextSteps: [String]
+    public let contextForFuture: String
+}
+
+@Generable
+public struct KnowledgeGraph {
+    public let entities: [GraphEntity]
+    public let relationships: [GraphRelationship]
+    public let temporalEvents: [SimpleTemporalEvent]
+    public let hierarchies: [Hierarchy]
+    public let confidence: Double
+    public let contextMetadata: [String] // Simplified from dictionary
+}
+
+@Generable
+public struct TaskStructure {
+    public let primaryGoal: String
+    public let successCriteria: [String]
+    public let dependencies: [String]
+    public let subtasks: [Subtask]
+    public let requiredResources: [String]
+    public let estimatedDuration: String
+    public let riskFactors: [RiskFactor]
+}
+
+@Generable
+public struct EmotionalAnalysis {
+    public let overallTone: String // Simplified from enum
+    public let specificEmotions: [DetectedEmotion]
+    public let intensityLevel: Double
+    public let emotionalTriggers: [String]
+    public let suggestedResponses: [String]
+    public let empathyRecommendations: [String]
+}
+
+// MARK: - Supporting Data Structures
+
+// Note: Using SimpleMemoryItem, SimpleEpisodicItem, SimpleEntityItem types defined above
+
+@Generable
+public struct ActionItem {
+    public let task: String
+    public let assignee: String
+    public let deadline: String
+    public let priority: String // Simplified from enum
+}
+
+@Generable
+public struct ParticipantInfo {
+    public let name: String
+    public let role: String
+    public let contributions: [String]
+}
+
+@Generable
+public struct GraphEntity {
+    public let id: String
+    public let name: String
+    public let type: String
+    public let attributes: [String] // Simplified from dictionary
+}
+
+@Generable
+public struct GraphRelationship {
+    public let fromEntity: String
+    public let toEntity: String
+    public let relationshipType: String
+    public let description: String
+    public let strength: Double
+}
+
+// Note: Using SimpleTemporalEvent defined above
+
+@Generable
+public struct Hierarchy {
+    public let parentEntity: String
+    public let childEntities: [String]
+    public let hierarchyType: String
+}
+
+@Generable
+public struct Subtask {
+    public let title: String
+    public let description: String
+    public let estimatedTime: String
+    public let priority: String // Simplified from enum
+    public let dependencies: [String]
+}
+
+@Generable
+public struct RiskFactor {
+    public let risk: String
+    public let probability: Double
+    public let impact: String
+    public let mitigation: String
+}
+
+@Generable
+public struct DetectedEmotion {
+    public let emotion: String
+    public let confidence: Double
+    public let intensity: Double
+    public let context: String
+}
+
+// MARK: - Enums for Structured Data
+// Note: Enum definitions moved to top of file with PartiallyGenerated support
+
 #else
 // Local fallback types when Foundation Models not available
 public struct SummarizedContent: Generable {
     public let title: String
     public let keyPoints: [String]
     public let summary: String
+    public let wordCount: Int
+    public let readingTimeMinutes: Int
 }
 
 public struct ExtractedEntities: Generable {
@@ -394,5 +711,140 @@ public struct ExtractedEntities: Generable {
     public let places: [String]
     public let organizations: [String]
     public let concepts: [String]
+    public let relationships: [String]
 }
+
+public struct MemoryExtraction: Generable {
+    public let shortTermMemories: [FallbackMemoryItem]
+    public let longTermMemories: [FallbackMemoryItem]
+    public let episodicMemories: [FallbackEpisodicItem]
+    public let extractedEntities: [FallbackEntityItem]
+    public let contextualTags: [String]
+    public let importanceLevel: String // Simplified from enum
+}
+
+public struct ConversationSummary: Generable {
+    public let mainTopics: [String]
+    public let keyDecisions: [String]
+    public let actionItems: [ActionItem]
+    public let participants: [ParticipantInfo]
+    public let timeframe: String
+    public let nextSteps: [String]
+    public let contextForFuture: String
+}
+
+public struct KnowledgeGraph: Generable {
+    public let entities: [GraphEntity]
+    public let relationships: [GraphRelationship]
+    public let temporalEvents: [FallbackTemporalEvent]
+    public let hierarchies: [Hierarchy]
+    public let confidence: Double
+    public let contextMetadata: [String] // Simplified from dictionary
+}
+
+public struct TaskStructure: Generable {
+    public let primaryGoal: String
+    public let successCriteria: [String]
+    public let dependencies: [String]
+    public let subtasks: [Subtask]
+    public let requiredResources: [String]
+    public let estimatedDuration: String
+    public let riskFactors: [RiskFactor]
+}
+
+public struct EmotionalAnalysis: Generable {
+    public let overallTone: String // Simplified from enum
+    public let specificEmotions: [DetectedEmotion]
+    public let intensityLevel: Double
+    public let emotionalTriggers: [String]
+    public let suggestedResponses: [String]
+    public let empathyRecommendations: [String]
+}
+
+// Supporting data structures for fallback
+public struct FallbackMemoryItem: Codable {
+    public let content: String
+    public let category: String
+    public let confidence: Double
+    public let relevanceScore: Double
+}
+
+public struct FallbackEpisodicItem: Codable {
+    public let event: String
+    public let timeContext: String
+    public let participants: [String]
+    public let significance: String
+}
+
+public struct FallbackEntityItem: Codable {
+    public let name: String
+    public let type: String
+    public let description: String
+    public let relationships: [String]
+}
+
+public struct ActionItem: Codable {
+    public let task: String
+    public let assignee: String
+    public let deadline: String
+    public let priority: String // Simplified from enum
+}
+
+public struct ParticipantInfo: Codable {
+    public let name: String
+    public let role: String
+    public let contributions: [String]
+}
+
+public struct GraphEntity: Codable {
+    public let id: String
+    public let name: String
+    public let type: String
+    public let attributes: [String] // Simplified from dictionary
+}
+
+public struct GraphRelationship: Codable {
+    public let fromEntity: String
+    public let toEntity: String
+    public let relationshipType: String
+    public let description: String
+    public let strength: Double
+}
+
+public struct FallbackTemporalEvent: Codable {
+    public let event: String
+    public let timestamp: String
+    public let duration: String
+    public let relatedEntities: [String]
+}
+
+public struct Hierarchy: Codable {
+    public let parentEntity: String
+    public let childEntities: [String]
+    public let hierarchyType: String
+}
+
+public struct Subtask: Codable {
+    public let title: String
+    public let description: String
+    public let estimatedTime: String
+    public let priority: String // Simplified from enum
+    public let dependencies: [String]
+}
+
+public struct RiskFactor: Codable {
+    public let risk: String
+    public let probability: Double
+    public let impact: String
+    public let mitigation: String
+}
+
+public struct DetectedEmotion: Codable {
+    public let emotion: String
+    public let confidence: Double
+    public let intensity: Double
+    public let context: String
+}
+
+// Note: Enum definitions moved to top of file with PartiallyGenerated support for @Generable conformance
 #endif

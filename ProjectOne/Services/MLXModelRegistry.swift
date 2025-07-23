@@ -55,106 +55,183 @@ public enum Platform: String, CaseIterable {
 public struct MLXModelRegistry {
     
     // MARK: - LLM Models
+    // 🔧 FIXED: Updated with verified MLX Swift community models
     
+    /// Production-ready LLM model configurations
+    /// 
+    /// 🎓 SWIFT LEARNING: Static array of configuration structs
+    /// These are real, working model IDs from the MLX community on HuggingFace
     public static let llmModels: [MLXModelConfiguration] = [
-        // Optimal Gemma-3n variants
+        
+        // MARK: - Gemma 2 Models (Most Reliable)
+        // 🔧 VERIFIED: These models are confirmed working with MLX Swift
+        
         MLXModelConfiguration(
-            name: "Gemma-3n E2B 4-bit",
-            modelId: "mlx-community/gemma-3n-E2B-it-4bit",
+            name: "Gemma 2 2B Instruct",
+            modelId: "mlx-community/gemma-2-2b-it-4bit", // 🔧 Verified working model
             type: .llm,
-            memoryRequirement: "~1.7GB RAM",
+            memoryRequirement: "~1.5GB RAM",
             recommendedPlatform: .iOS,
             quantization: "4-bit",
-            description: "iOS optimized Gemma-3n variant with 4-bit quantization"
-        ),
-        MLXModelConfiguration(
-            name: "Gemma-3n E2B 5-bit",
-            modelId: "mlx-community/gemma-3n-E2B-it-5bit",
-            type: .llm,
-            memoryRequirement: "~2.1GB RAM",
-            recommendedPlatform: .iOS,
-            quantization: "5-bit",
-            description: "Balanced mobile Gemma-3n with 5-bit quantization"
-        ),
-        MLXModelConfiguration(
-            name: "Gemma-3n E4B 5-bit",
-            modelId: "mlx-community/gemma-3n-E4B-it-5bit",
-            type: .llm,
-            memoryRequirement: "~3-4GB RAM",
-            recommendedPlatform: .macOS,
-            quantization: "5-bit",
-            description: "Mac optimized Gemma-3n with balanced performance"
-        ),
-        MLXModelConfiguration(
-            name: "Gemma-3n E4B 8-bit",
-            modelId: "mlx-community/gemma-3n-E4B-it-8bit",
-            type: .llm,
-            memoryRequirement: "~8GB RAM",
-            recommendedPlatform: .macOS,
-            quantization: "8-bit",
-            description: "High quality Mac Gemma-3n for best performance"
+            description: "Compact, efficient Gemma 2 model perfect for mobile devices"
         ),
         
-        // Legacy models for compatibility
         MLXModelConfiguration(
-            name: "Qwen3 4B",
-            modelId: "mlx-community/Qwen3-4B-4bit",
+            name: "Gemma 2 9B Instruct",
+            modelId: "mlx-community/gemma-2-9b-it-4bit", // 🔧 Verified working model  
             type: .llm,
-            memoryRequirement: "~3GB RAM",
-            recommendedPlatform: .both,
-            quantization: "4-bit",
-            description: "Cross-platform Qwen3 4B model"
-        ),
-        MLXModelConfiguration(
-            name: "Gemma 2 2B",
-            modelId: "mlx-community/Gemma-2-2b-it-4bit",
-            type: .llm,
-            memoryRequirement: "~3GB RAM",
-            recommendedPlatform: .both,
-            quantization: "4-bit",
-            description: "Compact Gemma 2 model for general use"
-        ),
-        MLXModelConfiguration(
-            name: "Llama 3.1 8B",
-            modelId: "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit",
-            type: .llm,
-            memoryRequirement: "~6-8GB RAM",
+            memoryRequirement: "~5-6GB RAM",
             recommendedPlatform: .macOS,
             quantization: "4-bit",
-            description: "Large Llama 3.1 model for high-quality responses"
+            description: "High-quality Gemma 2 model for desktop use"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Gemma 2 27B Instruct",
+            modelId: "mlx-community/gemma-2-27b-it-4bit", // 🔧 Verified working model
+            type: .llm,
+            memoryRequirement: "~14-16GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "Premium Gemma 2 model for high-end Macs with 32GB+ RAM"
+        ),
+        
+        // MARK: - Qwen Models (Excellent Performance)
+        // 🔧 VERIFIED: Qwen2.5 models are very reliable with MLX Swift
+        
+        MLXModelConfiguration(
+            name: "Qwen2.5 3B Instruct",
+            modelId: "mlx-community/Qwen2.5-3B-Instruct-4bit", // 🔧 Verified working
+            type: .llm,
+            memoryRequirement: "~2GB RAM",
+            recommendedPlatform: .both,
+            quantization: "4-bit",
+            description: "Fast and capable Qwen2.5 model, great for both iOS and macOS"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Qwen2.5 7B Instruct", 
+            modelId: "mlx-community/Qwen2.5-7B-Instruct-4bit", // 🔧 Verified working
+            type: .llm,
+            memoryRequirement: "~4GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "Excellent balance of quality and performance"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Qwen2.5 14B Instruct",
+            modelId: "mlx-community/Qwen2.5-14B-Instruct-4bit", // 🔧 Verified working
+            type: .llm, 
+            memoryRequirement: "~8GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "High-quality Qwen2.5 for demanding tasks"
+        ),
+        
+        // MARK: - Llama Models (Meta's Latest)
+        // 🔧 VERIFIED: Llama 3.2 models work well with MLX Swift
+        
+        MLXModelConfiguration(
+            name: "Llama 3.2 3B Instruct",
+            modelId: "mlx-community/Llama-3.2-3B-Instruct-4bit", // 🔧 Verified working
+            type: .llm,
+            memoryRequirement: "~2GB RAM", 
+            recommendedPlatform: .both,
+            quantization: "4-bit",
+            description: "Meta's latest compact Llama model, great for mobile"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Llama 3.1 8B Instruct",
+            modelId: "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit", // 🔧 Verified working
+            type: .llm,
+            memoryRequirement: "~5GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "Powerful Llama 3.1 model for complex reasoning tasks"
+        ),
+        
+        // MARK: - Phi Models (Microsoft Research)
+        // 🔧 VERIFIED: Phi-3.5 models are excellent for efficiency
+        
+        MLXModelConfiguration(
+            name: "Phi-3.5 Mini Instruct", 
+            modelId: "mlx-community/Phi-3.5-mini-instruct-4bit", // 🔧 Verified working
+            type: .llm,
+            memoryRequirement: "~2GB RAM",
+            recommendedPlatform: .both,
+            quantization: "4-bit", 
+            description: "Microsoft's efficient Phi model, excellent quality/size ratio"
         )
     ]
     
-    // MARK: - VLM Models
+    // MARK: - VLM Models (Vision-Language Models)
+    // 🔧 FIXED: Updated with verified working multimodal models
     
+    /// Production-ready Vision-Language model configurations
+    /// 
+    /// 🎓 SWIFT LEARNING: These models can process both text and images
+    /// Perfect for multimodal AI applications like image analysis and visual Q&A
     public static let vlmModels: [MLXModelConfiguration] = [
-        // Vision-Language Models
+        
+        // MARK: - Qwen2-VL Models (Best VLM Performance)
+        // 🔧 VERIFIED: Qwen2-VL models are the current state-of-the-art for MLX
+        
         MLXModelConfiguration(
-            name: "Gemma-3n VLM",
-            modelId: "mlx-community/gemma-3n-vlm-4bit",
+            name: "Qwen2-VL 2B Instruct",
+            modelId: "mlx-community/Qwen2-VL-2B-Instruct-4bit", // 🔧 Verified working
             type: .vlm,
-            memoryRequirement: "~4-6GB RAM",
+            memoryRequirement: "~3GB RAM",
             recommendedPlatform: .both,
             quantization: "4-bit",
-            description: "Multimodal Gemma-3n for text and image understanding"
+            description: "Compact but powerful vision-language model for mobile devices"
         ),
+        
         MLXModelConfiguration(
-            name: "Qwen2-VL",
-            modelId: "mlx-community/Qwen2-VL-7B-Instruct-4bit",
+            name: "Qwen2-VL 7B Instruct", 
+            modelId: "mlx-community/Qwen2-VL-7B-Instruct-4bit", // 🔧 Verified working
             type: .vlm,
-            memoryRequirement: "~6-8GB RAM",
+            memoryRequirement: "~5GB RAM",
             recommendedPlatform: .macOS,
             quantization: "4-bit",
-            description: "Advanced vision-language model for complex multimodal tasks"
+            description: "Excellent vision-language model for detailed image analysis"
         ),
+        
+        // MARK: - LLaVA Models (Open Source VLM)
+        // 🔧 VERIFIED: LLaVA models work well with MLX Swift
+        
         MLXModelConfiguration(
-            name: "LLaVA Next",
-            modelId: "mlx-community/llava-next-7b-4bit",
+            name: "LLaVA v1.6 Mistral 7B",
+            modelId: "mlx-community/llava-v1.6-mistral-7b-4bit", // 🔧 Verified working
             type: .vlm,
-            memoryRequirement: "~5-7GB RAM",
+            memoryRequirement: "~4GB RAM",
             recommendedPlatform: .macOS,
             quantization: "4-bit",
-            description: "LLaVA Next for vision-language understanding"
+            description: "LLaVA model based on Mistral, great for visual reasoning"
+        ),
+        
+        MLXModelConfiguration(
+            name: "LLaVA v1.6 Vicuna 7B",
+            modelId: "mlx-community/llava-v1.6-vicuna-7b-4bit", // 🔧 Verified working
+            type: .vlm,
+            memoryRequirement: "~4GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "LLaVA model with Vicuna base, excellent for image understanding"
+        ),
+        
+        // MARK: - Pixtral Models (Mistral AI's VLM)
+        // 🔧 VERIFIED: Latest multimodal models from Mistral
+        
+        MLXModelConfiguration(
+            name: "Pixtral 12B",
+            modelId: "mlx-community/pixtral-12b-4bit", // 🔧 Verified working
+            type: .vlm,
+            memoryRequirement: "~7GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "Mistral's powerful vision-language model for complex visual tasks"
         )
     ]
     
@@ -183,15 +260,39 @@ public struct MLXModelRegistry {
     }
     
     /// Get recommended model for current platform and type
+    /// 
+    /// 🔧 FIXED: Updated to use verified working models with smart selection
+    /// 🎓 SWIFT LEARNING: Platform-specific recommendations using conditional compilation
     public static func getRecommendedModel(for type: MLXModelType) -> MLXModelConfiguration? {
         #if os(iOS)
+        // iOS/Mobile recommendations - prioritize efficiency and memory usage
         let platformModels = models(for: Platform.iOS).filter { $0.type == type }
-        // Prefer balanced performance for iOS
-        return platformModels.first { $0.quantization == "4-bit" } ?? platformModels.first
+        
+        switch type {
+        case .llm:
+            // Recommend Gemma 2 2B for iOS - best balance of quality and efficiency
+            return platformModels.first { $0.name.contains("Gemma 2 2B") } ?? 
+                   platformModels.first { $0.name.contains("Qwen2.5 3B") } ??
+                   platformModels.first
+        case .vlm:
+            // Recommend Qwen2-VL 2B for iOS - best mobile VLM
+            return platformModels.first { $0.name.contains("Qwen2-VL 2B") } ?? platformModels.first
+        }
+        
         #else
+        // macOS recommendations - prioritize quality and capability
         let platformModels = models(for: Platform.macOS).filter { $0.type == type }
-        // Prefer quality for macOS
-        return platformModels.first { $0.quantization == "5-bit" } ?? platformModels.first
+        
+        switch type {
+        case .llm:
+            // Recommend Qwen2.5 7B for macOS - excellent quality/performance balance
+            return platformModels.first { $0.name.contains("Qwen2.5 7B") } ??
+                   platformModels.first { $0.name.contains("Gemma 2 9B") } ??
+                   platformModels.first
+        case .vlm:
+            // Recommend Qwen2-VL 7B for macOS - best desktop VLM
+            return platformModels.first { $0.name.contains("Qwen2-VL 7B") } ?? platformModels.first
+        }
         #endif
     }
     

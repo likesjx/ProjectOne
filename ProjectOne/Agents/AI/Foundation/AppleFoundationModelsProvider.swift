@@ -201,7 +201,7 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
     
     /// Generate text with guided generation (@Generable support)
     public func generateWithGuidance<T: Generable>(prompt: String, type: T.Type) async throws -> T {
-        #if canImport(FoundationModels)
+        #if false && canImport(FoundationModels)
         guard isAvailable, let model = languageModel else {
             throw AIModelProviderError.providerUnavailable("Foundation Models not available")
         }
@@ -228,13 +228,13 @@ public class AppleFoundationModelsProvider: BaseAIProvider {
         }
         
         #else
-        throw AIModelProviderError.providerUnavailable("Foundation Models framework not available")
+        throw AIModelProviderError.providerUnavailable("@Generable features temporarily disabled to focus on core functionality")
         #endif
     }
     
     /// Generate with tool calling support (simplified implementation)
     public func generateWithTools(prompt: String, tools: [FoundationModelTool] = []) async throws -> FoundationModelResponse {
-        #if canImport(FoundationModels)
+        #if false && canImport(FoundationModels)
         guard isAvailable else {
             throw AIModelProviderError.providerUnavailable("Foundation Models not available")
         }
