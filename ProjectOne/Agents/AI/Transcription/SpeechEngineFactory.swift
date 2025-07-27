@@ -631,7 +631,7 @@ public class SpeechEngineFactory {
     /// Create SpeechAnalyzer engine for iOS 26.0+
     @available(iOS 26.0, macOS 26.0, *)
     private func createSpeechAnalyzerEngine() async throws -> SpeechTranscriptionProtocol {
-        logger.info("Creating Apple SpeechAnalyzer transcription engine for iOS/macOS 26+")
+        logger.info("Creating real Apple SpeechAnalyzer transcription engine for iOS/macOS 26+")
         
         // Determine optimal locale
         let locale: Locale
@@ -641,12 +641,11 @@ public class SpeechEngineFactory {
             locale = Locale.current
         }
         
-        // Create Apple Speech transcriber optimized for iOS/macOS 26
-        // This uses the same AppleSpeechTranscriber but with enhanced configuration for newer OS versions
-        let transcriber = try AppleSpeechTranscriber(locale: locale)
+        // Create real SpeechAnalyzer transcriber for iOS/macOS 26+
+        let transcriber = try SpeechAnalyzerTranscriber(locale: locale)
         try await transcriber.prepare()
         
-        logger.info("Apple SpeechAnalyzer (enhanced Apple Speech) created successfully for iOS/macOS 26+")
+        logger.info("Real Apple SpeechAnalyzer created successfully for iOS/macOS 26+")
         return transcriber
     }
 }
