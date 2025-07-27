@@ -7,41 +7,35 @@
 
 import Foundation
 
-// MARK: - Memory Context
+// MARK: - Memory Context (Simplified for compatibility)
 
-/// Context information for AI model interactions
+/// Simplified context information for AI model interactions
+/// Note: Advanced memory types removed for iOS compatibility
 public struct MemoryContext {
-    let entities: [Entity]
-    let relationships: [Relationship]
-    let shortTermMemories: [STMEntry]
-    let longTermMemories: [LTMEntry]
-    let episodicMemories: [EpisodicMemoryEntry]
-    let relevantNotes: [ProcessedNote]
     let timestamp: Date
     let userQuery: String
     let containsPersonalData: Bool
+    let contextData: [String: Any] // Generic container for future memory context
     
     public init(
-        entities: [Entity] = [],
-        relationships: [Relationship] = [],
-        shortTermMemories: [STMEntry] = [],
-        longTermMemories: [LTMEntry] = [],
-        episodicMemories: [EpisodicMemoryEntry] = [],
-        relevantNotes: [ProcessedNote] = [],
         timestamp: Date = Date(),
         userQuery: String,
-        containsPersonalData: Bool = false
+        containsPersonalData: Bool = false,
+        contextData: [String: Any] = [:]
     ) {
-        self.entities = entities
-        self.relationships = relationships
-        self.shortTermMemories = shortTermMemories
-        self.longTermMemories = longTermMemories
-        self.episodicMemories = episodicMemories
-        self.relevantNotes = relevantNotes
         self.timestamp = timestamp
         self.userQuery = userQuery
         self.containsPersonalData = containsPersonalData
+        self.contextData = contextData
     }
+    
+    // Compatibility properties for BaseAIProvider
+    public var entities: [Any] { return contextData["entities"] as? [Any] ?? [] }
+    public var relationships: [Any] { return contextData["relationships"] as? [Any] ?? [] }
+    public var shortTermMemories: [Any] { return contextData["shortTermMemories"] as? [Any] ?? [] }
+    public var longTermMemories: [Any] { return contextData["longTermMemories"] as? [Any] ?? [] }
+    public var episodicMemories: [Any] { return contextData["episodicMemories"] as? [Any] ?? [] }
+    public var relevantNotes: [Any] { return contextData["relevantNotes"] as? [Any] ?? [] }
 }
 
 // MARK: - AI Model Response

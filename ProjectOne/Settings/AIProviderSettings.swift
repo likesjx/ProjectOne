@@ -291,7 +291,7 @@ public class AIProviderSettings: ObservableObject {
     }
     
     private func loadSettings() {
-        enabledProviders = Set(userDefaults.array(forKey: "enabledProviders") as? [String] ?? ["apple-foundation-models"])
+        enabledProviders = Set(userDefaults.array(forKey: "enabledProviders") as? [String] ?? ["apple-foundation-models", "mlx"])
         preferredProvider = userDefaults.string(forKey: "preferredProvider") ?? "apple-foundation-models"
         fallbackEnabled = userDefaults.object(forKey: "fallbackEnabled") as? Bool ?? true
         privacyMode = PrivacyMode(rawValue: userDefaults.string(forKey: "privacyMode") ?? "balanced") ?? .balanced

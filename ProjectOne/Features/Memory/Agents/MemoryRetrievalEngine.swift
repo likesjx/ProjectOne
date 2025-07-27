@@ -103,15 +103,17 @@ public class MemoryRetrievalEngine: ObservableObject {
         logger.info("Memory retrieval completed in \(processingTime)s - STM: \(rankedSTM.count), LTM: \(rankedLTM.count), Episodic: \(rankedEpisodic.count), Entities: \(rankedEntities.count), Notes: \(rankedNotes.count)")
         
         return MemoryContext(
-            entities: rankedEntities,
-            relationships: relationships,
-            shortTermMemories: rankedSTM,
-            longTermMemories: rankedLTM,
-            episodicMemories: rankedEpisodic,
-            relevantNotes: rankedNotes,
             timestamp: Date(),
             userQuery: query,
-            containsPersonalData: containsPersonalData
+            containsPersonalData: containsPersonalData,
+            contextData: [
+                "entities": rankedEntities,
+                "relationships": relationships,
+                "shortTermMemories": rankedSTM,
+                "longTermMemories": rankedLTM,
+                "episodicMemories": rankedEpisodic,
+                "relevantNotes": rankedNotes
+            ]
         )
     }
     

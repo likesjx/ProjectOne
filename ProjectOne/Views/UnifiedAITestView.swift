@@ -306,13 +306,12 @@ struct UnifiedAITestView: View {
     private func isProviderAvailable(_ providerType: TestProviderType) -> Bool {
         switch providerType {
         case .enhancedGemma3nCore:
-            return true
+            return true // Always try to test the enhanced core
         case .mlxVLM:
-            // Check if MLX is supported on this hardware (not simulator)
             return mlxVLMProvider.isSupported
         case .mlxLLM:
-            // Check if MLX is supported on this hardware (not simulator) 
-            return mlxLLMProvider.isSupported
+            // Use working MLX provider for MLX LLM testing
+            return workingMLXProvider.isMLXSupported
         case .appleFoundationModels:
             return appleFoundationProvider.isAvailable
         }
@@ -328,27 +327,45 @@ struct UnifiedAITestView: View {
     
     private func setupProviders() {
         Task {
-            // Prepare MLX providers
+            print("🚀 Setting up AI providers...")
+            
+            // Setup Apple Foundation Models first (quick)
+            do {
+                try await appleFoundationProvider.prepareModel()
+                print("✅ Apple Foundation Models ready: \(appleFoundationProvider.isAvailable)")
+            } catch {
+                print("❌ Apple Foundation Models failed: \(error)")
+            }
+            
+            // Setup Enhanced Gemma3n Core (orchestrates all providers)
+            await enhancedCore.setup()
+            print("✅ Enhanced Gemma3n Core ready: \(enhancedCore.isReady)")
+            
+            // Setup Working MLX Provider for direct testing
             if workingMLXProvider.isMLXSupported {
                 do {
                     let recommendedModel = workingMLXProvider.getRecommendedModel()
+                    print("🔄 Loading MLX model: \(recommendedModel.displayName)")
                     try await workingMLXProvider.loadModel(recommendedModel)
+                    print("✅ Working MLX Provider ready: \(workingMLXProvider.isReady)")
                 } catch {
-                    print("Failed to setup Working MLX Provider: \(error)")
+                    print("❌ Working MLX Provider failed: \(error)")
                 }
+            } else {
+                print("❌ MLX not supported on this device (simulator or Intel Mac)")
             }
             
-            // Prepare MLX Gemma3n provider
+            // Setup MLX LLM Provider (legacy)
             if mlxLLMProvider.isSupported {
                 do {
                     try await mlxLLMProvider.loadRecommendedModel()
+                    print("✅ MLX LLM Provider ready: \(mlxLLMProvider.isReady)")
                 } catch {
-                    print("Failed to setup MLX Gemma3n Provider: \(error)")
+                    print("❌ MLX LLM Provider failed: \(error)")
                 }
             }
             
-            // Apple Foundation Models provider initializes automatically
-            // No additional setup needed
+            print("🎯 Provider setup complete!")
         }
     }
     
@@ -442,21 +459,42 @@ struct UnifiedAITestView: View {
     private func generateResponse(for providerType: TestProviderType, prompt: String) async throws -> String {
         switch providerType {
         case .mlxLLM:
-            return try await mlxLLMProvider.generateResponse(to: prompt)
+            // Use the working MLX provider since it has the real implementation
+            return try await workingMLXProvider.generateResponse(to: prompt)
             
         case .mlxVLM:
             return try await mlxVLMProvider.generateResponse(to: prompt)
             
         case .appleFoundationModels:
-            let provider = AppleFoundationModelsProvider()
-            return try await provider.generateModelResponse(prompt)
+            // Check availability and provide detailed error if not available
+            guard appleFoundationProvider.isAvailable else {
+                let status = appleFoundationProvider.modelLoadingStatus
+                let errorMessage: String
+                switch status {
+                case .failed(let message):
+                    errorMessage = message
+                case .notStarted:
+                    errorMessage = "Apple Foundation Models not initialized"
+                case .preparing:
+                    errorMessage = "Apple Foundation Models still preparing"
+                case .downloading(let progress):
+                    errorMessage = "Apple Foundation Models downloading (\(Int(progress * 100))%)"
+                case .loading:
+                    errorMessage = "Apple Foundation Models loading"
+                case .ready:
+                    errorMessage = "Model ready but marked unavailable"
+                case .unavailable:
+                    errorMessage = "Apple Foundation Models unavailable"
+                }
+                throw AIProviderError.notAvailable("Apple Foundation Models not available: \(errorMessage)")
+            }
+            
+            // Use the existing provider instance that was already set up
+            return try await appleFoundationProvider.generateModelResponse(prompt)
             
         case .enhancedGemma3nCore:
-            let core = EnhancedGemma3nCore()
-            await core.setup()
-            return await core.processText(prompt)
-            
-            
+            // Use the existing core instance that was already set up
+            return await enhancedCore.processText(prompt)
         }
     }
     

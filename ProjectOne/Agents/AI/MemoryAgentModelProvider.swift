@@ -241,7 +241,8 @@ public class MemoryAgentModelProvider {
         }
         
         // All providers failed
-        throw lastError ?? MemoryAgentError.noAvailableProvider
+        logger.error("All AI providers failed, no fallback available")
+        throw lastError ?? MemoryAgentError.noAIProvidersAvailable
     }
     
     /// Build selection criteria based on memory context
@@ -259,10 +260,9 @@ public class MemoryAgentModelProvider {
     private func estimateContextSize(_ context: MemoryContext) -> Int {
         var size = context.userQuery.count / 4 // Rough token estimate
         
-        size += context.longTermMemories.reduce(0) { $0 + $1.content.count / 4 }
-        size += context.shortTermMemories.reduce(0) { $0 + $1.content.count / 4 }
-        size += context.entities.reduce(0) { $0 + ($1.name.count + ($1.entityDescription?.count ?? 0)) / 4 }
-        size += context.relevantNotes.reduce(0) { $0 + $1.originalText.count / 4 }
+        // Since contextData is generic, use a simple estimation approach
+        let contextDataString = context.contextData.description
+        size += contextDataString.count / 10 // Simplified token estimation
         
         return size
     }
@@ -371,7 +371,7 @@ public class MemoryAgentModelProvider {
         
         return AIModelResponse(
             content: response.content,
-            confidence: response.confidence ?? 0.8,
+            confidence: response.confidence,
             processingTime: processingTime,
             modelUsed: provider.identifier,
             tokensUsed: response.tokensUsed,
@@ -425,15 +425,17 @@ public class MemoryContextManager {
         let maxNotes = 3
         
         return MemoryContext(
-            entities: Array(context.entities.prefix(maxEntities)),
-            relationships: context.relationships,
-            shortTermMemories: Array(context.shortTermMemories.prefix(maxSTM)),
-            longTermMemories: Array(context.longTermMemories.prefix(maxLTM)),
-            episodicMemories: context.episodicMemories,
-            relevantNotes: Array(context.relevantNotes.prefix(maxNotes)),
             timestamp: context.timestamp,
             userQuery: context.userQuery,
-            containsPersonalData: context.containsPersonalData
+            containsPersonalData: context.containsPersonalData,
+            contextData: [
+                "entities": Array(context.entities.prefix(maxEntities)),
+                "relationships": context.relationships,
+                "shortTermMemories": Array(context.shortTermMemories.prefix(maxSTM)),
+                "longTermMemories": Array(context.longTermMemories.prefix(maxLTM)),
+                "episodicMemories": context.episodicMemories,
+                "relevantNotes": Array(context.relevantNotes.prefix(maxNotes))
+            ]
         )
     }
     

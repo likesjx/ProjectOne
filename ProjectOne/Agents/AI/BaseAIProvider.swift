@@ -298,7 +298,7 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
         // MARK: - iOS-Specific Metrics
         #if os(iOS) || os(visionOS)
         private func getIOSMemoryPressure() async -> Double {
-            let info = mach_task_basic_info()
+            var info = mach_task_basic_info()
             var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
             
             let result: kern_return_t = withUnsafeMutablePointer(to: &info) {
@@ -638,13 +638,9 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
             
             logger.debug("Using template: \(templateName) for query type")
             
-            // Try to use SwiftData-based PromptManager
-            if let promptManager = getPromptManager() {
-                return promptManager.renderTemplate(named: templateName, with: arguments) ?? buildManualPrompt(prompt: prompt, context: context)
-            } else {
-                logger.warning("PromptManager not available, falling back to manual prompt")
-                return buildManualPrompt(prompt: prompt, context: context)
-            }
+            // PromptManager not yet implemented - use manual prompt
+            logger.debug("Using manual prompt generation (PromptManager not implemented)")
+            return buildManualPrompt(prompt: prompt, context: context)
         } catch {
             logger.warning("Failed to use PromptManager, falling back to manual prompt: \(error.localizedDescription)")
             
@@ -654,9 +650,8 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     }
     
     /// Get the SwiftData-based PromptManager instance
-    private func getPromptManager() -> PromptManager? {
-        // This will be injected or accessed through the environment
-        // For now, return nil to use fallback
+    private func getPromptManager() -> Any? {
+        // PromptManager not yet implemented - use fallback
         return nil
     }
     
@@ -667,61 +662,26 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
         // Add user query
         arguments["user_query"] = userQuery
         
-        // Add memory context
-        if !context.longTermMemories.isEmpty {
-            let ltmContent = context.longTermMemories.prefix(3)
-                .map { "- [\($0.category.rawValue.capitalized)] \($0.content.prefix(100))" }
-                .joined(separator: "\n")
-            arguments["long_term_memories"] = ltmContent
+        // Add simplified memory context (compatible with current system)
+        if let contextDataString = formatContextData(context.contextData) {
+            arguments["context_data"] = contextDataString
         }
         
-        if !context.shortTermMemories.isEmpty {
-            let stmContent = context.shortTermMemories.prefix(5)
-                .map { memory in
-                    let timeAgo = formatTimeAgo(from: memory.timestamp)
-                    return "- [\(timeAgo)] \(memory.content.prefix(80))"
-                }
-                .joined(separator: "\n")
-            arguments["short_term_memories"] = stmContent
-        }
-        
-        if !context.episodicMemories.isEmpty {
-            let episodicContent = context.episodicMemories.prefix(3)
-                .map { memory in
-                    let timeAgo = formatTimeAgo(from: memory.timestamp)
-                    return "- [\(timeAgo)] \(memory.eventDescription.prefix(100))"
-                }
-                .joined(separator: "\n")
-            arguments["episodic_memories"] = episodicContent
-        }
-        
-        if !context.entities.isEmpty {
-            let entityContent = context.entities.prefix(5)
-                .map { "- [\($0.type.rawValue.capitalized)] \($0.name): \($0.entityDescription ?? "No description")" }
-                .joined(separator: "\n")
-            arguments["entities"] = entityContent
-        }
-        
-        if !context.relevantNotes.isEmpty {
-            let notesContent = context.relevantNotes.prefix(3)
-                .map { "- \($0.originalText.prefix(50))...: \($0.summary)" }
-                .joined(separator: "\n")
-            arguments["relevant_notes"] = notesContent
-        }
-        
-        // Add conversation history
-        let conversationMemories = context.shortTermMemories.filter { $0.contextTags.contains("conversation") }
-        if !conversationMemories.isEmpty {
-            let conversationContent = conversationMemories.prefix(3)
-                .map { memory in
-                    let timeAgo = formatTimeAgo(from: memory.timestamp)
-                    return "- [\(timeAgo)] \(memory.content.prefix(60))"
-                }
-                .joined(separator: "\n")
-            arguments["conversation_history"] = conversationContent
-        }
+        arguments["timestamp"] = formatTimeAgo(from: context.timestamp)
+        arguments["contains_personal_data"] = context.containsPersonalData
         
         return arguments
+    }
+    
+    /// Format context data for template arguments
+    private func formatContextData(_ contextData: [String: Any]) -> String? {
+        guard !contextData.isEmpty else { return nil }
+        
+        var formatted: [String] = []
+        for (key, value) in contextData {
+            formatted.append("- \(key): \(String(describing: value))")
+        }
+        return formatted.joined(separator: "\n")
     }
     
     /// Select optimal template based on query type and context
@@ -757,8 +717,8 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
             return "Memory Synthesis"
         }
         
-        // Conversation continuity (if there's recent conversation history)
-        let hasConversationHistory = context.shortTermMemories.contains { $0.contextTags.contains("conversation") }
+        // Conversation continuity (if there's conversation context data)
+        let hasConversationHistory = context.contextData["conversation_history"] != nil
         if hasConversationHistory && (lowercaseQuery.contains("continue") || lowercaseQuery.contains("also") || 
                                       lowercaseQuery.contains("and") || lowercaseQuery.contains("but")) {
             return "Conversation Continuity"
@@ -802,61 +762,18 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
         
         """
         
-        // Add memory context with type-specific formatting
-        if !context.longTermMemories.isEmpty {
-            enrichedPrompt += "## Long-term Knowledge:\n"
-            for memory in context.longTermMemories.prefix(3) {
-                let category = memory.category.rawValue.capitalized
-                enrichedPrompt += "- [\(category)] \(memory.content.prefix(100))\n"
+        // Add simplified context information
+        if !context.contextData.isEmpty {
+            enrichedPrompt += "## Available Context:\n"
+            if let contextString = formatContextData(context.contextData) {
+                enrichedPrompt += contextString + "\n\n"
             }
-            enrichedPrompt += "\n"
         }
         
-        if !context.shortTermMemories.isEmpty {
-            enrichedPrompt += "## Recent Context:\n"
-            for memory in context.shortTermMemories.prefix(5) {
-                let timeAgo = formatTimeAgo(from: memory.timestamp)
-                let type = memory.memoryType.displayName
-                enrichedPrompt += "- [\(timeAgo) - \(type)] \(memory.content.prefix(80))\n"
-            }
-            enrichedPrompt += "\n"
-        }
-        
-        if !context.episodicMemories.isEmpty {
-            enrichedPrompt += "## Personal Experiences:\n"
-            for memory in context.episodicMemories.prefix(3) {
-                let timeAgo = formatTimeAgo(from: memory.timestamp)
-                enrichedPrompt += "- [\(timeAgo)] \(memory.eventDescription.prefix(100))\n"
-            }
-            enrichedPrompt += "\n"
-        }
-        
-        if !context.entities.isEmpty {
-            enrichedPrompt += "## Relevant People/Places/Concepts:\n"
-            for entity in context.entities.prefix(5) {
-                let type = entity.type.rawValue.capitalized
-                enrichedPrompt += "- [\(type)] \(entity.name): \(entity.entityDescription ?? "No description")\n"
-            }
-            enrichedPrompt += "\n"
-        }
-        
-        if !context.relevantNotes.isEmpty {
-            enrichedPrompt += "## Reference Materials:\n"
-            for note in context.relevantNotes.prefix(3) {
-                enrichedPrompt += "- [Note] \(note.originalText.prefix(50))...: \(note.summary)\n"
-            }
-            enrichedPrompt += "\n"
-        }
-        
-        // Add conversation continuity context
-        let conversationMemories = context.shortTermMemories.filter { $0.contextTags.contains("conversation") }
-        if !conversationMemories.isEmpty {
-            enrichedPrompt += "## Conversation History:\n"
-            for memory in conversationMemories.prefix(3) {
-                let timeAgo = formatTimeAgo(from: memory.timestamp)
-                enrichedPrompt += "- [\(timeAgo)] \(memory.content.prefix(60))...\n"
-            }
-            enrichedPrompt += "\n"
+        // Add timing context
+        if context.timestamp != Date() {
+            let timeAgo = formatTimeAgo(from: context.timestamp)
+            enrichedPrompt += "## Context Timestamp: \(timeAgo)\n\n"
         }
         
         // Add the user's query with context awareness

@@ -125,29 +125,55 @@ class AudioRecorder: NSObject, ObservableObject {
         let recordingSession = AVAudioSession.sharedInstance()
         
         do {
-            try recordingSession.setCategory(.playAndRecord, mode: .default)
+            try recordingSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
             try recordingSession.setActive(true)
-            print("🎤 [Debug] Audio session configured successfully")
+            print("🎤 [Debug] iOS audio session configured successfully")
         } catch {
-            print("Failed to set up recording session: \(error.localizedDescription)")
+            print("🎤 [Error] Failed to set up iOS recording session: \(error.localizedDescription)")
+            DispatchQueue.main.async {
+                // TODO: Show user-friendly error message
+            }
             return
         }
+        #elseif os(macOS)
+        // macOS doesn't require AVAudioSession setup
+        print("🎤 [Debug] macOS audio session - no explicit setup required")
         #endif
         
         let documentPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let audioFilename = documentPath.appendingPathComponent("\(Date().toString(dateFormat: "dd-MM-YY_HH-mm-ss")).m4a")
         print("🎤 [Debug] Recording to: \(audioFilename.lastPathComponent)")
         
-        let settings = [
+        // Use AAC format for better cross-platform compatibility (iOS/macOS)
+        let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 16000, // Compatible with AppleSpeechTranscriber (was 12000)
+            AVSampleRateKey: 44100.0, // Standard CD quality, better compatibility
             AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+            AVEncoderBitRateKey: 128000 // 128 kbps for good quality/size balance
         ]
         
         do {
+            print("🎤 [Debug] Creating AVAudioRecorder with settings: \(settings)")
             audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
-            audioRecorder?.record()
+            
+            // Validate recorder was created successfully
+            guard let recorder = audioRecorder else {
+                print("🎤 [Error] Failed to create audio recorder")
+                return
+            }
+            
+            // Enable metering for debugging
+            recorder.isMeteringEnabled = true
+            
+            // Attempt to start recording
+            let recordingStarted = recorder.record()
+            print("🎤 [Debug] Recording start result: \(recordingStarted)")
+            
+            if !recordingStarted {
+                print("🎤 [Error] Failed to start recording - recorder.record() returned false")
+                return
+            }
             
             DispatchQueue.main.async {
                 self.isRecording = true
@@ -158,7 +184,15 @@ class AudioRecorder: NSObject, ObservableObject {
             startRealtimeTranscriptionSimulation()
             
         } catch {
-            print("Could not start recording: \(error.localizedDescription)")
+            print("🎤 [Error] Could not start recording: \(error.localizedDescription)")
+            if let nsError = error as NSError? {
+                print("🎤 [Error] Error domain: \(nsError.domain), code: \(nsError.code)")
+                print("🎤 [Error] Error userInfo: \(nsError.userInfo)")
+            }
+            
+            DispatchQueue.main.async {
+                // TODO: Show user-friendly error message in UI
+            }
         }
     }
     
@@ -252,20 +286,65 @@ class AudioRecorder: NSObject, ObservableObject {
     
     func deleteRecording(at url: URL) {
         do {
+            print("🗑️ [Debug] Deleting individual recording: \(url.lastPathComponent)")
+            
             // Delete file from disk
             try FileManager.default.removeItem(at: url)
+            print("🗑️ [Debug] File deleted from disk successfully")
             
             // Delete from database
             if let recordingItem = recordingItems.first(where: { $0.fileURL == url }) {
                 modelContext.delete(recordingItem)
                 try modelContext.save()
+                print("🗑️ [Debug] Recording item deleted from database")
             }
             
             fetchRecordings()
             fetchRecordingItems()
+            print("🗑️ [Debug] Recording lists refreshed")
         } catch {
-            print("File could not be deleted: \(error.localizedDescription)")
+            print("🗑️ [Error] File could not be deleted: \(error.localizedDescription)")
         }
+    }
+    
+    /// Clear all recordings with proper error handling
+    func clearAllRecordings() {
+        print("🗑️ [Debug] Starting bulk delete of all recordings")
+        
+        let fileManager = FileManager.default
+        let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        var deletedCount = 0
+        var errorCount = 0
+        
+        // Delete all files
+        for recording in recordings {
+            do {
+                try fileManager.removeItem(at: recording)
+                deletedCount += 1
+                print("🗑️ [Debug] Deleted file: \(recording.lastPathComponent)")
+            } catch {
+                errorCount += 1
+                print("🗑️ [Error] Failed to delete file \(recording.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        
+        // Delete all database entries
+        for recordingItem in recordingItems {
+            modelContext.delete(recordingItem)
+        }
+        
+        do {
+            try modelContext.save()
+            print("🗑️ [Debug] All recording items deleted from database")
+        } catch {
+            print("🗑️ [Error] Failed to save database after bulk delete: \(error.localizedDescription)")
+        }
+        
+        // Refresh lists
+        fetchRecordings()
+        fetchRecordingItems()
+        
+        print("🗑️ [Debug] Bulk delete completed: \(deletedCount) files deleted, \(errorCount) errors")
     }
     
     // MARK: - Transcription Methods
@@ -284,8 +363,15 @@ class AudioRecorder: NSObject, ObservableObject {
             
             // Load audio file as AVAudioFile
             let audioFile = try AVAudioFile(forReading: url)
-            let audioFormat = audioFile.processingFormat
+            
+            // Always use the processing format for PCM buffer creation (converts AAC to PCM)
+            let audioFormat = audioFile.processingFormat // This converts AAC to Float32 PCM
             let frameCount = UInt32(audioFile.length)
+            
+            print("🎤 [Debug] File format: \(audioFile.fileFormat)")
+            print("🎤 [Debug] Processing format: \(audioFormat)")
+            print("🎤 [Debug] Processing format isStandard: \(audioFormat.isStandard)")
+            print("🎤 [Debug] Processing format commonFormat: \(audioFormat.commonFormat.rawValue)")
             
             guard let audioBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount) else {
                 throw SpeechTranscriptionError.audioFormatUnsupported

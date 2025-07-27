@@ -87,6 +87,7 @@ struct VoiceMemoView: View {
                             recordingItems: audioRecorder.recordingItems,
                             audioPlayer: audioPlayer
                         )
+                        .environmentObject(audioRecorder)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -512,26 +513,67 @@ struct LiquidGlassRecentRecordings: View {
     let recordingItems: [RecordingItem]
     let audioPlayer: AudioPlayer
     
+    @EnvironmentObject private var audioRecorder: AudioRecorder
+    @State private var showingClearAllAlert = false
+    
     private func findRecordingItem(for url: URL) -> RecordingItem? {
         return recordingItems.first { $0.fileURL == url }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Recent Recordings")
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 4)
+            // Header with Clear All button
+            HStack {
+                Text("Recent Recordings")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                if !recordings.isEmpty {
+                    Button {
+                        showingClearAllAlert = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Clear All")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.regularMaterial)
+                                .overlay { Color.red.opacity(0.1) }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 4)
             
             LazyVStack(spacing: 12) {
                 ForEach(recordings.prefix(5), id: \.self) { recording in
                     LiquidGlassRecordingRow(
                         recording: recording,
                         audioPlayer: audioPlayer,
-                        recordingItem: findRecordingItem(for: recording)
+                        recordingItem: findRecordingItem(for: recording),
+                        onDelete: {
+                            audioRecorder.deleteRecording(at: recording)
+                        }
                     )
                 }
             }
+        }
+        .alert("Clear All Recordings", isPresented: $showingClearAllAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete All", role: .destructive) {
+                audioRecorder.clearAllRecordings()
+            }
+        } message: {
+            Text("Are you sure you want to delete all recordings? This action cannot be undone.\n\nThis will delete \(recordings.count) recording\(recordings.count == 1 ? "" : "s").")
         }
     }
 }
@@ -540,6 +582,7 @@ struct LiquidGlassRecordingRow: View {
     let recording: URL
     let audioPlayer: AudioPlayer
     let recordingItem: RecordingItem?
+    let onDelete: () -> Void
     
     @State private var isHovered = false
     
@@ -685,6 +728,24 @@ struct LiquidGlassRecordingRow: View {
         .onHover { hovering in
             isHovered = hovering
         }
+        #if os(iOS)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            .tint(.red)
+        }
+        #else
+        .contextMenu {
+            Button {
+                onDelete()
+            } label: {
+                Label("Delete Recording", systemImage: "trash")
+            }
+        }
+        #endif
     }
     
     private var playbackButtonIcon: String {

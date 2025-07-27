@@ -442,6 +442,155 @@ public class PromptManager: ObservableObject {
                 optionalArguments: ["memory_statistics", "performance_data", "issues"],
                 isDefault: true,
                 tags: ["system", "status", "diagnostics"]
+            ),
+            
+            // Memory System Decision Templates
+            PromptTemplate(
+                name: "note-categorization-stm-ltm",
+                category: .memoryConsolidation,
+                description: "Analyze note content to determine STM vs LTM classification",
+                template: """
+                Analyze this note and determine its importance and longevity. 
+                Consider: personal relevance, factual content, actionability, temporal relevance, and long-term value.
+                
+                ## Note Content:
+                {content}
+                
+                ## Context (optional):
+                {context}
+                
+                ## User Patterns (optional):
+                {user_patterns}
+                
+                ## Metadata:
+                {metadata}
+                
+                Evaluate the content based on:
+                1. **Personal Relevance**: Is this personally meaningful to the user?
+                2. **Factual Content**: Does this contain important facts or knowledge?
+                3. **Actionability**: Does this require future action or reference?
+                4. **Temporal Relevance**: Is this time-sensitive or enduring?
+                5. **Uniqueness**: Is this unique information or easily recreated?
+                
+                Respond with either:
+                - "LONG_TERM: <brief reasoning>" if this should be preserved as important information
+                - "SHORT_TERM: <brief reasoning>" if this is temporary or less important
+                """,
+                requiredArguments: ["content"],
+                optionalArguments: ["context", "user_patterns", "metadata"],
+                isDefault: true,
+                tags: ["memory", "categorization", "decision", "stm", "ltm"]
+            ),
+            
+            PromptTemplate(
+                name: "stm-consolidation-decision",
+                category: .memoryConsolidation,
+                description: "Analyze short-term memory for consolidation to long-term memory",
+                template: """
+                Analyze this short-term memory and determine if it should be preserved as a long-term memory or can be expired.
+                Consider: importance, uniqueness, personal relevance, factual content, and access patterns.
+
+                ## Memory Content:
+                {content}
+
+                ## Memory Type:
+                {memory_type}
+
+                ## Importance Score:
+                {importance}
+
+                ## Access Count:
+                {access_count}
+
+                ## Time Since Creation:
+                {age_hours} hours
+
+                ## Context Tags:
+                {context_tags}
+
+                ## Related Entities:
+                {related_entities}
+
+                ## Emotional Weight:
+                {emotional_weight}
+
+                Evaluation Criteria:
+                1. **Importance**: High importance scores (>0.7) suggest long-term value
+                2. **Access Patterns**: Frequently accessed memories (>3 times) show ongoing relevance
+                3. **Uniqueness**: Unique information that would be hard to recreate
+                4. **Personal Relevance**: Memories tied to personal entities or experiences
+                5. **Factual Content**: Objective facts and knowledge worth preserving
+                6. **Emotional Significance**: Emotionally weighted memories often have lasting value
+
+                Respond with either:
+                - "PROMOTE_TO_LTM: <concise summary of why this memory should be preserved>"
+                - "EXPIRE: <brief explanation of why this can be forgotten>"
+                """,
+                requiredArguments: ["content", "memory_type", "importance", "access_count"],
+                optionalArguments: ["age_hours", "context_tags", "related_entities", "emotional_weight"],
+                isDefault: true,
+                tags: ["consolidation", "memory", "analysis", "promotion", "stm", "ltm"]
+            ),
+            
+            PromptTemplate(
+                name: "entity-relationship-extraction",
+                category: .entityExtraction,
+                description: "Extract entities and relationships from text with structured JSON output",
+                template: """
+                Extract entities and relationships from the provided text. Focus on meaningful entities that represent people, places, organizations, concepts, or other significant items mentioned.
+
+                ## Text to Analyze:
+                {text}
+
+                ## Context (optional):
+                {context}
+
+                ## Source Type:
+                {source_type}
+
+                Guidelines:
+                1. **Entities**: Extract meaningful nouns and noun phrases
+                2. **Types**: Classify as person, place, organization, concept, event, or other
+                3. **Relationships**: Identify how entities relate to each other
+                4. **Precision**: Be accurate and avoid duplicates
+                5. **Relevance**: Focus on entities that add meaningful context
+
+                Return a valid JSON response in exactly this format:
+                {
+                    "entities": [
+                        {
+                            "name": "EntityName",
+                            "type": "person|place|organization|concept|event|other",
+                            "description": "Brief description of the entity",
+                            "confidence": 0.9
+                        }
+                    ],
+                    "relationships": [
+                        {
+                            "entity1": "EntityName1",
+                            "entity2": "EntityName2",
+                            "type": "relationship_type",
+                            "description": "Description of the relationship",
+                            "confidence": 0.8
+                        }
+                    ]
+                }
+
+                Entity Types:
+                - **person**: Individual people, characters, authors
+                - **place**: Locations, cities, countries, buildings
+                - **organization**: Companies, institutions, groups
+                - **concept**: Ideas, theories, methodologies, topics
+                - **event**: Meetings, conferences, incidents, dates
+                - **other**: Any other significant entities
+
+                Common Relationship Types:
+                - works_for, located_in, part_of, created_by, mentions, relates_to, depends_on, influences
+                """,
+                requiredArguments: ["text"],
+                optionalArguments: ["context", "source_type"],
+                isDefault: true,
+                tags: ["entities", "extraction", "relationships", "json", "nlp"]
             )
         ]
         

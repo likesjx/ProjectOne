@@ -43,30 +43,38 @@ public class MemoryAgentService: ObservableObject {
     
     public func start() async throws {
         guard !isRunning else {
+            print("⚠️ [MemoryAgentService] Service already running")
             logger.warning("Memory Agent Service already running")
             return
         }
         
+        print("🚀 [MemoryAgentService] Starting Memory Agent Service...")
         logger.info("Starting Memory Agent Service...")
         
         do {
             // Initialize core components
+            print("🔧 [MemoryAgentService] Initializing core components...")
             try await initializeComponents()
             
             // Start integration
+            print("🔗 [MemoryAgentService] Starting integration...")
             try await startIntegration()
             
             // Start orchestrator
+            print("🎭 [MemoryAgentService] Starting orchestrator...")
             try await startOrchestrator()
             
             isRunning = true
             isInitialized = true
             lastActivityTime = Date()
             
+            print("✅ [MemoryAgentService] Memory Agent Service started successfully")
             logger.info("Memory Agent Service started successfully")
             
         } catch {
             errorMessage = error.localizedDescription
+            print("❌ [MemoryAgentService] Failed to start: \(error)")
+            print("📊 [MemoryAgentService] Error details: \(error.localizedDescription)")
             logger.error("Failed to start Memory Agent Service: \(error.localizedDescription)")
             throw error
         }
@@ -104,8 +112,37 @@ public class MemoryAgentService: ObservableObject {
         // Initialize TextIngestionAgent
         textIngestionAgent = TextIngestionAgent(modelContext: modelContext)
         
-        // Initialize MemoryAgent
-        let memAgent = MemoryAgent(modelContext: modelContext, knowledgeGraphService: kgService)
+        // Initialize AI providers
+        let aiModelProvider = MemoryAgentModelProvider()
+        
+        // Initialize and register ExternalProviderFactory
+        let aiProviderSettings = AIProviderSettings()
+        print("🔧 [MemoryAgentService] Enabled providers: \(aiProviderSettings.getEnabledProviders())")
+        
+        let externalProviderFactory = ExternalProviderFactory(settings: aiProviderSettings)
+        await externalProviderFactory.configureFromSettings()
+        print("🔧 [MemoryAgentService] External provider factory configured")
+        
+        aiModelProvider.registerExternalProviderFactory(externalProviderFactory)
+        print("🔧 [MemoryAgentService] External provider factory registered")
+        
+        // Initialize Apple Foundation Models if available
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let appleFoundationProvider = AppleFoundationModelsProvider()
+            aiModelProvider.registerAppleFoundationProvider(appleFoundationProvider)
+            print("🔧 [MemoryAgentService] Apple Foundation Models provider registered")
+        }
+        
+        // Initialize AI providers
+        print("🔧 [MemoryAgentService] Starting provider initialization...")
+        try await aiModelProvider.initializeProviders()
+        print("🔧 [MemoryAgentService] Provider initialization completed")
+        
+        let memAgent = MemoryAgent(
+            modelContext: modelContext, 
+            knowledgeGraphService: kgService,
+            aiModelProvider: aiModelProvider
+        )
         memoryAgent = memAgent
         
         // Initialize MemoryAgentOrchestrator
@@ -179,6 +216,53 @@ public class MemoryAgentService: ObservableObject {
         lastActivityTime = Date()
         
         logger.info("Manual sync completed")
+    }
+    
+    // MARK: - Batch Processing
+    
+    /// Process all unprocessed or failed items
+    public func processUnprocessedItems() async throws -> BatchProcessingResult {
+        guard isRunning, let integration = integration else {
+            throw MemoryAgentServiceError.serviceNotRunning
+        }
+        
+        let result = try await integration.processUnprocessedItems()
+        lastActivityTime = Date()
+        
+        return result
+    }
+    
+    /// Process only unprocessed notes
+    public func processUnprocessedNotes() async throws -> (processed: Int, failed: Int) {
+        guard isRunning, let integration = integration else {
+            throw MemoryAgentServiceError.serviceNotRunning
+        }
+        
+        let result = try await integration.processUnprocessedNotes()
+        lastActivityTime = Date()
+        
+        return result
+    }
+    
+    /// Process only unprocessed recordings
+    public func processUnprocessedRecordings() async throws -> (processed: Int, failed: Int) {
+        guard isRunning, let integration = integration else {
+            throw MemoryAgentServiceError.serviceNotRunning
+        }
+        
+        let result = try await integration.processUnprocessedRecordings()
+        lastActivityTime = Date()
+        
+        return result
+    }
+    
+    /// Get count of unprocessed items
+    public func getUnprocessedItemsCount() throws -> UnprocessedItemsCount {
+        guard isRunning, let integration = integration else {
+            throw MemoryAgentServiceError.serviceNotRunning
+        }
+        
+        return try integration.getUnprocessedItemsCount()
     }
     
     public func getStatus() -> MemoryAgentServiceStatus {

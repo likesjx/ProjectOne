@@ -32,23 +32,67 @@ class Gemma3nCore: ObservableObject {
     
     @MainActor
     private func prepareProvider() async {
-        guard let provider = mlxProvider else { return }
+        guard let provider = mlxProvider else { 
+            logger.error("🚨 [GEMMA3N] No MLX provider available!")
+            return 
+        }
+        
+        logger.info("🚀 [GEMMA3N] Starting Gemma3nCore preparation")
+        logger.info("🚀 [GEMMA3N] Provider type: \(type(of: provider))")
+        logger.info("🚀 [GEMMA3N] Provider is MLX supported: \(provider.isMLXSupported)")
         
         isLoading = true
         errorMessage = nil
         
-        do {
-            // Load the specific Gemma3n model using WorkingMLXProvider API
-            try await provider.loadModel(.gemma3n_E2B_4bit)
-            currentModelId = WorkingMLXProvider.MLXModel.gemma3n_E2B_4bit.rawValue
-            isReady = true
-            logger.info("Gemma3nCore is ready with MLX provider")
-        } catch {
-            errorMessage = error.localizedDescription
-            isReady = false
-            logger.error("Failed to prepare Gemma3nCore: \(error.localizedDescription)")
+        // Try Gemma-3n models first, then fallback to Qwen if they fail
+        let modelFallbackChain: [WorkingMLXProvider.MLXModel] = [
+            .gemma3n_E2B_4bit,  // Primary: iOS optimized VLM
+            .gemma3n_E4B_5bit,  // Secondary: Mac optimized VLM
+            .qwen3_4B,          // Fallback: Reliable LLM
+            .gemma2_2B          // Final fallback: Lightweight LLM
+        ]
+        
+        var lastError: Error?
+        var modelLoaded = false
+        
+        for (index, targetModel) in modelFallbackChain.enumerated() {
+            logger.info("🚀 [GEMMA3N] Attempt \(index + 1)/\(modelFallbackChain.count): \(targetModel.displayName)")
+            logger.info("🚀 [GEMMA3N] Target model raw value: \(targetModel.rawValue)")
+            
+            do {
+                logger.info("🚀 [GEMMA3N] About to call provider.loadModel...")
+                try await provider.loadModel(targetModel)
+                
+                logger.info("🚀 [GEMMA3N] Model loaded successfully!")
+                currentModelId = targetModel.rawValue
+                isReady = true
+                modelLoaded = true
+                logger.info("✅ [GEMMA3N] Gemma3nCore is ready with model: \(targetModel.displayName)")
+                break
+                
+            } catch {
+                logger.warning("⚠️ [GEMMA3N] Failed to load \(targetModel.displayName): \(error.localizedDescription)")
+                lastError = error
+                
+                // Continue to next model in fallback chain
+                if index < modelFallbackChain.count - 1 {
+                    logger.info("🔄 [GEMMA3N] Trying next model in fallback chain...")
+                }
+            }
         }
         
+        if !modelLoaded {
+            logger.error("❌ [GEMMA3N] All models in fallback chain failed!")
+            if let error = lastError {
+                logger.error("❌ [GEMMA3N] Final error: \(error.localizedDescription)")
+                errorMessage = "All models failed. Last error: \(error.localizedDescription)"
+            } else {
+                errorMessage = "All models in fallback chain failed to load"
+            }
+            isReady = false
+        }
+        
+        logger.info("🚀 [GEMMA3N] Preparation complete. isReady: \(self.isReady)")
         isLoading = false
     }
     

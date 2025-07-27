@@ -29,9 +29,9 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - AI Providers (Three-Layer Architecture)
     
-    @StateObject private var mlxLLMProvider = MLXLLMProvider()
-    @StateObject private var mlxVLMProvider = MLXVLMProvider()
-    @StateObject private var foundationProvider = AppleFoundationModelsProvider()
+    private let mlxLLMProvider = MLXLLMProvider()
+    private let mlxVLMProvider = MLXVLMProvider()
+    private let foundationProvider = AppleFoundationModelsProvider()
     
     // MARK: - State
     

@@ -236,14 +236,16 @@ struct AIProviderTestView: View {
         do {
             // Test Apple Foundation Models using the BaseAIProvider interface
             let memoryContext = MemoryContext(
-                entities: [],
-                relationships: [],
-                shortTermMemories: [],
-                longTermMemories: [],
-                episodicMemories: [],
-                relevantNotes: [],
                 userQuery: testPrompt,
-                containsPersonalData: false
+                containsPersonalData: false,
+                contextData: [
+                    "entities": [],
+                    "relationships": [],
+                    "shortTermMemories": [],
+                    "longTermMemories": [],
+                    "episodicMemories": [],
+                    "relevantNotes": []
+                ]
             )
             
             let response = try await appleProvider.generateResponse(prompt: testPrompt, context: memoryContext)

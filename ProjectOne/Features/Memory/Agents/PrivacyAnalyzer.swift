@@ -262,14 +262,12 @@ public class PrivacyAnalyzer {
             score += 0.4
         }
         
-        // Entity analysis
-        for entity in context.entities {
-            if entity.type == .person {
-                score += 0.2
-            } else if entity.type == .location {
-                score += 0.1
-            }
-        }
+        // Entity analysis - simplified due to generic context
+        // Note: Entity analysis disabled until proper Entity type is available
+        // let entityCount = context.entities.count
+        // if entityCount > 0 {
+        //     score += Double(entityCount) * 0.1 // Basic scoring based on entity count
+        // }
         
         return min(1.0, score)
     }
@@ -311,10 +309,17 @@ public class PrivacyAnalyzer {
         case .contextual:
             // Keep only public entities and general relationships
             filteredContext = MemoryContext(
-                entities: context.entities.filter { analyzeMemoryPrivacy(memory: $0).level == .publicKnowledge },
-                relationships: context.relationships,
+                timestamp: context.timestamp,
                 userQuery: context.userQuery,
-                containsPersonalData: false
+                containsPersonalData: false,
+                contextData: [
+                    "entities": context.entities.filter { analyzeMemoryPrivacy(memory: $0).level == .publicKnowledge },
+                    "relationships": context.relationships,
+                    "shortTermMemories": [],
+                    "longTermMemories": [],
+                    "episodicMemories": [],
+                    "relevantNotes": []
+                ]
             )
             
         case .personal:
@@ -324,15 +329,17 @@ public class PrivacyAnalyzer {
             let filteredNotes = context.relevantNotes.filter { analyzeMemoryPrivacy(memory: $0).level != .sensitive }
             
             filteredContext = MemoryContext(
-                entities: context.entities,
-                relationships: context.relationships,
-                shortTermMemories: filteredSTM,
-                longTermMemories: filteredLTM,
-                episodicMemories: [], // Remove episodic memories for external processing
-                relevantNotes: filteredNotes,
                 timestamp: context.timestamp,
                 userQuery: context.userQuery,
-                containsPersonalData: true
+                containsPersonalData: true,
+                contextData: [
+                    "entities": context.entities,
+                    "relationships": context.relationships,
+                    "shortTermMemories": filteredSTM,
+                    "longTermMemories": filteredLTM,
+                    "episodicMemories": [], // Remove episodic memories for external processing
+                    "relevantNotes": filteredNotes
+                ]
             )
             
         case .sensitive:

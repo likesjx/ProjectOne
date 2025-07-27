@@ -112,6 +112,13 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
         let supportedSampleRates: [Double] = [16000, 22050, 44100, 48000]
         let supportedChannels: [UInt32] = [1, 2]
         
+        logger.info("Checking format compatibility:")
+        logger.info("- Format: \(audioFormat)")
+        logger.info("- Sample rate: \(audioFormat.sampleRate) (supported: \(supportedSampleRates.contains(audioFormat.sampleRate)))")
+        logger.info("- Channels: \(audioFormat.channelCount) (supported: \(supportedChannels.contains(audioFormat.channelCount)))")
+        logger.info("- Is standard: \(audioFormat.isStandard)")
+        logger.info("- Is PCM: \(audioFormat.commonFormat == .pcmFormatInt16 || audioFormat.commonFormat == .pcmFormatInt32)")
+        
         return supportedSampleRates.contains(audioFormat.sampleRate) &&
                supportedChannels.contains(audioFormat.channelCount) &&
                audioFormat.isStandard
@@ -119,6 +126,9 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
     
     public func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult {
         logger.info("Starting batch transcription")
+        logger.info("Audio format: \(audio.format)")
+        logger.info("Audio duration: \(audio.duration)s")
+        logger.info("Audio samples count: \(audio.samples.count)")
         
         let startTime = CFAbsoluteTimeGetCurrent()
         
@@ -128,15 +138,74 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
         
         // Add audio data to request
         guard let audioBuffer = audio.audioBuffer as? AVAudioPCMBuffer else {
+            logger.error("Audio buffer is not AVAudioPCMBuffer, type: \(type(of: audio.audioBuffer))")
             throw SpeechTranscriptionError.audioFormatUnsupported
         }
         
-        request.append(audioBuffer)
+        logger.info("Audio buffer frame length: \(audioBuffer.frameLength)")
+        logger.info("Audio buffer frame capacity: \(audioBuffer.frameCapacity)")
+        logger.info("Audio buffer format: \(audioBuffer.format)")
+        logger.info("Audio buffer common format: \(audioBuffer.format.commonFormat.rawValue)")
+        logger.info("🔍 DEBUGGING: Checking if format is Float32: \(audioBuffer.format.commonFormat == .pcmFormatFloat32)")
+        logger.info("🔍 DEBUGGING: Checking if format is Int16: \(audioBuffer.format.commonFormat == .pcmFormatInt16)")
+        
+        // Check if the buffer has actual audio data
+        if audioBuffer.frameLength == 0 {
+            logger.warning("Audio buffer is empty (frameLength = 0)")
+            throw SpeechTranscriptionError.processingFailed("Audio buffer is empty")
+        }
+        
+        // Convert to int16 PCM format if needed (Apple Speech prefers this)
+        let processedBuffer: AVAudioPCMBuffer
+        if audioBuffer.format.commonFormat == .pcmFormatFloat32 {
+            logger.info("Converting Float32 to Int16 PCM format for Apple Speech")
+            let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: audioBuffer.format.sampleRate, channels: audioBuffer.format.channelCount, interleaved: false)!
+            
+            guard let converter = AVAudioConverter(from: audioBuffer.format, to: targetFormat) else {
+                logger.error("Failed to create audio converter")
+                throw SpeechTranscriptionError.audioFormatUnsupported
+            }
+            
+            guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: audioBuffer.frameLength) else {
+                logger.error("Failed to create converted buffer")
+                throw SpeechTranscriptionError.audioFormatUnsupported
+            }
+            
+            var error: NSError?
+            let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+                outStatus.pointee = .haveData
+                return audioBuffer
+            }
+            
+            converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
+            
+            if let error = error {
+                logger.error("Audio conversion failed: \(error.localizedDescription)")
+                throw SpeechTranscriptionError.processingFailed("Audio conversion failed")
+            }
+            
+            processedBuffer = convertedBuffer
+            logger.info("Converted to format: \(processedBuffer.format)")
+        } else {
+            processedBuffer = audioBuffer
+            logger.info("Using original buffer format")
+        }
+        
+        request.append(processedBuffer)
         request.endAudio()
         
         // Perform recognition
         let result: SpeechTranscriptionResult = try await withCheckedThrowingContinuation { continuation in
             var hasReturned = false
+            
+            // Add timeout handling
+            DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
+                if !hasReturned {
+                    hasReturned = true
+                    self.logger.warning("Recognition task timed out after 30 seconds")
+                    continuation.resume(throwing: SpeechTranscriptionError.processingFailed("Recognition timeout"))
+                }
+            }
             
             recognitionTask = speechRecognizer.recognitionTask(with: request) { result, error in
                 if hasReturned { return }
@@ -144,16 +213,33 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
                 if let error = error {
                     hasReturned = true
                     self.logger.error("Transcription failed: \(error.localizedDescription)")
+                    self.logger.error("Error code: \(error._code)")
+                    self.logger.error("Error domain: \(error._domain)")
                     continuation.resume(throwing: SpeechTranscriptionError.processingFailed(error.localizedDescription))
                     return
                 }
                 
-                if let result = result, result.isFinal {
-                    hasReturned = true
-                    let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-                    let transcriptionResult = self.createTranscriptionResult(from: result, processingTime: processingTime)
-                    self.logger.info("Batch transcription completed: \(result.bestTranscription.formattedString.prefix(50))...")
-                    continuation.resume(returning: transcriptionResult)
+                if let result = result {
+                    self.logger.info("Recognition result received - isFinal: \(result.isFinal)")
+                    self.logger.info("Best transcription: '\(result.bestTranscription.formattedString)'")
+                    self.logger.info("Transcription segments: \(result.bestTranscription.segments.count)")
+                    
+                    if result.isFinal {
+                        hasReturned = true
+                        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+                        let transcriptionResult = self.createTranscriptionResult(from: result, processingTime: processingTime)
+                        
+                        // Check if we got an empty result
+                        if transcriptionResult.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            self.logger.warning("Final result is empty - no speech detected in audio")
+                            continuation.resume(throwing: SpeechTranscriptionError.processingFailed("No speech detected"))
+                        } else {
+                            self.logger.info("Batch transcription completed: \(result.bestTranscription.formattedString.prefix(50))...")
+                            continuation.resume(returning: transcriptionResult)
+                        }
+                    } else {
+                        self.logger.info("Partial result: '\(result.bestTranscription.formattedString)'")
+                    }
                 }
             }
         }

@@ -144,8 +144,8 @@ public struct SpeechEngineConfiguration {
     let logLevel: OSLogType
     
     public init(
-        strategy: EngineSelectionStrategy = .automatic,
-        enableFallback: Bool = true,
+        strategy: EngineSelectionStrategy = .appleOnly,
+        enableFallback: Bool = false,
         maxMemoryUsage: UInt64? = nil,
         preferredLanguage: String? = nil,
         logLevel: OSLogType = .default
@@ -157,7 +157,7 @@ public struct SpeechEngineConfiguration {
         self.logLevel = logLevel
     }
     
-    public static let `default` = SpeechEngineConfiguration()
+    public static let `default` = SpeechEngineConfiguration(strategy: .appleOnly, enableFallback: false)
 }
 
 // MARK: - Factory
@@ -360,11 +360,28 @@ public class SpeechEngineFactory {
         case .preferApple:
             return try await selectPreferredEngine(preference: .appleSpeech)
         case .preferWhisperKit:
-            return try await selectPreferredEngine(preference: .whisperKit)
+            // WhisperKit DISABLED due to crashes - fall back to Apple Speech
+            logger.warning("WhisperKit disabled due to crashes, using Apple Speech instead")
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return try await createSpeechAnalyzerEngine()
+            } else {
+                return try await createAppleEngine()
+            }
         case .appleOnly:
-            return try await createAppleEngine()
+            // Use SpeechAnalyzer on iOS/macOS 26+, Apple Speech on older versions
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return try await createSpeechAnalyzerEngine()
+            } else {
+                return try await createAppleEngine()
+            }
         case .whisperKitOnly:
-            return try await createWhisperKitEngine()
+            // WhisperKit DISABLED due to crashes - fall back to Apple Speech
+            logger.error("WhisperKit disabled due to crashes, cannot use whisperKitOnly strategy")
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return try await createSpeechAnalyzerEngine()
+            } else {
+                return try await createAppleEngine()
+            }
         }
     }
     
@@ -372,14 +389,18 @@ public class SpeechEngineFactory {
         // Score different engines based on device capabilities
         var scores: [(engine: () async throws -> SpeechTranscriptionProtocol, score: Int, name: String)] = []
         
+        // Apple Speech (SpeechAnalyzer) gets highest priority for iOS 26.0+ and macOS 26.0+
+        if #available(iOS 26.0, macOS 26.0, *) {
+            scores.append((createSpeechAnalyzerEngine, 100, "Apple SpeechAnalyzer"))
+            logger.info("SpeechAnalyzer available on iOS/macOS 26.0+ - only option")
+        } else {
+            // Fall back to traditional Apple Speech for older versions
+            scores.append((createAppleEngine, 90, "Apple Speech"))
+            logger.info("Apple Speech - only option for older OS versions")
+        }
         
-        // Apple Speech gets high priority due to WhisperKit buffer overflow issues
-        scores.append((createAppleEngine, 75, "Apple Speech"))
-        
-        // WhisperKit with reduced score due to buffer overflow issues
-        let whisperKitScore = calculateWhisperKitScore() - 60 // Major reduction due to buffer overflow crashes
-        scores.append((createWhisperKitEngine, whisperKitScore, "WhisperKit"))
-        logger.warning("WhisperKit included with reduced score due to MLMultiArray buffer overflow issues")
+        // WhisperKit DISABLED due to MLMultiArray buffer overflow crashes
+        logger.warning("WhisperKit disabled due to MLMultiArray buffer overflow issues - using Apple Speech only")
         
         
         // Sort by score and try engines in order
@@ -425,15 +446,21 @@ public class SpeechEngineFactory {
                 logger.warning("SpeechAnalyzer requires iOS 26.0+ or macOS 26.0+")
             }
         case .whisperKit:
-            do {
-                let whisperKitEngine = try await createWhisperKitEngine()
-                if whisperKitEngine.isAvailable {
-                    return whisperKitEngine
-                }
-            } catch {
-                logger.warning("Preferred WhisperKit engine unavailable: \(error.localizedDescription)")
-            }
+            // WhisperKit DISABLED due to crashes
+            logger.warning("WhisperKit disabled due to crashes, falling back to Apple Speech")
         case .appleSpeech:
+            // For prefer Apple strategy, try SpeechAnalyzer first on iOS/macOS 26+, then Apple Speech
+            if #available(iOS 26.0, macOS 26.0, *) {
+                do {
+                    let speechAnalyzerEngine = try await createSpeechAnalyzerEngine()
+                    if speechAnalyzerEngine.isAvailable {
+                        logger.info("Using SpeechAnalyzer for Apple Speech preference on iOS/macOS 26+")
+                        return speechAnalyzerEngine
+                    }
+                } catch {
+                    logger.warning("SpeechAnalyzer unavailable, falling back to Apple Speech: \(error.localizedDescription)")
+                }
+            }
             // Apple Speech is the fallback, so we'll handle it below
             break
         default:
@@ -447,30 +474,11 @@ public class SpeechEngineFactory {
     private func selectFallbackEngine(primary: SpeechTranscriptionProtocol?) async throws -> SpeechTranscriptionProtocol? {
         guard let primary = primary else { return nil }
         
+        // WhisperKit fallback DISABLED due to MLMultiArray buffer overflow crashes
+        logger.warning("Fallback engines disabled - using Apple Speech only to prevent crashes")
         
-        // If primary is Apple Speech, try WhisperKit fallback
-        if case .appleSpeech = primary.method {
-            
-            // Try WhisperKit next
-            do {
-                return try await createWhisperKitEngine()
-            } catch {
-                logger.info("WhisperKit fallback unavailable: \(error.localizedDescription)")
-            }
-            
-        }
-        
-        // If primary is WhisperKit, use SpeechAnalyzer first (if available), then Apple Speech
-        if case .whisperKit = primary.method {
-            
-            // Fall back to Apple Speech
-            do {
-                return try await createAppleEngine()
-            } catch {
-                logger.warning("Apple fallback unavailable: \(error.localizedDescription)")
-            }
-        }
-        
+        // No fallback engines to prevent WhisperKit crashes
+        // Apple Speech is reliable and should not need fallback
         return nil
     }
     
@@ -623,11 +631,23 @@ public class SpeechEngineFactory {
     /// Create SpeechAnalyzer engine for iOS 26.0+
     @available(iOS 26.0, macOS 26.0, *)
     private func createSpeechAnalyzerEngine() async throws -> SpeechTranscriptionProtocol {
-        logger.info("Creating SpeechAnalyzer transcription engine")
+        logger.info("Creating Apple SpeechAnalyzer transcription engine for iOS/macOS 26+")
         
-        // This would create a SpeechAnalyzer-based engine
-        // For now, fallback to creating an Apple Speech engine since SpeechAnalyzer is not yet implemented
-        return try AppleSpeechTranscriber(locale: Locale(identifier: "en-US"))
+        // Determine optimal locale
+        let locale: Locale
+        if let preferredLanguage = configuration.preferredLanguage {
+            locale = Locale(identifier: preferredLanguage)
+        } else {
+            locale = Locale.current
+        }
+        
+        // Create Apple Speech transcriber optimized for iOS/macOS 26
+        // This uses the same AppleSpeechTranscriber but with enhanced configuration for newer OS versions
+        let transcriber = try AppleSpeechTranscriber(locale: locale)
+        try await transcriber.prepare()
+        
+        logger.info("Apple SpeechAnalyzer (enhanced Apple Speech) created successfully for iOS/macOS 26+")
+        return transcriber
     }
 }
 

@@ -1,6 +1,18 @@
 import SwiftUI
 import SwiftData
 
+#if os(iOS)
+import UIKit
+
+// Suppress haptic feedback system errors in simulator
+private func disableHapticsInSimulator() {
+    #if targetEnvironment(simulator)
+    // Disable haptic feedback generation in simulator to prevent CHHapticPattern errors
+    UserDefaults.standard.set(false, forKey: "UIFeedbackGenerator.hapticFeedbackEnabled")
+    #endif
+}
+#endif
+
 @main
 struct ProjectOneApp: App {
     @State private var urlHandler = URLHandler()
@@ -55,14 +67,19 @@ struct ProjectOneApp: App {
                     }
                 }
                 .task {
+                    // Disable haptic feedback in simulator to prevent log errors
+                    #if os(iOS)
+                    disableHapticsInSimulator()
+                    #endif
+                    
                     // Start background WhisperKit model preloading when app launches
                     await startBackgroundModelPreloading()
                     
                     // Initialize Gemma3nCore after app is stable
                     await initializeGemmaCore()
                     
-                    // Initialize Memory Agent system - temporarily disabled during prompt testing
-                    // await initializeMemoryAgent()
+                    // Initialize Memory Agent system with new prompt integration
+                    await initializeMemoryAgent()
                     
                     // Run enhanced prompt system tests - temporarily disabled during prompt testing
                     // await runEnhancedPromptTests()
@@ -97,12 +114,19 @@ struct ProjectOneApp: App {
         print("🧠 [ProjectOneApp] Initializing Memory Agent system...")
         
         do {
+            print("🔧 [ProjectOneApp] Creating MemoryAgentService...")
             let service = MemoryAgentService(modelContext: sharedModelContainer.mainContext)
+            
+            print("🚀 [ProjectOneApp] Starting MemoryAgentService...")
             try await service.start()
+            
+            print("💾 [ProjectOneApp] Storing service reference...")
             memoryAgentService = service
+            
             print("✅ [ProjectOneApp] Memory Agent system initialized successfully")
         } catch {
             print("❌ [ProjectOneApp] Failed to initialize Memory Agent: \(error)")
+            print("📊 [ProjectOneApp] Error details: \(error.localizedDescription)")
         }
     }
     

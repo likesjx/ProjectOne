@@ -178,9 +178,9 @@ struct SettingsView: View {
                         DebugConsoleView()
                     }
                     
-                    NavigationLink("Test MLX Inference") {
-                        MLXTestView()
-                    }
+                    // NavigationLink("Test MLX Inference") {
+                    //     MLXTestView() // Temporarily disabled
+                    // }
                     
                     NavigationLink("AI Provider Testing") {
                         UnifiedAITestView()

@@ -52,6 +52,19 @@ final class RecordingItem {
     var extractedRelationshipIds: [UUID] // IDs of relationships extracted
     var memoryScore: Double // Importance score for memory system
     
+    // Memory Processing Status
+    var isProcessedByMemoryAgent: Bool = false
+    var memoryProcessingDate: Date?
+    var memoryProcessingStatus: MemoryProcessingStatus = MemoryProcessingStatus.pending
+    var memoryDecision: MemoryDecision?
+    var memoryDecisionConfidence: Double = 0.0
+    var memoryPromptTemplateUsed: String?
+    var memoryModelUsed: String?
+    var memoryProcessingTime: TimeInterval = 0.0
+    var memoryProcessingError: String?
+    var memoryEntitiesExtracted: Int = 0
+    var memoryRelationshipsCreated: Int = 0
+    
     // Playback tracking
     var playCount: Int
     var lastPlayedAt: Date?
@@ -109,6 +122,34 @@ final class RecordingItem {
     }
     
     // MARK: - Convenience Methods
+    
+    /// Update memory processing results
+    func updateMemoryProcessing(
+        status: MemoryProcessingStatus,
+        decision: MemoryDecision? = nil,
+        confidence: Double = 0.0,
+        templateUsed: String? = nil,
+        modelUsed: String? = nil,
+        processingTime: TimeInterval = 0.0,
+        error: String? = nil,
+        entitiesExtracted: Int = 0,
+        relationshipsCreated: Int = 0
+    ) {
+        self.memoryProcessingStatus = status
+        self.memoryDecision = decision
+        self.memoryDecisionConfidence = confidence
+        self.memoryPromptTemplateUsed = templateUsed
+        self.memoryModelUsed = modelUsed
+        self.memoryProcessingTime = processingTime
+        self.memoryProcessingError = error
+        self.memoryEntitiesExtracted = entitiesExtracted
+        self.memoryRelationshipsCreated = relationshipsCreated
+        
+        if status == .completed {
+            self.isProcessedByMemoryAgent = true
+            self.memoryProcessingDate = Date()
+        }
+    }
     
     /// Update with transcription result
     func updateWithTranscription(

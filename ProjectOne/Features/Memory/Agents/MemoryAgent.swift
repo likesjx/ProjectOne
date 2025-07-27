@@ -22,6 +22,8 @@ public class MemoryAgent: ObservableObject {
     private let retrievalEngine: MemoryRetrievalEngine
     private let knowledgeGraphService: KnowledgeGraphService
     private let aiModelProvider: MemoryAgentModelProvider
+    private let promptManager: PromptManager
+    private let promptResolver: MemoryPromptResolver
     
     // MARK: - State
     
@@ -38,7 +40,7 @@ public class MemoryAgent: ObservableObject {
         let maxContextSize: Int
         let consolidationInterval: TimeInterval // seconds
         
-        public static let `default` = Configuration(
+        nonisolated public static let `default` = Configuration(
             enableRAG: true,
             enableMemoryConsolidation: true,
             maxContextSize: 8192,
@@ -54,15 +56,18 @@ public class MemoryAgent: ObservableObject {
         modelContext: ModelContext,
         knowledgeGraphService: KnowledgeGraphService,
         configuration: Configuration = .default,
-        aiModelProvider: MemoryAgentModelProvider? = nil
+        aiModelProvider: MemoryAgentModelProvider? = nil,
+        promptManager: PromptManager? = nil
     ) {
         self.modelContext = modelContext
         self.knowledgeGraphService = knowledgeGraphService
         self.retrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
         self.configuration = configuration
         self.aiModelProvider = aiModelProvider ?? MemoryAgentModelProvider()
+        self.promptManager = promptManager ?? PromptManager(modelContext: modelContext)
+        self.promptResolver = MemoryPromptResolver(promptManager: self.promptManager)
         
-        logger.info("Memory Agent initializing...")
+        logger.info("Memory Agent initializing with prompt management integration...")
     }
     
     // MARK: - Lifecycle
@@ -204,12 +209,49 @@ public class MemoryAgent: ObservableObject {
     private func processNote(_ data: MemoryIngestData) async throws {
         guard let content = data.content else { return }
         
-        // Process note with AI to determine if it should be STM or LTM
-        let context = MemoryContext(userQuery: "Analyze this note content: \(content)")
+        // Create memory operation context
+        let operationContext = MemoryOperationContext(
+            primaryContent: content,
+            contextualData: data.metadata ?? [:],
+            containsPersonalData: detectPersonalData(in: content),
+            importance: data.confidence,
+            sourceType: "note",
+            userPatterns: nil // Could be populated with user patterns analysis
+        )
         
-        let analysisPrompt = "Analyze this note and determine its importance and longevity. Is this a temporary thought (short-term) or important information (long-term)? Content: \(content)"
+        // Get appropriate template for note categorization
+        guard let template = promptResolver.getPromptFor(
+            operation: .noteCategorizationSTMvsLTM,
+            context: operationContext
+        ) else {
+            logger.error("No template found for note categorization")
+            throw MemoryAgentError.memoryRetrievalFailed("No template available for note categorization")
+        }
         
-        let analysis = try await aiModelProvider.generateResponse(prompt: analysisPrompt, context: context)
+        // Render prompt with note data
+        let analysisPrompt = promptManager.renderTemplate(template, with: [
+            "content": content,
+            "context": data.metadata?["context"] as? String ?? "",
+            "user_patterns": "", // Could be filled with user pattern analysis
+            "metadata": data.metadata?.description ?? ""
+        ])
+        
+        let startTime = Date()
+        let memoryContext = MemoryContext(userQuery: "Analyze this note content: \(content)")
+        let analysis: AIModelResponse
+        
+        do {
+            analysis = try await aiModelProvider.generateResponse(prompt: analysisPrompt, context: memoryContext)
+            
+            // Record template success
+            let processingTime = Date().timeIntervalSince(startTime)
+            promptResolver.recordTemplateSuccess(template, operation: .noteCategorizationSTMvsLTM, processingTime: processingTime)
+            
+        } catch {
+            // Record template failure
+            promptResolver.recordTemplateFailure(template, operation: .noteCategorizationSTMvsLTM, error: error)
+            throw error
+        }
             
         if analysis.content.lowercased().contains("long-term") || analysis.content.lowercased().contains("important") {
             // Create LTM
@@ -298,22 +340,85 @@ public class MemoryAgent: ObservableObject {
     // MARK: - Entity and Relationship Extraction
     
     private func extractEntitiesAndRelationships(from content: String, source: Any) async throws {
-        let extractionPrompt = """
-        Extract entities and relationships from this text. Return a JSON response with:
-        {
-            "entities": [{"name": "EntityName", "type": "person|place|organization|concept|other", "description": "brief description"}],
-            "relationships": [{"entity1": "Name1", "entity2": "Name2", "type": "relationship_type", "description": "description"}]
+        // Create memory operation context for entity extraction
+        let sourceType = getSourceType(from: source)
+        let operationContext = MemoryOperationContext(
+            primaryContent: content,
+            contextualData: ["source_type": sourceType],
+            containsPersonalData: detectPersonalData(in: content),
+            importance: 0.7, // Entity extraction is generally important
+            sourceType: sourceType
+        )
+        
+        // Get appropriate template for entity extraction
+        guard let template = promptResolver.getPromptFor(
+            operation: .entityRelationshipExtraction,
+            context: operationContext
+        ) else {
+            logger.error("No template found for entity extraction")
+            throw MemoryAgentError.memoryRetrievalFailed("No template available for entity extraction")
         }
         
-        Text: \(content)
-        """
+        // Render prompt with content data
+        let extractionPrompt = promptManager.renderTemplate(template, with: [
+            "text": content,
+            "context": "", // Could be populated with additional context
+            "source_type": sourceType
+        ])
         
+        let startTime = Date()
         let context = MemoryContext(userQuery: extractionPrompt)
-        let response = try await aiModelProvider.generateResponse(prompt: extractionPrompt, context: context)
         
-        // Parse the JSON response and create entities/relationships
-        // This would need proper JSON parsing implementation
-        logger.info("Entity extraction completed for content")
+        do {
+            let response = try await aiModelProvider.generateResponse(prompt: extractionPrompt, context: context)
+            
+            // Record template success
+            let processingTime = Date().timeIntervalSince(startTime)
+            promptResolver.recordTemplateSuccess(template, operation: .entityRelationshipExtraction, processingTime: processingTime)
+            
+            // Parse the JSON response and create entities/relationships
+            try parseAndStoreEntitiesAndRelationships(from: response.content, source: source)
+            
+            logger.info("Entity extraction completed for content from \(sourceType)")
+            
+        } catch {
+            // Record template failure
+            promptResolver.recordTemplateFailure(template, operation: .entityRelationshipExtraction, error: error)
+            logger.error("Failed to extract entities and relationships: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    private func getSourceType(from source: Any) -> String {
+        switch source {
+        case is STMEntry:
+            return "stm_entry"
+        case is LTMEntry:
+            return "ltm_entry"
+        case is EpisodicMemoryEntry:
+            return "episodic_memory"
+        case is String:
+            return "text"
+        default:
+            return "unknown"
+        }
+    }
+    
+    private func parseAndStoreEntitiesAndRelationships(from jsonResponse: String, source: Any) throws {
+        // Implementation for parsing JSON and storing entities/relationships
+        // This would need proper JSON parsing and entity creation logic
+        logger.info("Parsing and storing entities from JSON response")
+        
+        // TODO: Implement proper JSON parsing and entity storage
+        // For now, just log that the extraction was completed
+        logger.debug("JSON Response received: \(jsonResponse.prefix(200))...")
+    }
+    
+    /// Detect if content contains personal data
+    private func detectPersonalData(in content: String) -> Bool {
+        let personalIndicators = ["my", "i", "me", "mine", "myself", "personal", "remember", "recall", "i'm", "i've", "my name", "my phone", "my email", "my address"]
+        let lowercaseContent = content.lowercased()
+        return personalIndicators.contains { lowercaseContent.contains($0) }
     }
     
     // MARK: - Memory Consolidation
@@ -339,21 +444,59 @@ public class MemoryAgent: ObservableObject {
         let oldSTMs = try modelContext.fetch(descriptor)
         
         for stm in oldSTMs {
-            // Use AI to determine if STM should become LTM
-            let consolidationPrompt = """
-            Analyze this short-term memory and determine if it should be preserved as a long-term memory or can be expired.
-            Consider: importance, uniqueness, personal relevance, factual content.
+            // Create memory operation context for consolidation decision
+            let ageHours = Date().timeIntervalSince(stm.timestamp) / 3600
+            let operationContext = MemoryOperationContext(
+                primaryContent: stm.content,
+                contextualData: [
+                    "memory_type": stm.memoryType.displayName,
+                    "importance": stm.importance,
+                    "access_count": stm.accessCount,
+                    "age_hours": ageHours
+                ],
+                containsPersonalData: detectPersonalData(in: stm.content),
+                importance: stm.importance,
+                sourceType: "stm_consolidation"
+            )
             
-            Content: \(stm.content)
-            Memory Type: \(stm.memoryType.displayName)
-            Importance: \(stm.importance)
-            Access Count: \(stm.accessCount)
+            // Get appropriate template for STM consolidation decision
+            guard let template = promptResolver.getPromptFor(
+                operation: .stmConsolidationDecision,
+                context: operationContext
+            ) else {
+                logger.error("No template found for STM consolidation")
+                continue // Skip this STM and continue with others
+            }
             
-            Respond with either "PROMOTE_TO_LTM: <summary>" or "EXPIRE"
-            """
+            // Render prompt with STM data
+            let consolidationPrompt = promptManager.renderTemplate(template, with: [
+                "content": stm.content,
+                "memory_type": stm.memoryType.displayName,
+                "importance": String(stm.importance),
+                "access_count": String(stm.accessCount),
+                "age_hours": String(format: "%.1f", ageHours),
+                "context_tags": stm.contextTags.joined(separator: ", "),
+                "related_entities": stm.relatedEntities.map { $0.uuidString }.joined(separator: ", "),
+                "emotional_weight": String(stm.emotionalWeight)
+            ])
             
+            let startTime = Date()
             let context = MemoryContext(userQuery: consolidationPrompt)
-            let decision = try await aiModelProvider.generateResponse(prompt: consolidationPrompt, context: context)
+            let decision: AIModelResponse
+            
+            do {
+                decision = try await aiModelProvider.generateResponse(prompt: consolidationPrompt, context: context)
+                
+                // Record template success
+                let processingTime = Date().timeIntervalSince(startTime)
+                promptResolver.recordTemplateSuccess(template, operation: .stmConsolidationDecision, processingTime: processingTime)
+                
+            } catch {
+                // Record template failure and continue with next STM
+                promptResolver.recordTemplateFailure(template, operation: .stmConsolidationDecision, error: error)
+                logger.error("Failed to get consolidation decision for STM \(stm.id): \(error.localizedDescription)")
+                continue
+            }
             
             if decision.content.contains("PROMOTE_TO_LTM") {
                 // Extract summary and create LTM

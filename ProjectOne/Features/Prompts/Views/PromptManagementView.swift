@@ -582,7 +582,10 @@ struct PromptDetailView: View {
                         .background(Color.blue.opacity(0.1))
                         .cornerRadius(8)
                     }
-                } else if !mlxTestResult.isEmpty {
+                }
+                
+                // MLX Test Result (independent display)
+                if !mlxTestResult.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("MLX Response")
                             .font(.headline)
@@ -593,7 +596,10 @@ struct PromptDetailView: View {
                             .background(Color.blue.opacity(0.1))
                             .cornerRadius(8)
                     }
-                } else if !foundationsTestResult.isEmpty {
+                }
+                
+                // Apple Foundation Models Test Result (independent display)
+                if !foundationsTestResult.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Apple Foundation Models Response")
                             .font(.headline)
@@ -702,6 +708,7 @@ struct PromptDetailView: View {
             
             isTesting = true
             mlxTestResult = ""
+            foundationsTestResult = "" // Clear other provider result for clarity
             
             Task {
                 let response = await gemmaCore.processText(renderedPrompt)
@@ -724,6 +731,7 @@ struct PromptDetailView: View {
             
             isTesting = true
             foundationsTestResult = ""
+            mlxTestResult = "" // Clear other provider result for clarity
             
             Task {
                 do {
@@ -732,14 +740,16 @@ struct PromptDetailView: View {
                     
                     // Create a simple memory context for testing
                     let memoryContext = MemoryContext(
-                        entities: [],
-                        relationships: [],
-                        shortTermMemories: [],
-                        longTermMemories: [],
-                        episodicMemories: [],
-                        relevantNotes: [],
                         userQuery: renderedPrompt,
-                        containsPersonalData: false
+                        containsPersonalData: false,
+                        contextData: [
+                            "entities": [],
+                            "relationships": [],
+                            "shortTermMemories": [],
+                            "longTermMemories": [],
+                            "episodicMemories": [],
+                            "relevantNotes": []
+                        ]
                     )
                     
                     let response = try await provider.generateResponse(
