@@ -23,6 +23,7 @@ public class MemoryAgentModelProvider {
     
     private var externalProviderFactory: ExternalProviderFactory?
     private var appleFoundationProvider: AppleFoundationModelsProvider?
+    private var workingMLXProvider: WorkingMLXProvider?
     private var providerHealth: [String: ProviderHealthStatus] = [:]
     
     // MARK: - Configuration
@@ -81,6 +82,19 @@ public class MemoryAgentModelProvider {
         logger.info("Registered Apple Foundation Models provider")
     }
     
+    /// Register WorkingMLXProvider
+    public func registerWorkingMLXProvider(_ provider: WorkingMLXProvider) {
+        self.workingMLXProvider = provider
+        providerHealth["working_mlx"] = ProviderHealthStatus(
+            isHealthy: true,
+            lastSuccessfulResponse: nil,
+            consecutiveFailures: 0,
+            averageResponseTime: 2.0, // Local MLX processing
+            errorRate: 0.0
+        )
+        logger.info("Registered WorkingMLXProvider")
+    }
+    
     /// Initialize all registered providers
     public func initializeProviders() async throws {
         logger.info("Initializing AI providers")
@@ -116,6 +130,23 @@ public class MemoryAgentModelProvider {
             }
         }
         
+        // Initialize WorkingMLXProvider if available
+        if let workingMLX = workingMLXProvider {
+            if workingMLX.isMLXSupported {
+                logger.info("WorkingMLXProvider initialized successfully")
+                hasHealthyProvider = true
+            } else {
+                logger.warning("WorkingMLXProvider not supported on this device")
+                providerHealth["working_mlx"] = ProviderHealthStatus(
+                    isHealthy: false,
+                    lastSuccessfulResponse: nil,
+                    consecutiveFailures: 1,
+                    averageResponseTime: 2.0,
+                    errorRate: 1.0
+                )
+            }
+        }
+        
         if !hasHealthyProvider {
             throw MemoryAgentError.noAIProvidersAvailable
         }
@@ -143,6 +174,7 @@ public class MemoryAgentModelProvider {
         
         externalProviderFactory = nil
         appleFoundationProvider = nil
+        workingMLXProvider = nil
         providerHealth.removeAll()
     }
     
@@ -237,6 +269,23 @@ public class MemoryAgentModelProvider {
                         break
                     }
                 }
+            }
+        }
+        
+        // Try WorkingMLXProvider as final fallback if available
+        if let workingMLX = workingMLXProvider, workingMLX.isMLXSupported {
+            attemptCount += 1
+            do {
+                logger.debug("Attempting generation with WorkingMLXProvider (final fallback)")
+                let response = try await withTimeout(configuration.responseTimeoutInterval) {
+                    return try await self.generateWithWorkingMLX(prompt: prompt, context: context, provider: workingMLX)
+                }
+                updateProviderHealth("working_mlx", success: true, responseTime: response.processingTime)
+                return response
+            } catch {
+                logger.warning("WorkingMLXProvider failed: \(error.localizedDescription)")
+                updateProviderHealth("working_mlx", success: false, responseTime: nil)
+                lastError = error
             }
         }
         
@@ -376,6 +425,27 @@ public class MemoryAgentModelProvider {
             modelUsed: provider.identifier,
             tokensUsed: response.tokensUsed,
             isOnDevice: provider.isOnDevice,
+            containsPersonalData: context.containsPersonalData
+        )
+    }
+    
+    /// Generate response using WorkingMLXProvider
+    private func generateWithWorkingMLX(
+        prompt: String,
+        context: MemoryContext,
+        provider: WorkingMLXProvider
+    ) async throws -> AIModelResponse {
+        let startTime = Date()
+        let content = try await provider.generateResponse(to: prompt)
+        let processingTime = Date().timeIntervalSince(startTime)
+        
+        return AIModelResponse(
+            content: content,
+            confidence: 0.85, // MLX models are generally reliable but not as refined as commercial APIs
+            processingTime: processingTime,
+            modelUsed: "WorkingMLX (\(provider.getModelInfo()?.displayName ?? "Unknown"))",
+            tokensUsed: nil, // WorkingMLXProvider doesn't provide token counts
+            isOnDevice: true,
             containsPersonalData: context.containsPersonalData
         )
     }

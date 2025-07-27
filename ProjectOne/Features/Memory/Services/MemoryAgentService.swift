@@ -115,22 +115,37 @@ public class MemoryAgentService: ObservableObject {
         // Initialize AI providers
         let aiModelProvider = MemoryAgentModelProvider()
         
-        // Initialize and register ExternalProviderFactory
-        let aiProviderSettings = AIProviderSettings()
-        print("🔧 [MemoryAgentService] Enabled providers: \(aiProviderSettings.getEnabledProviders())")
+        // Use the same working provider instances as the Prompt Tester
+        print("🔧 [MemoryAgentService] Initializing working AI provider instances...")
         
-        let externalProviderFactory = ExternalProviderFactory(settings: aiProviderSettings)
-        await externalProviderFactory.configureFromSettings()
-        print("🔧 [MemoryAgentService] External provider factory configured")
+        // Initialize WorkingMLXProvider (same as Prompt Tester)
+        let workingMLXProvider = WorkingMLXProvider()
+        print("🔧 [MemoryAgentService] WorkingMLXProvider created: \(workingMLXProvider.isMLXSupported)")
         
-        aiModelProvider.registerExternalProviderFactory(externalProviderFactory)
-        print("🔧 [MemoryAgentService] External provider factory registered")
-        
-        // Initialize Apple Foundation Models if available
+        // Initialize Apple Foundation Models if available (same as Prompt Tester)
         if #available(iOS 26.0, macOS 26.0, *) {
             let appleFoundationProvider = AppleFoundationModelsProvider()
+            print("🔧 [MemoryAgentService] AppleFoundationModelsProvider created: \(appleFoundationProvider.isAvailable)")
             aiModelProvider.registerAppleFoundationProvider(appleFoundationProvider)
             print("🔧 [MemoryAgentService] Apple Foundation Models provider registered")
+        }
+        
+        // Register the working MLX provider directly (bypassing ExternalProviderFactory)
+        if workingMLXProvider.isMLXSupported {
+            aiModelProvider.registerWorkingMLXProvider(workingMLXProvider)
+            print("🔧 [MemoryAgentService] WorkingMLXProvider registered successfully")
+            
+            // Load a default model for memory processing
+            print("🔧 [MemoryAgentService] Loading default MLX model for memory processing...")
+            do {
+                try await workingMLXProvider.loadModel(.gemma3n_E2B_4bit) // iOS optimized model
+                print("✅ [MemoryAgentService] Default MLX model loaded successfully")
+            } catch {
+                print("⚠️ [MemoryAgentService] Failed to load default MLX model: \(error.localizedDescription)")
+                // Continue anyway - Apple Foundation Models can be used as primary
+            }
+        } else {
+            print("⚠️ [MemoryAgentService] MLX not supported on this device")
         }
         
         // Initialize AI providers

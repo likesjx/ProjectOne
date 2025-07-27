@@ -155,40 +155,60 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
             throw SpeechTranscriptionError.processingFailed("Audio buffer is empty")
         }
         
-        // Convert to int16 PCM format if needed (Apple Speech prefers this)
+        // Use AudioProcessor for optimal format conversion and preprocessing
+        logger.info("Using AudioProcessor for optimal Apple Speech format conversion")
+        
         let processedBuffer: AVAudioPCMBuffer
-        if audioBuffer.format.commonFormat == .pcmFormatFloat32 {
-            logger.info("Converting Float32 to Int16 PCM format for Apple Speech")
-            let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: audioBuffer.format.sampleRate, channels: audioBuffer.format.channelCount, interleaved: false)!
+        do {
+            let audioProcessor = AudioProcessor()
+            let processedAudioData = try audioProcessor.preprocess(audio: audio)
+            logger.info("Audio preprocessing completed successfully")
             
-            guard let converter = AVAudioConverter(from: audioBuffer.format, to: targetFormat) else {
-                logger.error("Failed to create audio converter")
+            // Convert processed data to Apple Speech optimal format (16kHz Int16 PCM)
+            let optimalFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, 
+                                            sampleRate: 16000,  // Optimal for Apple Speech
+                                            channels: 1, 
+                                            interleaved: true)!  // Interleaved format
+            
+            let processedAudio = AudioData(samples: processedAudioData.samples, 
+                                         format: audioProcessor.preferredFormat, 
+                                         duration: processedAudioData.duration)
+            
+            logger.info("Starting audio format conversion to optimal format")
+            let convertedAudio = try audioProcessor.convert(audio: processedAudio, to: optimalFormat)
+            logger.info("Audio format conversion completed")
+            
+            logger.info("Starting audio normalization")
+            let normalizedAudio = try audioProcessor.normalize(audio: convertedAudio)
+            logger.info("Audio normalization completed")
+            
+            guard let buffer = normalizedAudio.audioBuffer as? AVAudioPCMBuffer else {
+                logger.error("Failed to get processed audio buffer")
                 throw SpeechTranscriptionError.audioFormatUnsupported
             }
             
-            guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: audioBuffer.frameLength) else {
-                logger.error("Failed to create converted buffer")
-                throw SpeechTranscriptionError.audioFormatUnsupported
+            processedBuffer = buffer
+            
+            logger.info("Audio processed with AudioProcessor - Format: \(processedBuffer.format)")
+            logger.info("Processed buffer frame length: \(processedBuffer.frameLength)")
+            
+            // Validate audio content
+            if let channelData = processedBuffer.floatChannelData {
+                let samples = Array(UnsafeBufferPointer(start: channelData[0], count: Int(processedBuffer.frameLength)))
+                let maxAmplitude = samples.map(abs).max() ?? 0.0
+                let avgAmplitude = samples.map(abs).reduce(0, +) / Float(samples.count)
+                
+                logger.info("Audio validation - Max amplitude: \(maxAmplitude), Avg amplitude: \(avgAmplitude)")
+                
+                if maxAmplitude < 0.001 {
+                    logger.warning("Audio amplitude too low for speech detection")
+                    throw SpeechTranscriptionError.processingFailed("Audio too quiet for speech detection")
+                }
             }
             
-            var error: NSError?
-            let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
-                outStatus.pointee = .haveData
-                return audioBuffer
-            }
-            
-            converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
-            
-            if let error = error {
-                logger.error("Audio conversion failed: \(error.localizedDescription)")
-                throw SpeechTranscriptionError.processingFailed("Audio conversion failed")
-            }
-            
-            processedBuffer = convertedBuffer
-            logger.info("Converted to format: \(processedBuffer.format)")
-        } else {
-            processedBuffer = audioBuffer
-            logger.info("Using original buffer format")
+        } catch {
+            logger.error("AudioProcessor failed: \(error.localizedDescription)")
+            throw SpeechTranscriptionError.processingFailed("Audio processing failed: \(error.localizedDescription)")
         }
         
         request.append(processedBuffer)
