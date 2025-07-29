@@ -50,6 +50,13 @@ public class PromptManager: ObservableObject {
             } else {
                 templates = storedTemplates
                 print("🔧 [PromptManager] Loaded \(templates.count) templates")
+                
+                // Check if we need to add missing memory templates
+                let hasMemoryTemplates = templates.contains { $0.name == "note-categorization-stm-ltm" }
+                if !hasMemoryTemplates {
+                    print("🔧 [PromptManager] Missing memory templates, adding them...")
+                    await addMissingMemoryTemplates()
+                }
             }
             
         } catch {
@@ -238,6 +245,148 @@ public class PromptManager: ObservableObject {
         }
         
         return results
+    }
+    
+    // MARK: - Missing Template Management
+    
+    private func addMissingMemoryTemplates() async {
+        let memoryTemplates = [
+            PromptTemplate(
+                name: "note-categorization-stm-ltm",
+                category: .memoryConsolidation,
+                description: "Analyze note content to determine STM vs LTM classification",
+                template: """
+                Analyze this note and determine its importance and longevity. 
+                Consider: personal relevance, factual content, actionability, temporal relevance, and long-term value.
+                
+                ## Note Content:
+                {content}
+                
+                ## Context (optional):
+                {context}
+                
+                ## User Patterns (optional):
+                {user_patterns}
+                
+                ## Metadata:
+                {metadata}
+                
+                Evaluate the content based on:
+                1. **Personal Relevance**: Is this personally meaningful to the user?
+                2. **Factual Content**: Does this contain important facts or knowledge?
+                3. **Actionability**: Does this require future action or reference?
+                4. **Temporal Relevance**: Is this time-sensitive or enduring?
+                5. **Uniqueness**: Is this unique information or easily recreated?
+                
+                Respond with either:
+                - "LONG_TERM: <brief reasoning>" if this should be preserved as important information
+                - "SHORT_TERM: <brief reasoning>" if this is temporary or less important
+                """,
+                requiredArguments: ["content"],
+                optionalArguments: ["context", "user_patterns", "metadata"],
+                isDefault: true,
+                tags: ["memory", "categorization", "stm", "ltm"]
+            ),
+            
+            PromptTemplate(
+                name: "stm-consolidation-decision",
+                category: .memoryConsolidation,
+                description: "Decide whether STM entries should be promoted or expired",
+                template: """
+                Analyze these short-term memory entries and decide their fate based on relevance, patterns, and retention policy.
+                
+                ## STM Entries:
+                {stm_entries}
+                
+                ## User Context:
+                {user_context}
+                
+                ## Recent Activity:
+                {recent_activity}
+                
+                ## Retention Policy:
+                {retention_policy}
+                
+                For each entry, decide:
+                1. **PROMOTE to LTM**: If valuable for long-term retention
+                2. **EXPIRE**: If no longer relevant or valuable
+                
+                Consider:
+                - Cross-references with other memories
+                - User behavioral patterns
+                - Information decay vs. value
+                - Storage optimization
+                
+                Respond with JSON format:
+                {
+                  "decisions": [
+                    {"entry_id": "uuid", "action": "PROMOTE|EXPIRE", "reasoning": "brief explanation"}
+                  ]
+                }
+                """,
+                requiredArguments: ["stm_entries"],
+                optionalArguments: ["user_context", "recent_activity", "retention_policy"],
+                isDefault: true,
+                tags: ["memory", "consolidation", "stm", "promotion"]
+            ),
+            
+            PromptTemplate(
+                name: "entity-relationship-extraction",
+                category: .entityExtraction,
+                description: "Extract entities and relationships for memory graph building",
+                template: """
+                Extract entities and relationships from this content to build the user's knowledge graph.
+                
+                ## Content:
+                {content}
+                
+                ## Existing Entities (for reference):
+                {existing_entities}
+                
+                ## Context:
+                {context}
+                
+                Extract:
+                1. **Entities**: People, places, concepts, objects, events
+                2. **Relationships**: How entities connect to each other
+                3. **Attributes**: Important properties of entities
+                
+                Return JSON format:
+                {
+                  "entities": [
+                    {"name": "EntityName", "type": "person|place|concept|event|object", "attributes": {"key": "value"}}
+                  ],
+                  "relationships": [
+                    {"from": "Entity1", "to": "Entity2", "type": "relationship_type", "strength": 0.1-1.0}
+                  ]
+                }
+                
+                Focus on meaningful, persistent entities that enhance the user's knowledge graph.
+                """,
+                requiredArguments: ["content"],
+                optionalArguments: ["existing_entities", "context"],
+                isDefault: true,
+                tags: ["entities", "relationships", "knowledge-graph", "extraction"]
+            )
+        ]
+        
+        for template in memoryTemplates {
+            // Check if template already exists
+            let exists = templates.contains { $0.name == template.name }
+            if !exists {
+                modelContext.insert(template)
+                print("🆕 [PromptManager] Added missing template: \(template.name)")
+            }
+        }
+        
+        do {
+            try modelContext.save()
+            await loadTemplates() // Reload to pick up new templates
+            print("✅ [PromptManager] Memory templates added successfully")
+        } catch {
+            print("❌ [PromptManager] Failed to save memory templates: \(error)")
+            logger.error("Failed to save memory templates: \(error)")
+        }
     }
     
     // MARK: - Default Templates

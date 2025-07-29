@@ -13,6 +13,12 @@ public final class Relationship {
     var predicateType: PredicateType
     var objectEntityId: UUID
     
+    // Convenience properties for memory context display
+    var subjectName: String
+    var objectName: String
+    var predicate: String
+    var lastConfirmed: Date
+    
     // Relationship metadata
     var confidence: Double // Confidence in relationship extraction (0.0-1.0)
     var strength: Double // Strength of the relationship (0.0-1.0)
@@ -42,6 +48,10 @@ public final class Relationship {
         self.subjectEntityId = subjectEntityId
         self.predicateType = predicateType
         self.objectEntityId = objectEntityId
+        self.subjectName = ""
+        self.objectName = ""
+        self.predicate = predicateType.rawValue
+        self.lastConfirmed = Date()
         self.confidence = 0.0
         self.strength = 0.0
         self.isValidated = false
@@ -57,6 +67,19 @@ public final class Relationship {
         self.importance = 0.0
         self.bidirectional = false
         self.weight = 1.0
+    }
+    
+    // Convenience initializer for string-based creation
+    convenience init(subjectEntityId: String, predicate: String, objectEntityId: String) {
+        // Convert string IDs to UUIDs (assuming they're valid UUID strings)
+        let subjectUUID = UUID(uuidString: subjectEntityId) ?? UUID()
+        let objectUUID = UUID(uuidString: objectEntityId) ?? UUID()
+        
+        // Find matching predicate type or default to custom
+        let predicateType = PredicateType.allCases.first { $0.rawValue == predicate } ?? .custom
+        
+        self.init(subjectEntityId: subjectUUID, predicateType: predicateType, objectEntityId: objectUUID)
+        self.predicate = predicate
     }
     
     // MARK: - Computed Properties
@@ -173,6 +196,7 @@ enum PredicateType: String, CaseIterable, Codable {
     case mentions = "mentions"
     case discusses = "discusses"
     case references = "references"
+    case custom = "custom"
     
     var description: String {
         switch self {
@@ -242,6 +266,8 @@ enum PredicateType: String, CaseIterable, Codable {
             return "discusses"
         case .references:
             return "references"
+        case .custom:
+            return "custom relationship"
         }
     }
     
@@ -261,7 +287,7 @@ enum PredicateType: String, CaseIterable, Codable {
             return "red"
         case .owns, .belongsTo, .uses, .provides:
             return "brown"
-        case .associatedWith, .mentions, .discusses, .references:
+        case .associatedWith, .mentions, .discusses, .references, .custom:
             return "gray"
         }
     }
@@ -282,7 +308,7 @@ enum PredicateType: String, CaseIterable, Codable {
             return .spatial
         case .owns, .belongsTo, .uses, .provides:
             return .ownership
-        case .associatedWith, .mentions, .discusses, .references:
+        case .associatedWith, .mentions, .discusses, .references, .custom:
             return .generic
         }
     }

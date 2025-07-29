@@ -99,7 +99,7 @@ struct VoiceMemoView: View {
         .liquidGlassNavigation()
         .sheet(isPresented: $showingNoteCreation) {
             LiquidGlassSheet {
-                NoteCreationView()
+                VoiceMemoNoteCreationView()
             }
         }
         .onAppear {
@@ -827,7 +827,7 @@ struct LiquidGlassSheet<Content: View>: View {
     }
 }
 
-struct NoteCreationView: View {
+struct VoiceMemoNoteCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     

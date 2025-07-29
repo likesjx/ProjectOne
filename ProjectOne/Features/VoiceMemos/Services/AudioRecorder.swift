@@ -47,7 +47,8 @@ class AudioRecorder: NSObject, ObservableObject {
         fetchRecordingItems()
         
         let endTime = CFAbsoluteTimeGetCurrent()
-        print("✅ [Performance] AudioRecorder initialized in \(String(format: "%.2f", endTime - startTime))s")
+        let formattedTime = String(format: "%.2f", endTime - startTime)
+        print("✅ [Performance] AudioRecorder initialized in \(formattedTime)s")
     }
     
     func setupRecording() {
@@ -85,7 +86,8 @@ class AudioRecorder: NSObject, ObservableObject {
     private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
         #if os(iOS)
         AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            print("🎤 [AudioRecorder] Microphone permission: \(granted ? "✅ Granted" : "❌ Denied")")
+            let status = granted ? "✅ Granted" : "❌ Denied"
+            print("🎤 [AudioRecorder] Microphone permission: \(status)")
             completion(granted)
         }
         #else
@@ -153,6 +155,11 @@ class AudioRecorder: NSObject, ObservableObject {
             AVEncoderBitRateKey: 128000 // 128 kbps for good quality/size balance
         ]
         
+        print("🎤 [Debug] === RECORDING CONFIGURATION ===")
+        print("🎤 [Debug] Recording settings: \(settings)")
+        print("🎤 [Debug] Target filename: \(audioFilename.lastPathComponent)")
+        print("🎤 [Debug] Target path: \(audioFilename.path)")
+        
         do {
             print("🎤 [Debug] Creating AVAudioRecorder with settings: \(settings)")
             audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
@@ -178,6 +185,25 @@ class AudioRecorder: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 self.isRecording = true
                 print("🎤 [Debug] isRecording set to true on main thread")
+            }
+            
+            // Monitor recording levels for debugging
+            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+                if !self.isRecording {
+                    timer.invalidate()
+                    return
+                }
+                
+                recorder.updateMeters()
+                let averagePower = recorder.averagePower(forChannel: 0)
+                let peakPower = recorder.peakPower(forChannel: 0)
+                print("🎙️ [Debug] Recording levels - Average: \(averagePower) dB, Peak: \(peakPower) dB")
+                
+                if averagePower < -60.0 && peakPower < -60.0 {
+                    print("⚠️ [Warning] Very low audio levels during recording - possible microphone issue")
+                } else if averagePower > -30.0 {
+                    print("✅ [Debug] Good audio levels detected during recording")
+                }
             }
             
             // Start real-time transcription simulation
@@ -209,8 +235,73 @@ class AudioRecorder: NSObject, ObservableObject {
         transcriptionTimer?.invalidate()
         transcriptionTimer = nil
         
-        // Get the last recorded file and transcribe it
+        // Get the last recorded file and validate it immediately
         if let lastRecordingURL = audioRecorder?.url {
+            print("🛑 [Debug] === POST-RECORDING VALIDATION ===")
+            print("🛑 [Debug] Recorded file URL: \(lastRecordingURL.path)")
+            
+            // Immediate file validation after recording stops
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { // Give recording time to finalize
+                print("🔍 [Debug] === IMMEDIATE FILE VALIDATION ===")
+                print("🔍 [Debug] File exists after recording: \(FileManager.default.fileExists(atPath: lastRecordingURL.path))")
+                
+                if let fileAttributes = try? FileManager.default.attributesOfItem(atPath: lastRecordingURL.path) {
+                    let fileSize = fileAttributes[.size] as? Int64 ?? 0
+                    print("🔍 [Debug] File size immediately after recording: \(fileSize) bytes")
+                    
+                    if fileSize == 0 {
+                        print("❌ [Error] Recording resulted in empty file!")
+                    } else if fileSize < 1000 {
+                        print("⚠️ [Warning] Recording resulted in very small file (\(fileSize) bytes)")
+                    } else {
+                        print("✅ [Debug] Recording file size looks reasonable")
+                    }
+                } else {
+                    print("❌ [Error] Cannot read file attributes immediately after recording")
+                }
+                
+                // Try to read raw file data immediately after recording
+                do {
+                    let rawData = try Data(contentsOf: lastRecordingURL)
+                    print("🔍 [Debug] Raw file data size after recording: \(rawData.count) bytes")
+                    
+                    if rawData.count > 0 {
+                        let nonZeroBytes = rawData.filter { $0 != 0 }.count
+                        let percentage = Float(nonZeroBytes)/Float(rawData.count)*100
+                        print("🔍 [Debug] Non-zero bytes in recorded file: \(nonZeroBytes)/\(rawData.count) (\(percentage)%)")
+                        
+                        if nonZeroBytes == 0 {
+                            print("❌ [Error] Recorded file contains only zero bytes!")
+                        } else {
+                            print("✅ [Debug] Recorded file contains audio data")
+                            
+                            // Show first few bytes of recorded file
+                            let firstBytes = Array(rawData.prefix(16))
+                            let hexString = firstBytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+                            print("🔍 [Debug] First 16 bytes of recorded file: \(hexString)")
+                        }
+                    }
+                } catch {
+                    print("❌ [Error] Cannot read recorded file data: \(error.localizedDescription)")
+                }
+                
+                // Try to load with AVAudioFile immediately after recording
+                do {
+                    let audioFile = try AVAudioFile(forReading: lastRecordingURL)
+                    print("🔍 [Debug] AVAudioFile loaded successfully after recording")
+                    print("🔍 [Debug] Audio file length: \(audioFile.length) frames")
+                    print("🔍 [Debug] Audio file format: \(audioFile.fileFormat)")
+                    
+                    if audioFile.length == 0 {
+                        print("❌ [Error] AVAudioFile reports 0 frames immediately after recording!")
+                    } else {
+                        print("✅ [Debug] AVAudioFile contains \(audioFile.length) frames after recording")
+                    }
+                } catch {
+                    print("❌ [Error] Cannot load recorded file with AVAudioFile: \(error.localizedDescription)")
+                }
+            }
+            
             print("🛑 [Debug] Starting transcription for: \(lastRecordingURL.lastPathComponent)")
             
             // Create recording item for the new recording
@@ -361,23 +452,183 @@ class AudioRecorder: NSObject, ObservableObject {
         do {
             print("🎤 [Debug] Loading audio data and creating AudioData object")
             
+            // First, validate the file exists and has content
+            print("🔍 [Debug] === FILE VALIDATION ===")
+            print("🔍 [Debug] File path: \(url.path)")
+            print("🔍 [Debug] File exists: \(FileManager.default.fileExists(atPath: url.path))")
+            
+            if let fileAttributes = try? FileManager.default.attributesOfItem(atPath: url.path) {
+                let fileSize = fileAttributes[.size] as? Int64 ?? 0
+                print("🔍 [Debug] File size: \(fileSize) bytes")
+                
+                if fileSize == 0 {
+                    print("❌ [Error] Audio file is empty (0 bytes)!")
+                    throw SpeechTranscriptionError.processingFailed("Audio file is empty")
+                } else if fileSize < 1000 {
+                    print("⚠️ [Warning] Audio file is very small (\(fileSize) bytes) - likely silent or corrupt")
+                }
+            } else {
+                print("❌ [Error] Cannot read file attributes")
+            }
+            
+            // Try to read raw file data first to validate
+            print("🔍 [Debug] === RAW FILE DATA VALIDATION ===")
+            do {
+                let rawData = try Data(contentsOf: url)
+                print("🔍 [Debug] Raw file data size: \(rawData.count) bytes")
+                
+                if rawData.count == 0 {
+                    print("❌ [Error] Raw file data is empty!")
+                    throw SpeechTranscriptionError.processingFailed("Audio file contains no data")
+                }
+                
+                // Check if file is all zeros (silent)
+                let nonZeroBytes = rawData.filter { $0 != 0 }.count
+                let percentage = Float(nonZeroBytes)/Float(rawData.count)*100
+                print("🔍 [Debug] Non-zero bytes in file: \(nonZeroBytes)/\(rawData.count) (\(percentage)%)")
+                
+                if nonZeroBytes == 0 {
+                    print("❌ [Error] Audio file contains only zero bytes - completely silent!")
+                    throw SpeechTranscriptionError.processingFailed("Audio file is completely silent")
+                } else if nonZeroBytes < rawData.count / 100 {
+                    print("⚠️ [Warning] Audio file is mostly zeros (less than 1% non-zero data)")
+                }
+                
+                // Show first few bytes for format debugging
+                let firstBytes = Array(rawData.prefix(16))
+                let hexString = firstBytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+                print("🔍 [Debug] First 16 bytes of file: \(hexString)")
+                
+            } catch {
+                print("❌ [Error] Failed to read raw file data: \(error.localizedDescription)")
+                throw SpeechTranscriptionError.processingFailed("Cannot read audio file data")
+            }
+            
             // Load audio file as AVAudioFile
+            print("🔍 [Debug] === AVAUDIOFILE LOADING ===")
             let audioFile = try AVAudioFile(forReading: url)
             
             // Always use the processing format for PCM buffer creation (converts AAC to PCM)
             let audioFormat = audioFile.processingFormat // This converts AAC to Float32 PCM
             let frameCount = UInt32(audioFile.length)
             
+            print("🎤 [Debug] AVAudioFile loaded successfully")
             print("🎤 [Debug] File format: \(audioFile.fileFormat)")
             print("🎤 [Debug] Processing format: \(audioFormat)")
             print("🎤 [Debug] Processing format isStandard: \(audioFormat.isStandard)")
             print("🎤 [Debug] Processing format commonFormat: \(audioFormat.commonFormat.rawValue)")
+            print("🎤 [Debug] Audio file length: \(audioFile.length) frames")
+            print("🎤 [Debug] Frame count for buffer: \(frameCount)")
+            
+            if audioFile.length == 0 {
+                print("❌ [Error] AVAudioFile reports 0 frames - file contains no audio data!")
+                throw SpeechTranscriptionError.processingFailed("Audio file contains no audio frames")
+            }
             
             guard let audioBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount) else {
+                print("❌ [Error] Failed to create AVAudioPCMBuffer with format: \(audioFormat)")
                 throw SpeechTranscriptionError.audioFormatUnsupported
             }
             
-            try audioFile.read(into: audioBuffer)
+            // Read audio file with detailed validation
+            print("🔍 [Debug] === AUDIO FILE READING ===")
+            print("🔍 [Debug] Reading audio file into buffer...")
+            print("🔍 [Debug] Buffer capacity: \(audioBuffer.frameCapacity) frames")
+            
+            let bytesRead = try audioFile.read(into: audioBuffer)
+            print("🔍 [Debug] AVAudioFile.read() completed")
+            print("🔍 [Debug] Bytes read from file: \(bytesRead)")
+            print("🔍 [Debug] Buffer frame length after read: \(audioBuffer.frameLength)")
+            
+            if audioBuffer.frameLength == 0 {
+                print("❌ [Error] AVAudioFile.read() produced empty buffer!")
+                throw SpeechTranscriptionError.processingFailed("Audio file read produced no audio data")
+            }
+            
+            // Validate audio content immediately after reading
+            print("🔍 [Debug] === AUDIO CONTENT VALIDATION ===")
+            if let channelData = audioBuffer.floatChannelData {
+                let samples = Array(UnsafeBufferPointer(start: channelData[0], count: Int(audioBuffer.frameLength)))
+                let maxAmplitude = samples.map(abs).max() ?? 0.0
+                let avgAmplitude = samples.map(abs).reduce(0, +) / Float(samples.count)
+                let nonZeroSamples = samples.filter { abs($0) > 0.001 }.count
+                let significantSamples = samples.filter { abs($0) > 0.01 }.count
+                
+                print("🔊 [Debug] Audio content validation after file read:")
+                print("🔊 [Debug]   - Total samples: \(samples.count)")
+                print("🔊 [Debug]   - Max amplitude: \(maxAmplitude)")
+                print("🔊 [Debug]   - Avg amplitude: \(avgAmplitude)")
+                let nonZeroPercentage = Float(nonZeroSamples)/Float(samples.count)*100
+                let significantPercentage = Float(significantSamples)/Float(samples.count)*100
+                print("🔊 [Debug]   - Non-zero samples: \(nonZeroSamples)/\(samples.count) (\(nonZeroPercentage)%)")
+                print("🔊 [Debug]   - Significant samples (>0.01): \(significantSamples)/\(samples.count) (\(significantPercentage)%)")
+                print("🔊 [Debug]   - First 10 samples: \(Array(samples.prefix(10)))")
+                print("🔊 [Debug]   - Last 10 samples: \(Array(samples.suffix(10)))")
+                
+                if maxAmplitude < 0.001 {
+                    print("❌ [Error] Audio buffer is completely silent after AVAudioFile.read()!")
+                    print("🔍 [Debug] This indicates the issue is in AVAudioFile format conversion or the source file is silent")
+                    
+                    // Try reading with different approach - use fileFormat instead of processingFormat
+                    print("🔄 [Debug] Attempting alternative read with fileFormat...")
+                    
+                    guard let alternativeBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.fileFormat, frameCapacity: frameCount) else {
+                        print("❌ [Debug] Cannot create buffer with fileFormat")
+                        throw SpeechTranscriptionError.processingFailed("Audio file read resulted in silent buffer")
+                    }
+                    
+                    // Reset file position and try reading with original format
+                    audioFile.framePosition = 0
+                    let altBytesRead = try audioFile.read(into: alternativeBuffer)
+                    print("🔄 [Debug] Alternative read: \(altBytesRead) frames, buffer length: \(alternativeBuffer.frameLength)")
+                    
+                    // Check if alternative approach has audio content
+                    if let altChannelData = alternativeBuffer.floatChannelData {
+                        let altSamples = Array(UnsafeBufferPointer(start: altChannelData[0], count: Int(alternativeBuffer.frameLength)))
+                        let altMaxAmplitude = altSamples.map(abs).max() ?? 0.0
+                        print("🔄 [Debug] Alternative read max amplitude: \(altMaxAmplitude)")
+                        
+                        if altMaxAmplitude > 0.001 {
+                            print("✅ [Debug] Alternative read has audio content! Issue is in processingFormat conversion")
+                            // Continue with alternative buffer
+                        } else {
+                            print("❌ [Debug] Alternative read is also silent - source file is truly silent")
+                            throw SpeechTranscriptionError.processingFailed("Audio file contains no audible content")
+                        }
+                    } else {
+                        print("❌ [Debug] Cannot access alternative buffer channel data")
+                        throw SpeechTranscriptionError.processingFailed("Audio file read resulted in silent buffer")
+                    }
+                }
+            } else {
+                print("❌ [Error] Cannot access float channel data after file read")
+                
+                // Try alternative channel data types
+                if let int16Data = audioBuffer.int16ChannelData {
+                    print("🔄 [Debug] Trying int16 channel data instead...")
+                    let samples = Array(UnsafeBufferPointer(start: int16Data[0], count: Int(audioBuffer.frameLength)))
+                    let maxValue = samples.map(abs).max() ?? 0
+                    print("🔄 [Debug] Int16 audio max value: \(maxValue)")
+                    
+                    if maxValue == 0 {
+                        print("❌ [Error] Int16 audio data is also silent")
+                        throw SpeechTranscriptionError.processingFailed("Audio file read resulted in silent buffer")
+                    }
+                } else if let int32Data = audioBuffer.int32ChannelData {
+                    print("🔄 [Debug] Trying int32 channel data instead...")
+                    let samples = Array(UnsafeBufferPointer(start: int32Data[0], count: Int(audioBuffer.frameLength)))
+                    let maxValue = samples.map(abs).max() ?? 0
+                    print("🔄 [Debug] Int32 audio max value: \(maxValue)")
+                    
+                    if maxValue == 0 {
+                        print("❌ [Error] Int32 audio data is also silent")
+                        throw SpeechTranscriptionError.processingFailed("Audio file read resulted in silent buffer")
+                    }
+                } else {
+                    print("❌ [Error] Cannot access any channel data type")
+                    throw SpeechTranscriptionError.processingFailed("Cannot access audio buffer data")
+                }
+            }
             
             // Create AudioData object
             let duration = Double(audioFile.length) / audioFormat.sampleRate
@@ -390,11 +641,25 @@ class AudioRecorder: NSObject, ObservableObject {
                 enablePartialResults: false
             )
             
-            print("🎤 [Debug] Calling speechEngineFactory.transcribe()")
+            print("🎤 [Debug] === STARTING TRANSCRIPTION PROCESS ===")
+            print("🎤 [Debug] Calling speechEngineFactory.transcribe() with timeout protection")
             
-            // Add timeout wrapper for the entire transcription process
+            // Add comprehensive error handling wrapper for the transcription process
             let transcriptionTask = Task {
-                try await speechEngineFactory.transcribe(audio: audioData, configuration: configuration)
+                do {
+                    print("🎤 [Debug] About to call speechEngineFactory.transcribe()...")
+                    let result = try await speechEngineFactory.transcribe(audio: audioData, configuration: configuration)
+                    print("🎤 [Debug] speechEngineFactory.transcribe() completed successfully")
+                    return result
+                } catch {
+                    print("🎤 [Error] speechEngineFactory.transcribe() failed: \(error)")
+                    print("🎤 [Error] Error type: \(type(of: error))")
+                    if let nsError = error as NSError? {
+                        print("🎤 [Error] NSError domain: \(nsError.domain), code: \(nsError.code)")
+                        print("🎤 [Error] NSError userInfo: \(nsError.userInfo)")
+                    }
+                    throw error
+                }
             }
             
             let timeoutDuration: TimeInterval = 180.0 // 3 minutes total timeout

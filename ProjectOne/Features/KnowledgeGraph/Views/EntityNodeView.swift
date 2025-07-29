@@ -176,12 +176,16 @@ struct EntityTypeIndicator: View {
                 PersonIndicator(size: size)
             case .organization:
                 OrganizationIndicator(size: size)
-            case .location:
+            case .location, .place:
                 LocationIndicator(size: size)
             case .activity:
                 ActivityIndicator(size: size)
             case .concept:
                 ConceptIndicator(size: size)
+            case .event:
+                ActivityIndicator(size: size) // Reuse activity indicator for events
+            case .thing:
+                ConceptIndicator(size: size) // Reuse concept indicator for things
             }
         }
     }

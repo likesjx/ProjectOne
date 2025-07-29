@@ -228,32 +228,53 @@ public class SpeechEngineFactory {
     
     /// Perform transcription with automatic fallback and retry logic
     public func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult {
+        logger.info("🎤 [SpeechEngineFactory] === STARTING TRANSCRIPTION REQUEST ===")
+        logger.info("🎤 [SpeechEngineFactory] Audio duration: \(audio.duration)s, format: \(audio.format)")
+        logger.info("🎤 [SpeechEngineFactory] Configuration: language=\(configuration.language ?? "default"), onDevice=\(configuration.requiresOnDeviceRecognition)")
+        
         var lastError: Error?
         let maxRetries = 3
         
         // Try primary engine with retries
         for attempt in 1...maxRetries {
             do {
+                logger.info("🎤 [SpeechEngineFactory] === ATTEMPT \(attempt)/\(maxRetries) ===")
+                
+                logger.info("🎤 [SpeechEngineFactory] Getting transcription engine...")
                 let engine = try await getTranscriptionEngine()
-                logger.info("Attempting transcription with \(engine.method.displayName) (attempt \(attempt)/\(maxRetries))")
+                logger.info("🎤 [SpeechEngineFactory] ✅ Got engine: \(engine.method.displayName)")
+                logger.info("🎤 [SpeechEngineFactory] Engine available: \(engine.isAvailable)")
                 
-                let result = try await engine.transcribe(audio: audio, configuration: configuration)
+                logger.info("🎤 [SpeechEngineFactory] Starting transcription with \(engine.method.displayName) (attempt \(attempt)/\(maxRetries))")
                 
-                // Validate result quality
-                if isResultValid(result) {
-                    logger.info("Transcription successful with \(engine.method.displayName)")
+                do {
+                    let result = try await engine.transcribe(audio: audio, configuration: configuration)
+                    logger.info("🎤 [SpeechEngineFactory] ✅ Transcription completed with \(engine.method.displayName)")
                     
-                    // Clear any previous error and notify of recovery if needed
-                    if lastError != nil {
-                        notifyStatusChange(.engineRecovered(method: engine.method))
-                        lastError = nil
+                    // Validate result quality
+                    if isResultValid(result) {
+                        logger.info("🎤 [SpeechEngineFactory] ✅ Result validation passed")
+                        logger.info("🎤 [SpeechEngineFactory] Final result: '\(String(result.text.prefix(50)))...', confidence: \(result.confidence)")
+                        
+                        // Clear any previous error and notify of recovery if needed
+                        if lastError != nil {
+                            notifyStatusChange(.engineRecovered(method: engine.method))
+                            lastError = nil
+                        }
+                        
+                        return result
+                    } else {
+                        logger.warning("🎤 [SpeechEngineFactory] ❌ Low quality result from \(engine.method.displayName), retrying...")
+                        lastError = SpeechTranscriptionError.lowQualityResult
+                        continue
                     }
-                    
-                    return result
-                } else {
-                    logger.warning("Low quality result from \(engine.method.displayName), retrying...")
-                    lastError = SpeechTranscriptionError.lowQualityResult
-                    continue
+                } catch {
+                    logger.error("🎤 [SpeechEngineFactory] ❌ Engine \(engine.method.displayName) transcription failed: \(error)")
+                    logger.error("🎤 [SpeechEngineFactory] Error type: \(type(of: error))")
+                    if let nsError = error as NSError? {
+                        logger.error("🎤 [SpeechEngineFactory] NSError domain: \(nsError.domain), code: \(nsError.code)")
+                    }
+                    throw error // Re-throw to be caught by outer catch
                 }
                 
             } catch {
@@ -628,25 +649,126 @@ public class SpeechEngineFactory {
         return true
     }
     
-    /// Create SpeechAnalyzer engine for iOS 26.0+
+    /// Create SpeechAnalyzer engine for iOS 26.0+ with automatic fallback
     @available(iOS 26.0, macOS 26.0, *)
     private func createSpeechAnalyzerEngine() async throws -> SpeechTranscriptionProtocol {
-        logger.info("Creating real Apple SpeechAnalyzer transcription engine for iOS/macOS 26+")
+        logger.info("🎤 [SpeechEngineFactory] === CREATING SPEECHANALYZER ENGINE ===")
+        logger.info("🎤 [SpeechEngineFactory] Attempting to create Apple SpeechAnalyzer transcription engine for iOS/macOS 26+")
         
         // Determine optimal locale
         let locale: Locale
         if let preferredLanguage = configuration.preferredLanguage {
             locale = Locale(identifier: preferredLanguage)
+            logger.info("🎤 [SpeechEngineFactory] Using preferred language: \(preferredLanguage)")
         } else {
             locale = Locale.current
+            logger.info("🎤 [SpeechEngineFactory] Using current locale: \(locale.identifier)")
         }
         
-        // Create real SpeechAnalyzer transcriber for iOS/macOS 26+
-        let transcriber = try SpeechAnalyzerTranscriber(locale: locale)
-        try await transcriber.prepare()
-        
-        logger.info("Real Apple SpeechAnalyzer created successfully for iOS/macOS 26+")
-        return transcriber
+        do {
+            // Try to create SpeechAnalyzer first
+            logger.info("🎤 [SpeechEngineFactory] Checking SpeechAnalyzer model availability for locale: \(locale.identifier)")
+            
+            logger.info("🎤 [SpeechEngineFactory] Creating SpeechAnalyzerTranscriber...")
+            let transcriber = try SpeechAnalyzerTranscriber(locale: locale)
+            logger.info("🎤 [SpeechEngineFactory] ✅ SpeechAnalyzerTranscriber created, now preparing...")
+            
+            try await transcriber.prepare()
+            logger.info("🎤 [SpeechEngineFactory] ✅ SpeechAnalyzerTranscriber preparation completed")
+            
+            logger.info("🎤 [SpeechEngineFactory] ✅ SpeechAnalyzer created successfully for iOS/macOS 26+")
+            return transcriber
+            
+        } catch {
+            logger.warning("🎤 [SpeechEngineFactory] ❌ SpeechAnalyzer failed to initialize: \(error.localizedDescription)")
+            logger.warning("🎤 [SpeechEngineFactory] Error type: \(type(of: error))")
+            
+            // Check if this is a model availability or locale support error
+            let errorMessage = error.localizedDescription
+            let isModelError = errorMessage.contains("Model not available") || 
+                             errorMessage.contains("OfflineTranscription") ||
+                             errorMessage.contains("SFSpeechErrorDomain") ||
+                             errorMessage.contains("SpeechTranscriber initialized with unsupported locale") ||
+                             errorMessage.contains("unallocated locales") ||
+                             errorMessage.contains("Currently allocated locales are []")
+            
+            // Also check NSError domain and code for SpeechAnalyzer errors
+            if let nsError = error as NSError? {
+                logger.info("🔍 Error domain: \(nsError.domain), code: \(nsError.code)")
+                
+                // SFSpeechErrorDomain code 4 is unsupported locale
+                if nsError.domain == "SFSpeechErrorDomain" && nsError.code == 4 {
+                    logger.info("🔄 SpeechAnalyzer locale unsupported (SFSpeechErrorDomain code 4), falling back to Apple Speech Recognition")
+                    
+                    // Convert locale back to standard format for Apple Speech (underscores -> hyphens)
+                    let standardLocaleIdentifier = locale.identifier.replacingOccurrences(of: "_", with: "-")
+                    let standardLocale = Locale(identifier: standardLocaleIdentifier)
+                    logger.info("🔄 Converting locale from '\(locale.identifier)' to '\(standardLocale.identifier)' for Apple Speech")
+                    
+                    // Fall back to traditional Apple Speech with error handling
+                    do {
+                        logger.info("🔧 Creating AppleSpeechTranscriber for fallback...")
+                        let fallbackTranscriber = try AppleSpeechTranscriber(locale: standardLocale)
+                        logger.info("✅ AppleSpeechTranscriber created, preparing...")
+                        try await fallbackTranscriber.prepare()
+                        logger.info("✅ Fallback to Apple Speech Recognition successful")
+                        return fallbackTranscriber
+                    } catch {
+                        logger.error("❌ Fallback to Apple Speech also failed: \(error.localizedDescription)")
+                        // Try one more time with absolute fallback to en-US
+                        logger.info("🔄 Last resort: trying absolute fallback to en-US")
+                        let absoluteFallback = try AppleSpeechTranscriber(locale: Locale(identifier: "en-US"))
+                        try await absoluteFallback.prepare()
+                        logger.info("✅ Absolute fallback to en-US successful")
+                        return absoluteFallback
+                    }
+                }
+            }
+            
+            if isModelError {
+                logger.info("🔄 SpeechAnalyzer model/locale unavailable, falling back to Apple Speech Recognition")
+                
+                // Convert locale back to standard format for Apple Speech (underscores -> hyphens)
+                let standardLocaleIdentifier = locale.identifier.replacingOccurrences(of: "_", with: "-")
+                let standardLocale = Locale(identifier: standardLocaleIdentifier)
+                logger.info("🔄 Converting locale from '\(locale.identifier)' to '\(standardLocale.identifier)' for Apple Speech")
+                
+                // Fall back to traditional Apple Speech with error handling
+                do {
+                    logger.info("🎤 [SpeechEngineFactory] 🔧 === FALLBACK TO APPLE SPEECH ===")
+                    logger.info("🎤 [SpeechEngineFactory] Creating AppleSpeechTranscriber for fallback with locale: \(standardLocale.identifier)")
+                    
+                    let fallbackTranscriber = try AppleSpeechTranscriber(locale: standardLocale)
+                    logger.info("🎤 [SpeechEngineFactory] ✅ AppleSpeechTranscriber created, now preparing...")
+                    
+                    try await fallbackTranscriber.prepare()
+                    logger.info("🎤 [SpeechEngineFactory] ✅ AppleSpeechTranscriber preparation completed")
+                    logger.info("🎤 [SpeechEngineFactory] ✅ Fallback to Apple Speech Recognition successful")
+                    return fallbackTranscriber
+                } catch {
+                    logger.error("🎤 [SpeechEngineFactory] ❌ Fallback to Apple Speech also failed: \(error.localizedDescription)")
+                    logger.error("🎤 [SpeechEngineFactory] Apple Speech fallback error type: \(type(of: error))")
+                    // Try one more time with absolute fallback to en-US
+                    logger.info("🎤 [SpeechEngineFactory] 🔄 Last resort: trying absolute fallback to en-US")
+                    
+                    do {
+                        let absoluteFallback = try AppleSpeechTranscriber(locale: Locale(identifier: "en-US"))
+                        logger.info("🎤 [SpeechEngineFactory] ✅ Absolute fallback transcriber created, preparing...")
+                        try await absoluteFallback.prepare()
+                        logger.info("🎤 [SpeechEngineFactory] ✅ Absolute fallback to en-US successful")
+                        return absoluteFallback
+                    } catch {
+                        logger.error("🎤 [SpeechEngineFactory] ❌ Even absolute fallback failed: \(error.localizedDescription)")
+                        throw error
+                    }
+                }
+                
+            } else {
+                // For other errors, rethrow
+                logger.error("💥 SpeechAnalyzer failed with non-model error, rethrowing")
+                throw error
+            }
+        }
     }
 }
 

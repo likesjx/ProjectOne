@@ -50,29 +50,58 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
     // MARK: - Initialization
     
     public init(locale: Locale = Locale(identifier: "en-US")) throws {
+        logger.info("🔧 Initializing AppleSpeechTranscriber with locale: \(locale.identifier)")
+        
         self.locale = locale
         
+        // Validate locale before creating recognizer
+        logger.info("🔍 Validating locale: \(locale.identifier)")
+        
+        // Try to create SFSpeechRecognizer with safety checks
         guard let recognizer = SFSpeechRecognizer(locale: locale) else {
-            throw SpeechTranscriptionError.configurationInvalid
+            logger.error("❌ Failed to create SFSpeechRecognizer for locale: \(locale.identifier)")
+            
+            // Try with default locale as fallback
+            logger.info("🔄 Attempting fallback to default locale")
+            guard let fallbackRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US")) else {
+                logger.error("❌ Failed to create SFSpeechRecognizer even with en-US locale")
+                throw SpeechTranscriptionError.configurationInvalid
+            }
+            self.speechRecognizer = fallbackRecognizer
+            logger.info("✅ Created SFSpeechRecognizer with fallback locale: en-US")
+            super.init()
+            self.speechRecognizer.delegate = self
+            return
         }
         
         self.speechRecognizer = recognizer
+        logger.info("✅ SFSpeechRecognizer created successfully for locale: \(locale.identifier)")
+        
         super.init()
         
+        // Set delegate after super.init() to avoid potential crashes
         speechRecognizer.delegate = self
         
-        logger.info("AppleSpeechTranscriber initialized with locale: \(locale.identifier)")
-        logger.info("On-device recognition supported: \(self.speechRecognizer.supportsOnDeviceRecognition)")
+        logger.info("✅ AppleSpeechTranscriber initialized with locale: \(locale.identifier)")
+        logger.info("📡 On-device recognition supported: \(self.speechRecognizer.supportsOnDeviceRecognition)")
+        logger.info("📡 Recognizer is available: \(self.speechRecognizer.isAvailable)")
     }
     
     // MARK: - Protocol Methods
     
     public func prepare() async throws {
-        logger.info("Preparing Apple Speech transcriber")
+        logger.info("🚀 Preparing Apple Speech transcriber")
+        
+        // Safety check - ensure recognizer is still valid
+        logger.info("🔍 Verifying speech recognizer is still valid after initialization")
         
         // Request authorization if needed
+        logger.info("🔐 Checking speech recognition authorization")
         let authStatus = SFSpeechRecognizer.authorizationStatus()
+        logger.info("📡 Current authorization status: \(authStatus.rawValue)")
+        
         if authStatus != .authorized {
+            logger.info("🔓 Requesting speech recognition authorization")
             let status = await withCheckedContinuation { continuation in
                 SFSpeechRecognizer.requestAuthorization { status in
                     continuation.resume(returning: status)
@@ -80,18 +109,24 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
             }
             
             guard status == .authorized else {
-                logger.error("Speech recognition authorization denied: \(status.rawValue)")
+                logger.error("❌ Speech recognition authorization denied: \(status.rawValue)")
                 throw SpeechTranscriptionError.permissionDenied
             }
+            logger.info("✅ Speech recognition authorization granted")
+        } else {
+            logger.info("✅ Speech recognition already authorized")
         }
         
-        // Verify recognizer is available
+        // Verify recognizer is available with safety check
+        logger.info("🔍 Checking if speech recognizer is available")
         guard speechRecognizer.isAvailable else {
-            logger.error("Speech recognizer not available")
+            logger.error("❌ Speech recognizer not available for locale: \(self.locale.identifier)")
+            logger.error("📡 Recognizer state: delegate=\(self.speechRecognizer.delegate != nil), locale=\(self.speechRecognizer.locale.identifier)")
             throw SpeechTranscriptionError.modelUnavailable
         }
         
-        logger.info("Apple Speech transcriber prepared successfully")
+        logger.info("✅ Apple Speech transcriber prepared successfully")
+        logger.info("📡 Final state: available=\(self.speechRecognizer.isAvailable), on-device=\(self.speechRecognizer.supportsOnDeviceRecognition)")
     }
     
     public func cleanup() async {
@@ -227,7 +262,7 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
                 }
             }
             
-            recognitionTask = speechRecognizer.recognitionTask(with: request) { result, error in
+            recognitionTask = speechRecognizer.recognitionTask(with: request) { [self] result, error in
                 if hasReturned { return }
                 
                 if let error = error {
@@ -335,7 +370,7 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
             segments: segments,
             processingTime: processingTime,
             method: method,
-            language: locale.identifier
+            language: self.locale.identifier
         )
     }
     

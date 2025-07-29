@@ -64,6 +64,7 @@ public class PrivacyAnalyzer {
         let riskFactors: [String]
         let confidence: Double
         let requiresOnDevice: Bool
+        let requiresFiltering: Bool
         
         public init(level: PrivacyLevel, personalIndicators: [String] = [], sensitiveEntities: [String] = [], riskFactors: [String] = [], confidence: Double = 1.0) {
             self.level = level
@@ -72,6 +73,7 @@ public class PrivacyAnalyzer {
             self.riskFactors = riskFactors
             self.confidence = confidence
             self.requiresOnDevice = level.requiresOnDevice
+            self.requiresFiltering = level != .publicKnowledge
         }
     }
     

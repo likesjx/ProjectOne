@@ -23,7 +23,6 @@ public class MemoryAgentModelProvider {
     
     private var externalProviderFactory: ExternalProviderFactory?
     private var appleFoundationProvider: AppleFoundationModelsProvider?
-    private var workingMLXProvider: WorkingMLXProvider?
     private var providerHealth: [String: ProviderHealthStatus] = [:]
     
     // MARK: - Configuration
@@ -82,18 +81,6 @@ public class MemoryAgentModelProvider {
         logger.info("Registered Apple Foundation Models provider")
     }
     
-    /// Register WorkingMLXProvider
-    public func registerWorkingMLXProvider(_ provider: WorkingMLXProvider) {
-        self.workingMLXProvider = provider
-        providerHealth["working_mlx"] = ProviderHealthStatus(
-            isHealthy: true,
-            lastSuccessfulResponse: nil,
-            consecutiveFailures: 0,
-            averageResponseTime: 2.0, // Local MLX processing
-            errorRate: 0.0
-        )
-        logger.info("Registered WorkingMLXProvider")
-    }
     
     /// Initialize all registered providers
     public func initializeProviders() async throws {
@@ -101,15 +88,18 @@ public class MemoryAgentModelProvider {
         
         var hasHealthyProvider = false
         
+        // Wait for Apple Foundation Models to be ready
+        if #available(iOS 26.0, macOS 26.0, *), appleFoundationProvider != nil {
+            logger.info("Waiting for Apple Foundation Models to be ready...")
+            // Give Apple Foundation Models time to initialize
+            try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        }
+        
         // Initialize external providers through factory
         if let factory = externalProviderFactory {
-            do {
-                await factory.configureFromSettings()
-                logger.info("External providers initialized successfully")
-                hasHealthyProvider = true
-            } catch {
-                logger.error("Failed to initialize external providers: \(error.localizedDescription)")
-            }
+            await factory.configureFromSettings()
+            logger.info("External providers initialized successfully")
+            hasHealthyProvider = true
         }
         
         // Initialize Apple Foundation Models if available
@@ -130,22 +120,6 @@ public class MemoryAgentModelProvider {
             }
         }
         
-        // Initialize WorkingMLXProvider if available
-        if let workingMLX = workingMLXProvider {
-            if workingMLX.isMLXSupported {
-                logger.info("WorkingMLXProvider initialized successfully")
-                hasHealthyProvider = true
-            } else {
-                logger.warning("WorkingMLXProvider not supported on this device")
-                providerHealth["working_mlx"] = ProviderHealthStatus(
-                    isHealthy: false,
-                    lastSuccessfulResponse: nil,
-                    consecutiveFailures: 1,
-                    averageResponseTime: 2.0,
-                    errorRate: 1.0
-                )
-            }
-        }
         
         if !hasHealthyProvider {
             throw MemoryAgentError.noAIProvidersAvailable
@@ -174,7 +148,6 @@ public class MemoryAgentModelProvider {
         
         externalProviderFactory = nil
         appleFoundationProvider = nil
-        workingMLXProvider = nil
         providerHealth.removeAll()
     }
     
@@ -182,16 +155,14 @@ public class MemoryAgentModelProvider {
     
     /// Generate AI response with intelligent provider selection and fallback
     public func generateResponse(prompt: String, context: MemoryContext) async throws -> AIModelResponse {
-        logger.debug("Generating response for prompt: \(prompt.prefix(50))...")
-        
         // 1. Optimize and validate context
         let optimizedContext = try await contextManager.optimize(context)
         
         // 2. Determine selection criteria based on context
         let criteria = buildSelectionCriteria(for: optimizedContext)
         
-        // 3. Generate with provider selection and fallback
-        let response = try await generateWithFallback(
+        // 3. Generate with provider selection and fallback (with retry for model loading)
+        let response = try await generateWithRetry(
             prompt: prompt,
             context: optimizedContext,
             criteria: criteria
@@ -200,8 +171,46 @@ public class MemoryAgentModelProvider {
         // 4. Post-process response
         let processedResponse = await responseProcessor.process(response, context: optimizedContext)
         
-        logger.info("Response generated successfully using \(processedResponse.modelUsed)")
         return processedResponse
+    }
+    
+    /// Generate response with retry logic for model loading
+    private func generateWithRetry(
+        prompt: String,
+        context: MemoryContext,
+        criteria: ModelSelectionCriteria,
+        maxRetries: Int = 3
+    ) async throws -> AIModelResponse {
+        var lastError: Error?
+        
+        for attempt in 1...maxRetries {
+            do {
+                return try await generateWithFallback(
+                    prompt: prompt,
+                    context: context,
+                    criteria: criteria
+                )
+            } catch {
+                lastError = error
+                let errorDescription = error.localizedDescription
+                
+                // If it's a model loading issue, wait and retry
+                if errorDescription.contains("Model not loaded") || errorDescription.contains("not ready") {
+                    logger.warning("Models not ready on attempt \(attempt), waiting and retrying...")
+                    if attempt < maxRetries {
+                        // Wait progressively longer: 3s, 6s, 9s
+                        let waitTime = UInt64(attempt * 3 * 1_000_000_000)
+                        try await Task.sleep(nanoseconds: waitTime)
+                        continue
+                    }
+                } else {
+                    // Other errors, don't retry
+                    throw error
+                }
+            }
+        }
+        
+        throw lastError ?? MemoryAgentError.noAIProvidersAvailable
     }
     
     // MARK: - Private Implementation
@@ -215,27 +224,28 @@ public class MemoryAgentModelProvider {
         var lastError: Error?
         var attemptCount = 0
         
-        // Try Apple Foundation Models first for personal data (privacy first)
-        if criteria.requiresPersonalData || criteria.requiresOnDevice {
-            if #available(iOS 26.0, macOS 26.0, *), let appleProvider = appleFoundationProvider {
-                attemptCount += 1
-                do {
-                    logger.debug("Attempting generation with Apple Foundation Models (privacy mode)")
-                    let response = try await withTimeout(configuration.responseTimeoutInterval) {
-                        return try await self.generateWithAppleFoundation(prompt: prompt, context: context, provider: appleProvider)
-                    }
-                    updateProviderHealth("apple_foundation", success: true, responseTime: response.processingTime)
-                    return response
-                } catch {
-                    logger.warning("Apple Foundation Models failed: \(error.localizedDescription)")
-                    updateProviderHealth("apple_foundation", success: false, responseTime: nil)
-                    lastError = error
-                    
-                    // Stop trying if we've hit max retries or fallback is disabled
-                    if attemptCount >= configuration.maxRetries || !configuration.fallbackEnabled {
-                        throw lastError ?? MemoryAgentError.noAvailableProvider
-                    }
+        // Try Apple Foundation Models first (always try if available)
+        if #available(iOS 26.0, macOS 26.0, *), let appleProvider = appleFoundationProvider {
+            attemptCount += 1
+            do {
+                if !appleProvider.isAvailable {
+                    throw MemoryAgentError.providerNotReady("Apple Foundation Models not ready")
                 }
+                
+                let response = try await withTimeout(configuration.responseTimeoutInterval) {
+                    return try await self.generateWithAppleFoundation(prompt: prompt, context: context, provider: appleProvider)
+                }
+                updateProviderHealth("apple_foundation", success: true, responseTime: response.processingTime)
+                return response
+            } catch {
+                // Only log if it's not a retry-able error to reduce noise
+                if !error.localizedDescription.contains("not ready") && !error.localizedDescription.contains("Model not loaded") {
+                    logger.warning("Apple Foundation Models failed: \(error.localizedDescription)")
+                }
+                updateProviderHealth("apple_foundation", success: false, responseTime: nil)
+                lastError = error
+                
+                // Continue to try other providers
             }
         }
         
@@ -246,8 +256,6 @@ public class MemoryAgentModelProvider {
                 attemptCount += 1
                 
                 do {
-                    logger.debug("Attempting generation with provider: \(provider.identifier) (attempt \(attemptCount))")
-                    
                     let response = try await withTimeout(configuration.responseTimeoutInterval) {
                         return try await self.generateWithExternalProvider(prompt: prompt, context: context, provider: provider)
                     }
@@ -258,7 +266,10 @@ public class MemoryAgentModelProvider {
                     return response
                     
                 } catch {
-                    logger.warning("Provider \(provider.identifier) failed: \(error.localizedDescription)")
+                    // Only log if it's not a retry-able error to reduce noise
+                    if !error.localizedDescription.contains("not ready") && !error.localizedDescription.contains("Model not loaded") {
+                        logger.warning("Provider \(provider.identifier) failed: \(error.localizedDescription)")
+                    }
                     lastError = error
                     
                     // Update health status on failure
@@ -272,22 +283,6 @@ public class MemoryAgentModelProvider {
             }
         }
         
-        // Try WorkingMLXProvider as final fallback if available
-        if let workingMLX = workingMLXProvider, workingMLX.isMLXSupported {
-            attemptCount += 1
-            do {
-                logger.debug("Attempting generation with WorkingMLXProvider (final fallback)")
-                let response = try await withTimeout(configuration.responseTimeoutInterval) {
-                    return try await self.generateWithWorkingMLX(prompt: prompt, context: context, provider: workingMLX)
-                }
-                updateProviderHealth("working_mlx", success: true, responseTime: response.processingTime)
-                return response
-            } catch {
-                logger.warning("WorkingMLXProvider failed: \(error.localizedDescription)")
-                updateProviderHealth("working_mlx", success: false, responseTime: nil)
-                lastError = error
-            }
-        }
         
         // All providers failed
         logger.error("All AI providers failed, no fallback available")
@@ -429,26 +424,6 @@ public class MemoryAgentModelProvider {
         )
     }
     
-    /// Generate response using WorkingMLXProvider
-    private func generateWithWorkingMLX(
-        prompt: String,
-        context: MemoryContext,
-        provider: WorkingMLXProvider
-    ) async throws -> AIModelResponse {
-        let startTime = Date()
-        let content = try await provider.generateResponse(to: prompt)
-        let processingTime = Date().timeIntervalSince(startTime)
-        
-        return AIModelResponse(
-            content: content,
-            confidence: 0.85, // MLX models are generally reliable but not as refined as commercial APIs
-            processingTime: processingTime,
-            modelUsed: "WorkingMLX (\(provider.getModelInfo()?.displayName ?? "Unknown"))",
-            tokensUsed: nil, // WorkingMLXProvider doesn't provide token counts
-            isOnDevice: true,
-            containsPersonalData: context.containsPersonalData
-        )
-    }
 }
 
 // MARK: - Memory Context Manager
@@ -462,8 +437,6 @@ public class MemoryContextManager {
     
     /// Optimize memory context for AI processing
     public func optimize(_ context: MemoryContext) async throws -> MemoryContext {
-        logger.debug("Optimizing memory context")
-        
         var optimizedContext = context
         
         // 1. Privacy filtering
@@ -477,7 +450,6 @@ public class MemoryContextManager {
         // 3. Relevance ranking
         optimizedContext = try await rankByRelevance(optimizedContext)
         
-        logger.debug("Context optimization complete")
         return optimizedContext
     }
     
@@ -571,8 +543,6 @@ public class ResponseProcessor {
     
     /// Process and clean AI response
     public func process(_ response: AIModelResponse, context: MemoryContext) async -> AIModelResponse {
-        logger.debug("Post-processing AI response")
-        
         let cleanedContent = cleanResponse(response.content)
         
         return AIModelResponse(

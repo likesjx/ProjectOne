@@ -120,43 +120,120 @@ public class MemoryRetrievalEngine: ObservableObject {
     // MARK: - Memory Type Retrieval
     
     private func retrieveShortTermMemories(queryTerms: [String], limit: Int) async throws -> [STMEntry] {
-        var descriptor = FetchDescriptor<STMEntry>(
-            predicate: buildSearchPredicate(for: STMEntry.self, queryTerms: queryTerms),
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
+        guard !queryTerms.isEmpty else { return [] }
         
-        return try modelContext.fetch(descriptor)
+        if let predicate = buildSTMSearchPredicate(queryTerms: queryTerms) {
+            // Use SwiftData predicate for simple queries
+            var descriptor = FetchDescriptor<STMEntry>(
+                predicate: predicate,
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            descriptor.fetchLimit = limit
+            
+            return try modelContext.fetch(descriptor)
+        } else {
+            // Fall back to in-memory filtering for complex queries
+            let allMemories = try modelContext.fetch(FetchDescriptor<STMEntry>(
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            ))
+            
+            let searchTerms = queryTerms.map { $0.lowercased() }
+            let filteredMemories = allMemories.filter { memory in
+                searchTerms.contains { term in
+                    memory.content.localizedLowercase.contains(term)
+                }
+            }
+            
+            return Array(filteredMemories.prefix(limit))
+        }
     }
     
     private func retrieveLongTermMemories(queryTerms: [String], limit: Int) async throws -> [LTMEntry] {
-        var descriptor = FetchDescriptor<LTMEntry>(
-            predicate: buildSearchPredicate(for: LTMEntry.self, queryTerms: queryTerms),
-            sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
+        guard !queryTerms.isEmpty else { return [] }
         
-        return try modelContext.fetch(descriptor)
+        if let predicate = buildLTMSearchPredicate(queryTerms: queryTerms) {
+            // Use SwiftData predicate for simple queries
+            var descriptor = FetchDescriptor<LTMEntry>(
+                predicate: predicate,
+                sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
+            )
+            descriptor.fetchLimit = limit
+            
+            return try modelContext.fetch(descriptor)
+        } else {
+            // Fall back to in-memory filtering for complex queries
+            let allMemories = try modelContext.fetch(FetchDescriptor<LTMEntry>(
+                sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
+            ))
+            
+            let searchTerms = queryTerms.map { $0.lowercased() }
+            let filteredMemories = allMemories.filter { memory in
+                searchTerms.contains { term in
+                    memory.content.localizedLowercase.contains(term) ||
+                    memory.summary.localizedLowercase.contains(term)
+                }
+            }
+            
+            return Array(filteredMemories.prefix(limit))
+        }
     }
     
     private func retrieveEpisodicMemories(queryTerms: [String], limit: Int) async throws -> [EpisodicMemoryEntry] {
-        var descriptor = FetchDescriptor<EpisodicMemoryEntry>(
-            predicate: buildSearchPredicate(for: EpisodicMemoryEntry.self, queryTerms: queryTerms),
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
+        guard !queryTerms.isEmpty else { return [] }
         
-        return try modelContext.fetch(descriptor)
+        if let predicate = buildEpisodicSearchPredicate(queryTerms: queryTerms) {
+            // Use SwiftData predicate for simple queries
+            var descriptor = FetchDescriptor<EpisodicMemoryEntry>(
+                predicate: predicate,
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            descriptor.fetchLimit = limit
+            
+            return try modelContext.fetch(descriptor)
+        } else {
+            // Fall back to in-memory filtering for complex queries
+            let allMemories = try modelContext.fetch(FetchDescriptor<EpisodicMemoryEntry>(
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            ))
+            
+            let searchTerms = queryTerms.map { $0.lowercased() }
+            let filteredMemories = allMemories.filter { memory in
+                searchTerms.contains { term in
+                    memory.eventDescription.localizedLowercase.contains(term)
+                }
+            }
+            
+            return Array(filteredMemories.prefix(limit))
+        }
     }
     
     private func retrieveRelevantEntities(queryTerms: [String], limit: Int) async throws -> [Entity] {
-        var descriptor = FetchDescriptor<Entity>(
-            predicate: buildEntitySearchPredicate(queryTerms: queryTerms),
-            sortBy: [SortDescriptor(\.lastMentioned, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
+        guard !queryTerms.isEmpty else { return [] }
         
-        return try modelContext.fetch(descriptor)
+        if let predicate = buildEntitySearchPredicate(queryTerms: queryTerms) {
+            // Use SwiftData predicate for simple queries
+            var descriptor = FetchDescriptor<Entity>(
+                predicate: predicate,
+                sortBy: [SortDescriptor(\.lastMentioned, order: .reverse)]
+            )
+            descriptor.fetchLimit = limit
+            
+            return try modelContext.fetch(descriptor)
+        } else {
+            // Fall back to in-memory filtering for complex queries
+            let allEntities = try modelContext.fetch(FetchDescriptor<Entity>(
+                sortBy: [SortDescriptor(\.lastMentioned, order: .reverse)]
+            ))
+            
+            let searchTerms = queryTerms.map { $0.lowercased() }
+            let filteredEntities = allEntities.filter { entity in
+                searchTerms.contains { term in
+                    entity.name.localizedLowercase.contains(term)
+                }
+            }
+            
+            return Array(filteredEntities.prefix(limit))
+        }
     }
     
     private func retrieveRelevantRelationships(queryTerms: [String], limit: Int) async throws -> [Relationship] {
@@ -169,75 +246,148 @@ public class MemoryRetrievalEngine: ObservableObject {
     }
     
     private func retrieveRelevantNotes(queryTerms: [String], limit: Int) async throws -> [ProcessedNote] {
-        var descriptor = FetchDescriptor<ProcessedNote>(
-            predicate: buildNoteSearchPredicate(queryTerms: queryTerms),
-            sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
+        guard !queryTerms.isEmpty else { return [] }
         
-        return try modelContext.fetch(descriptor)
+        if let predicate = buildNoteSearchPredicate(queryTerms: queryTerms) {
+            // Use SwiftData predicate for simple queries
+            var descriptor = FetchDescriptor<ProcessedNote>(
+                predicate: predicate,
+                sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
+            )
+            descriptor.fetchLimit = limit
+            
+            return try modelContext.fetch(descriptor)
+        } else {
+            // Fall back to in-memory filtering for complex queries
+            let allNotes = try modelContext.fetch(FetchDescriptor<ProcessedNote>(
+                sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
+            ))
+            
+            let searchTerms = queryTerms.map { $0.lowercased() }
+            let filteredNotes = allNotes.filter { note in
+                searchTerms.contains { term in
+                    note.originalText.localizedLowercase.contains(term) || 
+                    note.summary.localizedLowercase.contains(term)
+                }
+            }
+            
+            return Array(filteredNotes.prefix(limit))
+        }
     }
     
     // MARK: - Search Predicate Building
     
-    private func buildSearchPredicate<T>(for type: T.Type, queryTerms: [String]) -> Predicate<T>? {
+    private func buildSTMSearchPredicate(queryTerms: [String]) -> Predicate<STMEntry>? {
         guard !queryTerms.isEmpty else { return nil }
         
-        switch type {
-        case is STMEntry.Type:
-            return buildSTMSearchPredicate(queryTerms: queryTerms) as? Predicate<T>
-        case is LTMEntry.Type:
-            return buildLTMSearchPredicate(queryTerms: queryTerms) as? Predicate<T>
-        case is EpisodicMemoryEntry.Type:
-            return buildEpisodicSearchPredicate(queryTerms: queryTerms) as? Predicate<T>
-        default:
-            return nil
-        }
-    }
-    
-    private func buildSTMSearchPredicate(queryTerms: [String]) -> Predicate<STMEntry>? {
         let searchTerms = queryTerms.map { $0.lowercased() }
-        return #Predicate<STMEntry> { memory in
-            searchTerms.contains { term in
+        
+        if searchTerms.count == 1 {
+            let term = searchTerms[0]
+            return #Predicate<STMEntry> { memory in
                 memory.content.contains(term)
             }
+        } else if searchTerms.count == 2 {
+            let term1 = searchTerms[0]
+            let term2 = searchTerms[1]
+            return #Predicate<STMEntry> { memory in
+                memory.content.contains(term1) || memory.content.contains(term2)
+            }
+        } else {
+            return nil // Fall back to in-memory filtering
         }
     }
     
     private func buildLTMSearchPredicate(queryTerms: [String]) -> Predicate<LTMEntry>? {
+        guard !queryTerms.isEmpty else { return nil }
+        
         let searchTerms = queryTerms.map { $0.lowercased() }
-        return #Predicate<LTMEntry> { memory in
-            searchTerms.contains { term in
+        
+        if searchTerms.count == 1 {
+            let term = searchTerms[0]
+            return #Predicate<LTMEntry> { memory in
                 memory.content.contains(term) || memory.summary.contains(term)
             }
+        } else if searchTerms.count == 2 {
+            let term1 = searchTerms[0]
+            let term2 = searchTerms[1]
+            return #Predicate<LTMEntry> { memory in
+                memory.content.contains(term1) || memory.summary.contains(term1) ||
+                memory.content.contains(term2) || memory.summary.contains(term2)
+            }
+        } else {
+            return nil // Fall back to in-memory filtering
         }
     }
     
     private func buildEpisodicSearchPredicate(queryTerms: [String]) -> Predicate<EpisodicMemoryEntry>? {
+        guard !queryTerms.isEmpty else { return nil }
+        
         let searchTerms = queryTerms.map { $0.lowercased() }
-        return #Predicate<EpisodicMemoryEntry> { memory in
-            searchTerms.contains { term in
+        
+        if searchTerms.count == 1 {
+            let term = searchTerms[0]
+            return #Predicate<EpisodicMemoryEntry> { memory in
                 memory.eventDescription.contains(term)
             }
+        } else if searchTerms.count == 2 {
+            let term1 = searchTerms[0]
+            let term2 = searchTerms[1]
+            return #Predicate<EpisodicMemoryEntry> { memory in
+                memory.eventDescription.contains(term1) || memory.eventDescription.contains(term2)
+            }
+        } else {
+            return nil // Fall back to in-memory filtering
         }
     }
     
     private func buildEntitySearchPredicate(queryTerms: [String]) -> Predicate<Entity>? {
+        guard !queryTerms.isEmpty else { return nil }
+        
+        // Create individual predicates for each term and combine with OR to avoid subquery
         let searchTerms = queryTerms.map { $0.lowercased() }
-        return #Predicate<Entity> { entity in
-            searchTerms.contains { term in
+        
+        // Build a compound predicate with OR conditions for each search term
+        if searchTerms.count == 1 {
+            let term = searchTerms[0]
+            return #Predicate<Entity> { entity in
                 entity.name.contains(term)
             }
+        } else if searchTerms.count == 2 {
+            let term1 = searchTerms[0]
+            let term2 = searchTerms[1]
+            return #Predicate<Entity> { entity in
+                entity.name.contains(term1) || entity.name.contains(term2)
+            }
+        } else {
+            // For more than 2 terms, fall back to in-memory filtering
+            return nil // This will cause the method to fetch all and filter in-memory
         }
     }
     
     
     private func buildNoteSearchPredicate(queryTerms: [String]) -> Predicate<ProcessedNote>? {
+        guard !queryTerms.isEmpty else { return nil }
+        
+        // Create individual predicates for each term and combine with OR
         let searchTerms = queryTerms.map { $0.lowercased() }
-        return #Predicate<ProcessedNote> { note in
-            searchTerms.contains { term in
+        
+        // Build a compound predicate with OR conditions for each search term
+        if searchTerms.count == 1 {
+            let term = searchTerms[0]
+            return #Predicate<ProcessedNote> { note in
                 note.originalText.contains(term) || note.summary.contains(term)
             }
+        } else if searchTerms.count == 2 {
+            let term1 = searchTerms[0]
+            let term2 = searchTerms[1]
+            return #Predicate<ProcessedNote> { note in
+                note.originalText.contains(term1) || note.summary.contains(term1) ||
+                note.originalText.contains(term2) || note.summary.contains(term2)
+            }
+        } else {
+            // For more than 2 terms, fall back to in-memory filtering
+            return nil // This will cause the method to fetch all and filter in-memory
         }
     }
     

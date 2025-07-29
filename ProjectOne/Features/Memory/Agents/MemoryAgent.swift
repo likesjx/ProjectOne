@@ -663,6 +663,7 @@ public enum MemoryAgentError: Error, LocalizedError {
     case noAIProvidersAvailable
     case noPrivacyCompliantProvider
     case noAvailableProvider
+    case providerNotReady(String)
     case memoryRetrievalFailed(String)
     case consolidationFailed(String)
     
@@ -676,6 +677,8 @@ public enum MemoryAgentError: Error, LocalizedError {
             return "No privacy-compliant AI provider available for personal data"
         case .noAvailableProvider:
             return "No available AI provider"
+        case .providerNotReady(let reason):
+            return "AI provider not ready: \(reason)"
         case .memoryRetrievalFailed(let reason):
             return "Memory retrieval failed: \(reason)"
         case .consolidationFailed(let reason):

@@ -98,6 +98,9 @@ public enum EntityType: String, CaseIterable, Codable {
     case activity = "Activity"
     case concept = "Concept"
     case location = "Location"
+    case event = "Event"
+    case thing = "Thing"
+    case place = "Place"
     
     var color: String {
         switch self {
@@ -109,8 +112,12 @@ public enum EntityType: String, CaseIterable, Codable {
             return "green"
         case .concept:
             return "orange"
-        case .location:
+        case .location, .place:
             return "red"
+        case .event:
+            return "pink"
+        case .thing:
+            return "gray"
         }
     }
     
@@ -124,8 +131,12 @@ public enum EntityType: String, CaseIterable, Codable {
             return "figure.run"
         case .concept:
             return "lightbulb"
-        case .location:
+        case .location, .place:
             return "location"
+        case .event:
+            return "calendar"
+        case .thing:
+            return "cube"
         }
     }
     
@@ -139,8 +150,12 @@ public enum EntityType: String, CaseIterable, Codable {
             return "Actions, events, processes"
         case .concept:
             return "Ideas, topics, themes"
-        case .location:
+        case .location, .place:
             return "Places, addresses, regions"
+        case .event:
+            return "Events, meetings, occurrences"
+        case .thing:
+            return "Objects, items, things"
         }
     }
 }
