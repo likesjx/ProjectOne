@@ -366,10 +366,33 @@ public class SpeechEngineFactory {
     
     /// Cleanup resources
     public func cleanup() async {
-        await currentEngine?.cleanup()
-        await fallbackEngine?.cleanup()
+        logger.info("🧹 Starting SpeechEngineFactory cleanup")
+        
+        // Safely cleanup engines with proper error handling
+        if let engine = currentEngine {
+            do {
+                await engine.cleanup()
+                logger.info("✅ Current engine cleanup completed")
+            } catch {
+                logger.warning("⚠️ Error during current engine cleanup: \(error)")
+            }
+        }
+        
+        if let fallback = fallbackEngine {
+            do {
+                await fallback.cleanup()
+                logger.info("✅ Fallback engine cleanup completed")
+            } catch {
+                logger.warning("⚠️ Error during fallback engine cleanup: \(error)")
+            }
+        }
+        
+        // Clear references
         currentEngine = nil
         fallbackEngine = nil
+        lastError = nil
+        
+        logger.info("✅ SpeechEngineFactory cleanup completed")
     }
     
     // MARK: - Private Methods

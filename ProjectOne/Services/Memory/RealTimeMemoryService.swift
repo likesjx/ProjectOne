@@ -24,6 +24,7 @@ public class RealTimeMemoryService: ObservableObject {
     // MARK: - Private Properties
     
     private let memoryRetrievalEngine: MemoryRetrievalEngine
+    private let embeddingGenerationService: EmbeddingGenerationService?
     private let privacyAnalyzer = PrivacyAnalyzer()
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "RealTimeMemoryService")
     
@@ -40,10 +41,19 @@ public class RealTimeMemoryService: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(modelContext: ModelContext) {
-        self.memoryRetrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
+    public init(
+        modelContext: ModelContext,
+        embeddingProvider: MLXEmbeddingProvider? = nil,
+        embeddingGenerationService: EmbeddingGenerationService? = nil
+    ) {
+        self.memoryRetrievalEngine = MemoryRetrievalEngine(
+            modelContext: modelContext,
+            embeddingProvider: embeddingProvider,
+            embeddingService: embeddingGenerationService
+        )
+        self.embeddingGenerationService = embeddingGenerationService
         setupDebouncedSearch()
-        logger.info("RealTimeMemoryService initialized")
+        logger.info("RealTimeMemoryService initialized with semantic search: \(embeddingProvider != nil)")
     }
     
     // MARK: - Public Methods
@@ -90,6 +100,28 @@ public class RealTimeMemoryService: ObservableObject {
             return []
         }
         return Array(context.typedRelationships.prefix(3)) // Return top 3 suggestions
+    }
+    
+    /// Generate embedding for new content in real-time
+    public func generateEmbeddingForContent<T>(_ content: T) async throws where T: EmbeddingCapable {
+        guard let embeddingService = embeddingGenerationService else {
+            logger.warning("Embedding generation service not available")
+            return
+        }
+        
+        do {
+            logger.debug("Generating real-time embedding for content")
+            let _ = try await embeddingService.generateEmbedding(for: content)
+            logger.debug("Successfully generated real-time embedding")
+        } catch {
+            logger.error("Failed to generate real-time embedding: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// Check if semantic search is available
+    public var isSemanticSearchAvailable: Bool {
+        return embeddingGenerationService != nil
     }
     
     // MARK: - Private Methods
@@ -156,6 +188,9 @@ public class RealTimeMemoryService: ObservableObject {
             // Update published property
             currentContext = filteredContext
             
+            // Trigger background embedding generation for items that need it
+            await triggerBackgroundEmbeddingGeneration(for: filteredContext)
+            
             logger.info("Memory retrieval completed in \(self.queryLatency)s - Context size: \(self.estimateContextTokens(filteredContext)) tokens")
             
         } catch {
@@ -185,14 +220,19 @@ public class RealTimeMemoryService: ObservableObject {
                 includeLTM: true,
                 includeEpisodic: true,
                 includeEntities: true,
-                includeNotes: true
+                includeNotes: true,
+                enableSemanticSearch: true,
+                semanticWeight: 0.6,
+                keywordWeight: 0.4,
+                semanticSimilarityThreshold: 0.3,
+                embeddingMaxAge: 7 * 24 * 3600 // 7 days
             )
             
         case .personal:
             return .personalFocus
             
         case .sensitive:
-            // Minimal retrieval for sensitive queries
+            // Minimal retrieval for sensitive queries - prefer keyword-only for privacy
             return MemoryRetrievalEngine.RetrievalConfiguration(
                 maxResults: 6,
                 recencyWeight: 0.5,
@@ -202,7 +242,12 @@ public class RealTimeMemoryService: ObservableObject {
                 includeLTM: false,
                 includeEpisodic: true,
                 includeEntities: false,
-                includeNotes: true
+                includeNotes: true,
+                enableSemanticSearch: false, // Disable semantic search for sensitive queries
+                semanticWeight: 0.0,
+                keywordWeight: 1.0,
+                semanticSimilarityThreshold: 0.0,
+                embeddingMaxAge: 0
             )
         }
     }
@@ -292,6 +337,69 @@ public class RealTimeMemoryService: ObservableObject {
         }
         
         return tokenCount
+    }
+    
+    /// Trigger background embedding generation for items that need updates
+    private func triggerBackgroundEmbeddingGeneration(for context: MemoryContext) async {
+        guard let embeddingService = embeddingGenerationService else {
+            return
+        }
+        
+        let currentModelVersion = embeddingService.modelVersion
+        
+        // Don't block the main thread - run in background
+        Task.detached { [weak embeddingService, logger] in
+            do {
+                // Check and generate embeddings for different content types
+                await MainActor.run {
+                    logger.debug("Checking for items needing embedding updates in background")
+                }
+                
+                // Check STM entries
+                for stm in context.typedShortTermMemories {
+                    if stm.needsEmbeddingUpdate(currentModelVersion: currentModelVersion, maxAge: 7 * 24 * 3600) {
+                        try? await embeddingService?.generateEmbedding(for: stm)
+                    }
+                }
+                
+                // Check LTM entries
+                for ltm in context.typedLongTermMemories {
+                    if ltm.needsEmbeddingUpdate(currentModelVersion: currentModelVersion, maxAge: 14 * 24 * 3600) {
+                        try? await embeddingService?.generateEmbedding(for: ltm)
+                    }
+                }
+                
+                // Check episodic memories
+                for episodic in context.typedEpisodicMemories {
+                    if episodic.needsEmbeddingUpdate(currentModelVersion: currentModelVersion, maxAge: 30 * 24 * 3600) {
+                        try? await embeddingService?.generateEmbedding(for: episodic)
+                    }
+                }
+                
+                // Check entities
+                for entity in context.typedEntities {
+                    if entity.needsEmbeddingUpdate(currentModelVersion: currentModelVersion, maxAge: 14 * 24 * 3600) {
+                        try? await embeddingService?.generateEmbedding(for: entity)
+                    }
+                }
+                
+                // Check notes
+                for note in context.typedNotes {
+                    if note.needsEmbeddingUpdate(currentModelVersion: currentModelVersion, maxAge: 7 * 24 * 3600) {
+                        try? await embeddingService?.generateEmbedding(for: note)
+                    }
+                }
+                
+                await MainActor.run {
+                    logger.debug("Background embedding generation check completed")
+                }
+                
+            } catch {
+                await MainActor.run {
+                    logger.error("Background embedding generation failed: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }
 

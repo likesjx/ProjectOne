@@ -29,9 +29,23 @@ public final class Entity {
     public var tags: [String] // User-assigned tags
     
     // Semantic information
-    public var semanticEmbedding: [Double]? // Vector embedding for semantic similarity
     public var importance: Double // Calculated importance score (0.0-1.0)
     public var salience: Double // How central this entity is to the knowledge graph
+    
+    // MARK: - Embedding Fields
+    
+    /// Vector embedding for semantic similarity search
+    var embedding: Data?
+    
+    /// Version identifier for the embedding model used
+    var embeddingModelVersion: String?
+    
+    /// Timestamp when the embedding was generated
+    var embeddingGeneratedAt: Date?
+    
+    /// Deprecated: Use embedding methods instead
+    @available(*, deprecated, message: "Use embedding property and methods instead")
+    public var semanticEmbedding: [Double]? // Vector embedding for semantic similarity
     
     public init(name: String, type: EntityType) {
         self.id = UUID()
@@ -48,9 +62,14 @@ public final class Entity {
         self.attributes = [:]
         self.entityDescription = nil
         self.tags = []
-        self.semanticEmbedding = nil
         self.importance = 0.0
         self.salience = 0.0
+        
+        // Initialize embedding fields
+        self.embedding = nil
+        self.embeddingModelVersion = nil
+        self.embeddingGeneratedAt = nil
+        self.semanticEmbedding = nil
     }
     
     // MARK: - Computed Properties
@@ -250,5 +269,72 @@ extension Entity {
         }
         
         return suggestions
+    }
+    
+    // MARK: - Embedding Management
+    
+    /// Check if the entity has a valid embedding
+    var hasEmbedding: Bool {
+        return embedding != nil && embeddingModelVersion != nil
+    }
+    
+    /// Set the embedding for this entity
+    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+        self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
+        self.embeddingModelVersion = modelVersion
+        self.embeddingGeneratedAt = Date()
+        
+        // Update deprecated property for backward compatibility
+        self.semanticEmbedding = embeddingVector.map { Double($0) }
+    }
+    
+    /// Get the embedding as a float array for calculations
+    func getEmbedding() -> [Float]? {
+        guard let embeddingData = embedding else { return nil }
+        return EmbeddingUtils.dataToEmbedding(embeddingData)
+    }
+    
+    /// Check if embedding needs regeneration
+    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 14 * 24 * 3600) -> Bool {
+        guard hasEmbedding else { return true }
+        
+        // Check model version
+        if embeddingModelVersion != currentModelVersion {
+            return true
+        }
+        
+        // Check age
+        if let generatedAt = embeddingGeneratedAt,
+           Date().timeIntervalSince(generatedAt) > maxAge {
+            return true
+        }
+        
+        // Check if entity has been significantly updated
+        if lastMentioned > (embeddingGeneratedAt ?? Date.distantPast) {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Get combined text for embedding generation
+    var embeddingText: String {
+        var text = name
+        
+        if !aliases.isEmpty {
+            text += " (also known as: \(aliases.joined(separator: ", ")))"
+        }
+        
+        if let description = entityDescription, !description.isEmpty {
+            text += ". \(description)"
+        }
+        
+        if !tags.isEmpty {
+            text += ". Tags: \(tags.joined(separator: ", "))"
+        }
+        
+        text += ". Type: \(type.rawValue)"
+        
+        return text
     }
 }

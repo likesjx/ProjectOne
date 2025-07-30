@@ -15,6 +15,8 @@ public class MemoryRetrievalEngine: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MemoryRetrievalEngine")
     private let modelContext: ModelContext
+    private let embeddingProvider: MLXEmbeddingProvider?
+    private let embeddingService: EmbeddingGenerationService?
     
     // MARK: - Configuration
     
@@ -29,6 +31,23 @@ public class MemoryRetrievalEngine: ObservableObject {
         let includeEntities: Bool
         let includeNotes: Bool
         
+        // MARK: - Semantic Search Configuration
+        
+        /// Enable semantic similarity search using embeddings
+        let enableSemanticSearch: Bool
+        
+        /// Weight for semantic similarity vs keyword matching (0.0 = only keywords, 1.0 = only semantic)
+        let semanticWeight: Double // 0.0 to 1.0
+        
+        /// Weight for keyword matching vs semantic similarity (0.0 = only semantic, 1.0 = only keywords)
+        let keywordWeight: Double // 0.0 to 1.0
+        
+        /// Minimum semantic similarity score to include results (0.0 to 1.0)
+        let semanticSimilarityThreshold: Double
+        
+        /// Maximum age for embeddings before regeneration (in seconds)
+        let embeddingMaxAge: TimeInterval
+        
         public static let `default` = RetrievalConfiguration(
             maxResults: 10,
             recencyWeight: 0.3,
@@ -38,7 +57,12 @@ public class MemoryRetrievalEngine: ObservableObject {
             includeLTM: true,
             includeEpisodic: true,
             includeEntities: true,
-            includeNotes: true
+            includeNotes: true,
+            enableSemanticSearch: true,
+            semanticWeight: 0.6,
+            keywordWeight: 0.4,
+            semanticSimilarityThreshold: 0.3,
+            embeddingMaxAge: 7 * 24 * 3600 // 7 days
         )
         
         public static let personalFocus = RetrievalConfiguration(
@@ -50,15 +74,60 @@ public class MemoryRetrievalEngine: ObservableObject {
             includeLTM: true,
             includeEpisodic: true,
             includeEntities: false,
-            includeNotes: true
+            includeNotes: true,
+            enableSemanticSearch: true,
+            semanticWeight: 0.7,
+            keywordWeight: 0.3,
+            semanticSimilarityThreshold: 0.4,
+            embeddingMaxAge: 14 * 24 * 3600 // 14 days
+        )
+        
+        public static let keywordOnly = RetrievalConfiguration(
+            maxResults: 10,
+            recencyWeight: 0.3,
+            relevanceWeight: 0.7,
+            semanticThreshold: 0.5,
+            includeSTM: true,
+            includeLTM: true,
+            includeEpisodic: true,
+            includeEntities: true,
+            includeNotes: true,
+            enableSemanticSearch: false,
+            semanticWeight: 0.0,
+            keywordWeight: 1.0,
+            semanticSimilarityThreshold: 0.0,
+            embeddingMaxAge: 0
+        )
+        
+        public static let semanticOnly = RetrievalConfiguration(
+            maxResults: 10,
+            recencyWeight: 0.2,
+            relevanceWeight: 0.8,
+            semanticThreshold: 0.4,
+            includeSTM: true,
+            includeLTM: true,
+            includeEpisodic: true,
+            includeEntities: true,
+            includeNotes: true,
+            enableSemanticSearch: true,
+            semanticWeight: 1.0,
+            keywordWeight: 0.0,
+            semanticSimilarityThreshold: 0.5, 
+            embeddingMaxAge: 7 * 24 * 3600 // 7 days
         )
     }
     
     // MARK: - Initialization
     
-    public init(modelContext: ModelContext) {
+    public init(
+        modelContext: ModelContext,
+        embeddingProvider: MLXEmbeddingProvider? = nil,
+        embeddingService: EmbeddingGenerationService? = nil
+    ) {
         self.modelContext = modelContext
-        logger.info("Memory Retrieval Engine initialized")
+        self.embeddingProvider = embeddingProvider
+        self.embeddingService = embeddingService
+        logger.info("Memory Retrieval Engine initialized with semantic search: \(embeddingProvider != nil)")
     }
     
     // MARK: - Primary Retrieval Method
@@ -76,6 +145,9 @@ public class MemoryRetrievalEngine: ObservableObject {
         let queryTerms = extractQueryTerms(from: query)
         let containsPersonalData = detectPersonalData(in: query)
         
+        // Generate query embedding for semantic search if enabled
+        let queryEmbedding = await generateQueryEmbedding(query, configuration: configuration)
+        
         // Retrieve different types of memories in parallel
         async let stmResults = configuration.includeSTM ? retrieveShortTermMemories(queryTerms: queryTerms, limit: configuration.maxResults / 2) : []
         async let ltmResults = configuration.includeLTM ? retrieveLongTermMemories(queryTerms: queryTerms, limit: configuration.maxResults / 2) : []
@@ -92,12 +164,28 @@ public class MemoryRetrievalEngine: ObservableObject {
         let relationships = try await relationshipResults
         let notes = try await noteResults
         
-        // Score and rank all results
-        let rankedSTM = rankMemoriesByRelevance(shortTermMemories, queryTerms: queryTerms, configuration: configuration)
-        let rankedLTM = rankMemoriesByRelevance(longTermMemories, queryTerms: queryTerms, configuration: configuration)
-        let rankedEpisodic = rankEpisodicMemoriesByRelevance(episodicMemories, queryTerms: queryTerms, configuration: configuration)
-        let rankedEntities = rankEntitiesByRelevance(entities, queryTerms: queryTerms)
-        let rankedNotes = rankNotesByRelevance(notes, queryTerms: queryTerms, configuration: configuration)
+        // Score and rank all results with semantic search if available
+        let rankedSTM: [STMEntry]
+        let rankedLTM: [LTMEntry]
+        let rankedEpisodic: [EpisodicMemoryEntry]
+        let rankedEntities: [Entity]
+        let rankedNotes: [ProcessedNote]
+        
+        if configuration.enableSemanticSearch && queryEmbedding != nil {
+            // Use hybrid semantic + keyword ranking
+            rankedSTM = rankMemoriesWithSemantics(shortTermMemories, queryTerms: queryTerms, queryEmbedding: queryEmbedding, configuration: configuration)
+            rankedLTM = rankMemoriesWithSemantics(longTermMemories, queryTerms: queryTerms, queryEmbedding: queryEmbedding, configuration: configuration)
+            rankedEpisodic = rankMemoriesWithSemantics(episodicMemories, queryTerms: queryTerms, queryEmbedding: queryEmbedding, configuration: configuration)
+            rankedEntities = rankEntitiesWithSemantics(entities, queryTerms: queryTerms, queryEmbedding: queryEmbedding, configuration: configuration)
+            rankedNotes = rankNotesWithSemantics(notes, queryTerms: queryTerms, queryEmbedding: queryEmbedding, configuration: configuration)
+        } else {
+            // Use traditional keyword-only ranking
+            rankedSTM = rankMemoriesByRelevance(shortTermMemories, queryTerms: queryTerms, configuration: configuration)
+            rankedLTM = rankMemoriesByRelevance(longTermMemories, queryTerms: queryTerms, configuration: configuration)
+            rankedEpisodic = rankEpisodicMemoriesByRelevance(episodicMemories, queryTerms: queryTerms, configuration: configuration)
+            rankedEntities = rankEntitiesByRelevance(entities, queryTerms: queryTerms)
+            rankedNotes = rankNotesByRelevance(notes, queryTerms: queryTerms, configuration: configuration)
+        }
         
         let processingTime = Date().timeIntervalSince(startTime)
         logger.info("Memory retrieval completed in \(processingTime)s - STM: \(rankedSTM.count), LTM: \(rankedLTM.count), Episodic: \(rankedEpisodic.count), Entities: \(rankedEntities.count), Notes: \(rankedNotes.count)")
@@ -593,5 +681,147 @@ public class MemoryRetrievalEngine: ObservableObject {
         default:
             return nil
         }
+    }
+    
+    // MARK: - Semantic Search Methods
+    
+    /// Generate embedding for a query if semantic search is enabled
+    private func generateQueryEmbedding(_ query: String, configuration: RetrievalConfiguration) async -> [Float]? {
+        guard configuration.enableSemanticSearch,
+              let embeddingProvider = embeddingProvider else {
+            return nil
+        }
+        
+        do {
+            // Ensure model is loaded
+            if !embeddingProvider.isModelLoaded {
+                try await embeddingProvider.loadModel()
+            }
+            
+            let embedding = try await embeddingProvider.generateEmbedding(for: query)
+            logger.debug("Generated query embedding with \(embedding.count) dimensions")
+            
+            return embedding
+        } catch {
+            logger.error("Failed to generate query embedding: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    /// Calculate hybrid relevance score combining keyword and semantic similarity
+    private func calculateHybridRelevanceScore(
+        keywordScore: Double,
+        semanticScore: Float,
+        configuration: RetrievalConfiguration
+    ) -> Double {
+        let keywordWeighted = keywordScore * configuration.keywordWeight
+        let semanticWeighted = Double(semanticScore) * configuration.semanticWeight
+        
+        return keywordWeighted + semanticWeighted
+    }
+    
+    /// Enhanced ranking with semantic similarity for general memory types
+    private func rankMemoriesWithSemantics<T: AnyObject>(
+        _ memories: [T],
+        queryTerms: [String],
+        queryEmbedding: [Float]?,
+        configuration: RetrievalConfiguration
+    ) -> [T] where T: EmbeddingCapable {
+        
+        let scoredMemories = memories.map { memory in
+            // Calculate keyword-based score
+            let keywordScore = calculateRelevanceScore(for: memory, queryTerms: queryTerms, configuration: configuration)
+            
+            // Calculate semantic score if embedding available
+            var semanticScore: Float = 0.0
+            if let queryEmb = queryEmbedding,
+               let memoryEmb = memory.getEmbedding() {
+                semanticScore = EmbeddingUtils.semanticSimilarityScore(queryEmb, memoryEmb)
+            }
+            
+            // Combine scores
+            let hybridScore = calculateHybridRelevanceScore(
+                keywordScore: keywordScore,
+                semanticScore: semanticScore,
+                configuration: configuration
+            )
+            
+            return (memory: memory, hybridScore: hybridScore)
+        }
+        
+        return scoredMemories
+            .filter { $0.hybridScore >= Double(configuration.semanticThreshold) }
+            .sorted { $0.hybridScore > $1.hybridScore }
+            .map { $0.memory }
+    }
+    
+    /// Enhanced entity ranking with semantic similarity
+    private func rankEntitiesWithSemantics(
+        _ entities: [Entity],
+        queryTerms: [String],
+        queryEmbedding: [Float]?,
+        configuration: RetrievalConfiguration
+    ) -> [Entity] {
+        
+        let scoredEntities = entities.map { entity in
+            // Calculate keyword-based score
+            let keywordScore = calculateEntityRelevanceScore(for: entity, queryTerms: queryTerms)
+            
+            // Calculate semantic score if embedding available
+            var semanticScore: Float = 0.0
+            if let queryEmb = queryEmbedding,
+               let entityEmb = entity.getEmbedding() {
+                semanticScore = EmbeddingUtils.semanticSimilarityScore(queryEmb, entityEmb)
+            }
+            
+            // Combine scores
+            let hybridScore = calculateHybridRelevanceScore(
+                keywordScore: keywordScore,
+                semanticScore: semanticScore,
+                configuration: configuration
+            )
+            
+            return (entity: entity, hybridScore: hybridScore)
+        }
+        
+        return scoredEntities
+            .filter { $0.hybridScore >= Double(configuration.semanticSimilarityThreshold) }
+            .sorted { $0.hybridScore > $1.hybridScore }
+            .map { $0.entity }
+    }
+    
+    /// Enhanced note ranking with semantic similarity
+    private func rankNotesWithSemantics(
+        _ notes: [ProcessedNote],
+        queryTerms: [String],
+        queryEmbedding: [Float]?,
+        configuration: RetrievalConfiguration
+    ) -> [ProcessedNote] {
+        
+        let scoredNotes = notes.map { note in
+            // Calculate keyword-based score
+            let keywordScore = calculateNoteRelevanceScore(for: note, queryTerms: queryTerms, configuration: configuration)
+            
+            // Calculate semantic score if embedding available
+            var semanticScore: Float = 0.0
+            if let queryEmb = queryEmbedding,
+               let noteEmb = note.getEmbedding() {
+                semanticScore = EmbeddingUtils.semanticSimilarityScore(queryEmb, noteEmb)
+            }
+            
+            // Combine scores
+            let hybridScore = calculateHybridRelevanceScore(
+                keywordScore: keywordScore,
+                semanticScore: semanticScore,
+                configuration: configuration
+            )
+            
+            return (note: note, hybridScore: hybridScore)
+        }
+        
+        return scoredNotes
+            .filter { $0.hybridScore >= Double(configuration.semanticSimilarityThreshold) }
+            .sorted { $0.hybridScore > $1.hybridScore }
+            .map { $0.note }
     }
 }

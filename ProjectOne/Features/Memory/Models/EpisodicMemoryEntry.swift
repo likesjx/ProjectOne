@@ -28,6 +28,17 @@ public final class EpisodicMemoryEntry {
     var accessCount: Int
     var lastAccessed: Date
     
+    // MARK: - Embedding Fields
+    
+    /// Vector embedding for semantic similarity search
+    var embedding: Data?
+    
+    /// Version identifier for the embedding model used
+    var embeddingModelVersion: String?
+    
+    /// Timestamp when the embedding was generated
+    var embeddingGeneratedAt: Date?
+    
     init(
         eventDescription: String,
         location: String? = nil,
@@ -55,6 +66,11 @@ public final class EpisodicMemoryEntry {
         self.vividity = 1.0
         self.accessCount = 0
         self.lastAccessed = Date()
+        
+        // Initialize embedding fields
+        self.embedding = nil
+        self.embeddingModelVersion = nil
+        self.embeddingGeneratedAt = nil
     }
     
     // MARK: - Episodic Memory Functions
@@ -100,6 +116,67 @@ public final class EpisodicMemoryEntry {
     
     var isSignificant: Bool {
         return memoryStrength > 0.7 || emotionalTone != .neutral
+    }
+    
+    // MARK: - Embedding Management
+    
+    /// Check if the memory has a valid embedding
+    var hasEmbedding: Bool {
+        return embedding != nil && embeddingModelVersion != nil
+    }
+    
+    /// Set the embedding for this memory entry
+    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+        self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
+        self.embeddingModelVersion = modelVersion
+        self.embeddingGeneratedAt = Date()
+    }
+    
+    /// Get the embedding as a float array for calculations
+    func getEmbedding() -> [Float]? {
+        guard let embeddingData = embedding else { return nil }
+        return EmbeddingUtils.dataToEmbedding(embeddingData)
+    }
+    
+    /// Check if embedding needs regeneration (model version changed or too old)
+    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 14 * 24 * 3600) -> Bool {
+        guard hasEmbedding else { return true }
+        
+        // Check model version
+        if embeddingModelVersion != currentModelVersion {
+            return true
+        }
+        
+        // Check age (episodic memories can update embeddings as context changes)
+        if let generatedAt = embeddingGeneratedAt,
+           Date().timeIntervalSince(generatedAt) > maxAge {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Get combined text for embedding generation
+    var embeddingText: String {
+        var text = eventDescription
+        
+        if let location = location, !location.isEmpty {
+            text += " at \(location)"
+        }
+        
+        if !participants.isEmpty {
+            text += " involving \(participants.joined(separator: ", "))"
+        }
+        
+        if let outcome = outcome, !outcome.isEmpty {
+            text += ". Outcome: \(outcome)"
+        }
+        
+        if !lessons.isEmpty {
+            text += ". Lessons: \(lessons.joined(separator: "; "))"
+        }
+        
+        return text
     }
     
     // MARK: - Nested Types

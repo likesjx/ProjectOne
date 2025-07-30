@@ -11,6 +11,12 @@ import UIKit
 public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
     private let logger = Logger(subsystem: "com.projectone.speech", category: "SpeechAnalyzerTranscriber")
     private var locale: Locale
+    
+    // Memory safety: Strong references to prevent deallocation during async operations
+    private var currentAnalyzer: SpeechAnalyzer?
+    private var currentTranscriber: SpeechTranscriber?
+    private var analysisTask: Task<Void, Never>?
+    private let accessQueue = DispatchQueue(label: "SpeechAnalyzerTranscriber.access", qos: .userInitiated)
 
     public let method: TranscriptionMethod = .speechAnalyzer
 
@@ -132,7 +138,28 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
     }
 
     public func cleanup() async {
-        logger.info("Cleaning up SpeechAnalyzer")
+        logger.info("🧹 Starting SpeechAnalyzer cleanup")
+        
+        // Cancel any ongoing analysis task first
+        analysisTask?.cancel()
+        analysisTask = nil
+        
+        // Use dispatch queue to safely clear references
+        await withCheckedContinuation { continuation in
+            accessQueue.async { [weak self] in
+                guard let self = self else {
+                    continuation.resume()
+                    return
+                }
+                
+                // Clear strong references to prevent memory leaks
+                self.currentAnalyzer = nil
+                self.currentTranscriber = nil
+                
+                self.logger.info("✅ SpeechAnalyzer cleanup completed")
+                continuation.resume()
+            }
+        }
     }
 
     public func canProcess(audioFormat: AVAudioFormat) -> Bool {
@@ -155,21 +182,39 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
         // Always create fresh analyzer for each transcription (SpeechAnalyzer can only be used once)
         logger.info("Creating fresh SpeechAnalyzer for transcription with locale: \(useLocale.identifier)")
         
-        let freshTranscriber: SpeechTranscriber
-        let freshAnalyzer: SpeechAnalyzer
-        
-        logger.info("🔧 Creating SpeechTranscriber with locale: \(useLocale.identifier)")
-        
-        freshTranscriber = SpeechTranscriber(locale: useLocale, preset: .transcription)
-        logger.info("✅ SpeechTranscriber created successfully")
-        logger.info("📡 SpeechTranscriber properties:")
-        logger.info("  - Target locale: \(useLocale.identifier)")
-        logger.info("  - Preset: .transcription")
-        
-        logger.info("🔧 Creating SpeechAnalyzer with SpeechTranscriber module...")
-        freshAnalyzer = SpeechAnalyzer(modules: [freshTranscriber])
-        logger.info("✅ SpeechAnalyzer created successfully")
-        logger.info("📡 SpeechAnalyzer configured with \(1) module(s)")
+        // Use memory-safe creation within access queue
+        let (freshTranscriber, freshAnalyzer): (SpeechTranscriber, SpeechAnalyzer) = try await withCheckedThrowingContinuation { continuation in
+            accessQueue.async { [weak self] in
+                guard let self = self else {
+                    continuation.resume(throwing: SpeechTranscriptionError.processingFailed("SpeechAnalyzerTranscriber was deallocated"))
+                    return
+                }
+                
+                do {
+                    self.logger.info("🔧 Creating SpeechTranscriber with locale: \(useLocale.identifier)")
+                    
+                    let transcriber = SpeechTranscriber(locale: useLocale, preset: .transcription)
+                    self.logger.info("✅ SpeechTranscriber created successfully")
+                    self.logger.info("📡 SpeechTranscriber properties:")
+                    self.logger.info("  - Target locale: \(useLocale.identifier)")
+                    self.logger.info("  - Preset: .transcription")
+                    
+                    self.logger.info("🔧 Creating SpeechAnalyzer with SpeechTranscriber module...")
+                    let analyzer = SpeechAnalyzer(modules: [transcriber])
+                    self.logger.info("✅ SpeechAnalyzer created successfully")
+                    self.logger.info("📡 SpeechAnalyzer configured with \(1) module(s)")
+                    
+                    // Store strong references to prevent deallocation
+                    self.currentTranscriber = transcriber
+                    self.currentAnalyzer = analyzer
+                    
+                    continuation.resume(returning: (transcriber, analyzer))
+                } catch {
+                    self.logger.error("❌ Failed to create SpeechAnalyzer components: \(error)")
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
         
         // Use standard 16kHz format optimal for speech recognition
         let optimalFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, 
@@ -433,78 +478,104 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
                 throw error
             }
             
-            // Wait for results with timeout
+            // Wait for results with timeout and memory safety
             let timeoutDuration: TimeInterval = 30.0
-            let result = try await withThrowingTaskGroup(of: SpeechTranscriptionResult.self) { group in
-                
-                // Task 1: Wait for transcription results
-                group.addTask {
-                    // Wait for final result by iterating through results
-                    self.logger.info("🎯 Starting to monitor SpeechTranscriber results stream")
-                    self.logger.info("📡 SpeechTranscriber details:")
-                    self.logger.info("  - Target locale: \(useLocale.identifier)")
-                    self.logger.info("  - Preset: .transcription")
+            
+            // Store analysis task to prevent deallocation
+            let result: SpeechTranscriptionResult = try await withCheckedThrowingContinuation { continuation in
+                let analysisTask = Task { [weak self] in
+                    guard let self = self else {
+                        continuation.resume(throwing: SpeechTranscriptionError.processingFailed("SpeechAnalyzerTranscriber was deallocated during transcription"))
+                        return
+                    }
                     
                     do {
-                        var resultCount = 0
-                        self.logger.info("🔄 Starting to iterate over SpeechTranscriber results...")
-                        
-                        for try await result in freshTranscriber.results {
-                            resultCount += 1
-                            let resultText = "\(result.text)"
-                            self.logger.info("📨 Received result #\(resultCount): isFinal=\(result.isFinal), text='\(String(resultText.prefix(50)))...'")
+                        let result = try await withThrowingTaskGroup(of: SpeechTranscriptionResult.self) { group in
                             
-                            if result.isFinal {
-                                let processingTime = Date().timeIntervalSince(startTime)
+                            // Task 1: Wait for transcription results with strong reference capture
+                            group.addTask { [freshTranscriber, logger = self.logger] in
+                                // Wait for final result by iterating through results
+                                logger.info("🎯 Starting to monitor SpeechTranscriber results stream")
+                                logger.info("📡 SpeechTranscriber details:")
+                                logger.info("  - Target locale: \(useLocale.identifier)")
+                                logger.info("  - Preset: .transcription")
                                 
-                                // Extract confidence - SpeechTranscriber.Result may not have segments property
-                                let confidence: Float = 0.8 // Default confidence for SpeechAnalyzer
-                                
-                                let resultText = "\(result.text)"
-                                self.logger.info("SpeechAnalyzer transcription completed: '\(String(resultText.prefix(50)))...'")
-                                self.logger.info("Confidence: \(confidence), Processing time: \(processingTime)s")
-                                
-                                return await MainActor.run {
-                                    SpeechTranscriptionResult(
-                                        text: resultText,
-                                        confidence: confidence,
-                                        processingTime: processingTime,
-                                        method: .speechAnalyzer,
-                                        language: useLocale.identifier
-                                    )
+                                do {
+                                    var resultCount = 0
+                                    logger.info("🔄 Starting to iterate over SpeechTranscriber results...")
+                                    
+                                    for try await result in freshTranscriber.results {
+                                        // Check if task was cancelled
+                                        try Task.checkCancellation()
+                                        
+                                        resultCount += 1
+                                        let resultText = "\(result.text)"
+                                        logger.info("📨 Received result #\(resultCount): isFinal=\(result.isFinal), text='\(String(resultText.prefix(50)))...'")
+                                        
+                                        if result.isFinal {
+                                            let processingTime = Date().timeIntervalSince(startTime)
+                                            
+                                            // Extract confidence - SpeechTranscriber.Result may not have segments property
+                                            let confidence: Float = 0.8 // Default confidence for SpeechAnalyzer
+                                            
+                                            let resultText = "\(result.text)"
+                                            logger.info("SpeechAnalyzer transcription completed: '\(String(resultText.prefix(50)))...'")
+                                            logger.info("Confidence: \(confidence), Processing time: \(processingTime)s")
+                                            
+                                            return await MainActor.run {
+                                                SpeechTranscriptionResult(
+                                                    text: resultText,
+                                                    confidence: confidence,
+                                                    processingTime: processingTime,
+                                                    method: .speechAnalyzer,
+                                                    language: useLocale.identifier
+                                                )
+                                            }
+                                        }
+                                    }
+                                    
+                                    // If we get here, the stream ended without final result
+                                    logger.warning("⚠️ Results stream ended without final result (received \(resultCount) partial results)")
+                                    logger.warning("🔍 Possible causes:")
+                                    logger.warning("  - Audio doesn't contain recognizable speech")
+                                    logger.warning("  - SpeechTranscriber configuration issue")
+                                    logger.warning("  - Audio format not properly supported")
+                                    logger.warning("  - Insufficient audio duration for processing")
+                                    throw SpeechTranscriptionError.processingFailed("No final transcription result received (got \(resultCount) partial results)")
+                                    
+                                } catch is CancellationError {
+                                    logger.info("🚫 Results monitoring was cancelled")
+                                    throw SpeechTranscriptionError.processingFailed("Transcription was cancelled")
+                                } catch {
+                                    logger.error("Error monitoring results stream: \(error)")
+                                    throw error
                                 }
                             }
+                            
+                            // Task 2: Timeout handler
+                            group.addTask {
+                                try await Task.sleep(nanoseconds: UInt64(timeoutDuration * 1_000_000_000))
+                                throw SpeechTranscriptionError.processingFailed("SpeechAnalyzer transcription timeout after \(timeoutDuration)s")
+                            }
+                            
+                            // Return first completed result, cancel others
+                            for try await result in group {
+                                group.cancelAll()
+                                return result
+                            }
+                            
+                            // This should never be reached
+                            throw SpeechTranscriptionError.processingFailed("Unexpected transcription completion")
                         }
                         
-                        // If we get here, the stream ended without final result
-                        self.logger.warning("⚠️ Results stream ended without final result (received \(resultCount) partial results)")
-                        self.logger.warning("🔍 Possible causes:")
-                        self.logger.warning("  - Audio doesn't contain recognizable speech")
-                        self.logger.warning("  - SpeechTranscriber configuration issue")
-                        self.logger.warning("  - Audio format not properly supported")
-                        self.logger.warning("  - Insufficient audio duration for processing")
-                        throw SpeechTranscriptionError.processingFailed("No final transcription result received (got \(resultCount) partial results)")
-                        
+                        continuation.resume(returning: result)
                     } catch {
-                        self.logger.error("Error monitoring results stream: \(error)")
-                        throw error
+                        continuation.resume(throwing: error)
                     }
                 }
                 
-                // Task 2: Timeout handler
-                group.addTask {
-                    try await Task.sleep(nanoseconds: UInt64(timeoutDuration * 1_000_000_000))
-                    throw SpeechTranscriptionError.processingFailed("SpeechAnalyzer transcription timeout after \(timeoutDuration)s")
-                }
-                
-                // Return first completed result, cancel others
-                for try await result in group {
-                    group.cancelAll()
-                    return result
-                }
-                
-                // This should never be reached
-                throw SpeechTranscriptionError.processingFailed("Unexpected transcription completion")
+                // Store task reference to prevent deallocation
+                self.analysisTask = analysisTask
             }
             
             return result

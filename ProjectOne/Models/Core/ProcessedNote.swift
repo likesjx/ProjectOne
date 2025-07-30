@@ -31,6 +31,10 @@ public final class ProcessedNote {
     // Vector embedding for semantic search (stored as Data for SwiftData compatibility)
     var embeddingData: Data?
     
+    // Embedding metadata
+    var embeddingModelVersion: String?
+    var embeddingGeneratedAt: Date?
+    
     // Memory system integration
     var accessFrequency: Int
     var lastAccessed: Date
@@ -75,22 +79,67 @@ public final class ProcessedNote {
         self.extractedEntityNames = []
         self.extractedRelationships = []
         self.extractedKeywords = []
+        self.embeddingModelVersion = nil
+        self.embeddingGeneratedAt = nil
     }
     
-    // Computed property for vector embedding
+    // MARK: - Embedding Management
+    
+    /// Check if the note has a valid embedding
+    var hasEmbedding: Bool {
+        return embeddingData != nil && embeddingModelVersion != nil
+    }
+    
+    /// Set the embedding for this note
+    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+        self.embeddingData = EmbeddingUtils.embeddingToData(embeddingVector)
+        self.embeddingModelVersion = modelVersion
+        self.embeddingGeneratedAt = Date()
+    }
+    
+    /// Get the embedding as a float array for calculations
+    func getEmbedding() -> [Float]? {
+        guard let data = embeddingData else { return nil }
+        return EmbeddingUtils.dataToEmbedding(data)
+    }
+    
+    /// Check if embedding needs regeneration
+    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 7 * 24 * 3600) -> Bool {
+        guard hasEmbedding else { return true }
+        
+        // Check model version
+        if embeddingModelVersion != currentModelVersion {
+            return true
+        }
+        
+        // Check age
+        if let generatedAt = embeddingGeneratedAt,
+           Date().timeIntervalSince(generatedAt) > maxAge {
+            return true
+        }
+        
+        // Check if content has been significantly updated
+        if consolidationLevel == .volatile && lastAccessed > (embeddingGeneratedAt ?? Date.distantPast) {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Computed property for backward compatibility
     var embedding: [Float]? {
         get {
-            guard let data = embeddingData else { return nil }
-            return data.withUnsafeBytes { buffer in
-                Array(buffer.bindMemory(to: Float.self))
-            }
+            return getEmbedding()
         }
         set {
             guard let newValue = newValue else {
                 embeddingData = nil
+                embeddingModelVersion = nil
+                embeddingGeneratedAt = nil
                 return
             }
-            embeddingData = Data(bytes: newValue, count: newValue.count * MemoryLayout<Float>.size)
+            // Note: This doesn't set model version, use setEmbedding() method instead
+            embeddingData = EmbeddingUtils.embeddingToData(newValue)
         }
     }
     

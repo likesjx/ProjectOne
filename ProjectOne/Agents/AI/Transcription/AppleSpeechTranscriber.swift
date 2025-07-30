@@ -262,7 +262,15 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
                 }
             }
             
-            recognitionTask = speechRecognizer.recognitionTask(with: request) { [self] result, error in
+            recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
+                guard let self = self else {
+                    if !hasReturned {
+                        hasReturned = true
+                        continuation.resume(throwing: SpeechTranscriptionError.processingFailed("AppleSpeechTranscriber was deallocated during recognition"))
+                    }
+                    return
+                }
+                
                 if hasReturned { return }
                 
                 if let error = error {

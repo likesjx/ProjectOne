@@ -30,6 +30,17 @@ public final class STMEntry {
     var emotionalWeight: Double
     var contextTags: [String]
     
+    // MARK: - Embedding Fields
+    
+    /// Vector embedding for semantic similarity search
+    var embedding: Data?
+    
+    /// Version identifier for the embedding model used
+    public var embeddingModelVersion: String?
+    
+    /// Timestamp when the embedding was generated
+    public var embeddingGeneratedAt: Date?
+    
     init(
         content: String,
         memoryType: MemoryType = .episodic,
@@ -52,6 +63,11 @@ public final class STMEntry {
         self.relatedEntities = relatedEntities
         self.emotionalWeight = emotionalWeight
         self.contextTags = contextTags
+        
+        // Initialize embedding fields
+        self.embedding = nil
+        self.embeddingModelVersion = nil
+        self.embeddingGeneratedAt = nil
     }
     
     // MARK: - Memory Decay
@@ -86,6 +102,49 @@ public final class STMEntry {
     
     var shouldConsolidate: Bool {
         return consolidationScore > 0.7 && currentStrength > 0.5
+    }
+    
+    // MARK: - Embedding Management
+    
+    /// Check if the memory has a valid embedding
+    public var hasEmbedding: Bool {
+        return embedding != nil && embeddingModelVersion != nil
+    }
+    
+    /// Set the embedding for this memory entry
+    public func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+        self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
+        self.embeddingModelVersion = modelVersion
+        self.embeddingGeneratedAt = Date()
+    }
+    
+    /// Get the embedding as a float array for calculations
+    public func getEmbedding() -> [Float]? {
+        guard let embeddingData = embedding else { return nil }
+        return EmbeddingUtils.dataToEmbedding(embeddingData)
+    }
+    
+    /// Check if embedding needs regeneration (model version changed or too old)
+    public func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 7 * 24 * 3600) -> Bool {
+        guard hasEmbedding else { return true }
+        
+        // Check model version
+        if embeddingModelVersion != currentModelVersion {
+            return true
+        }
+        
+        // Check age
+        if let generatedAt = embeddingGeneratedAt,
+           Date().timeIntervalSince(generatedAt) > maxAge {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Get combined text for embedding generation
+    public var embeddingText: String {
+        return content
     }
 }
 

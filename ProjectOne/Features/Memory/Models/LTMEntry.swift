@@ -31,6 +31,17 @@ public final class LTMEntry {
     var consolidationScore: Double
     var evidenceCount: Int
     
+    // MARK: - Embedding Fields
+    
+    /// Vector embedding for semantic similarity search
+    var embedding: Data?
+    
+    /// Version identifier for the embedding model used
+    var embeddingModelVersion: String?
+    
+    /// Timestamp when the embedding was generated
+    var embeddingGeneratedAt: Date?
+    
     // SwiftData relationships
     @Relationship(deleteRule: .nullify)
     var relatedNotes: [ProcessedNote] = []
@@ -66,6 +77,11 @@ public final class LTMEntry {
         self.memoryCluster = memoryCluster
         self.consolidationScore = 0.0
         self.evidenceCount = 0
+        
+        // Initialize embedding fields
+        self.embedding = nil
+        self.embeddingModelVersion = nil
+        self.embeddingGeneratedAt = nil
     }
     
     // MARK: - Memory Strengthening
@@ -98,6 +114,53 @@ public final class LTMEntry {
     
     var memoryAge: TimeInterval {
         return Date().timeIntervalSince(consolidationDate)
+    }
+    
+    // MARK: - Embedding Management
+    
+    /// Check if the memory has a valid embedding
+    var hasEmbedding: Bool {
+        return embedding != nil && embeddingModelVersion != nil
+    }
+    
+    /// Set the embedding for this memory entry
+    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+        self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
+        self.embeddingModelVersion = modelVersion
+        self.embeddingGeneratedAt = Date()
+    }
+    
+    /// Get the embedding as a float array for calculations
+    func getEmbedding() -> [Float]? {
+        guard let embeddingData = embedding else { return nil }
+        return EmbeddingUtils.dataToEmbedding(embeddingData)
+    }
+    
+    /// Check if embedding needs regeneration (model version changed or too old)
+    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 30 * 24 * 3600) -> Bool {
+        guard hasEmbedding else { return true }
+        
+        // Check model version
+        if embeddingModelVersion != currentModelVersion {
+            return true
+        }
+        
+        // Check age (LTM embeddings can be older since content is more stable)
+        if let generatedAt = embeddingGeneratedAt,
+           Date().timeIntervalSince(generatedAt) > maxAge {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Get combined text for embedding generation (content + summary)
+    var embeddingText: String {
+        if summary.isEmpty {
+            return content
+        } else {
+            return "\(summary). \(content)"
+        }
     }
 }
 
