@@ -251,12 +251,19 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol, @unc
         
         // Perform recognition
         let result: SpeechTranscriptionResult = try await withCheckedThrowingContinuation { continuation in
-            var hasReturned = false
+            let hasReturned = OSAllocatedUnfairLock(initialState: false)
             
             // Add timeout handling
             DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
-                if !hasReturned {
-                    hasReturned = true
+                let shouldReturn = hasReturned.withLock { hasReturned in
+                    if !hasReturned {
+                        hasReturned = true
+                        return true
+                    }
+                    return false
+                }
+                
+                if shouldReturn {
                     self.logger.warning("Recognition task timed out after 30 seconds")
                     continuation.resume(throwing: SpeechTranscriptionError.processingFailed("Recognition timeout"))
                 }
@@ -264,21 +271,38 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol, @unc
             
             recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
                 guard let self = self else {
-                    if !hasReturned {
-                        hasReturned = true
+                    let shouldReturn = hasReturned.withLock { hasReturned in
+                        if !hasReturned {
+                            hasReturned = true
+                            return true
+                        }
+                        return false
+                    }
+                    
+                    if shouldReturn {
                         continuation.resume(throwing: SpeechTranscriptionError.processingFailed("AppleSpeechTranscriber was deallocated during recognition"))
                     }
                     return
                 }
                 
-                if hasReturned { return }
+                let shouldContinue = hasReturned.withLock { !$0 }
+                if !shouldContinue { return }
                 
                 if let error = error {
-                    hasReturned = true
-                    self.logger.error("Transcription failed: \(error.localizedDescription)")
-                    self.logger.error("Error code: \(error._code)")
-                    self.logger.error("Error domain: \(error._domain)")
-                    continuation.resume(throwing: SpeechTranscriptionError.processingFailed(error.localizedDescription))
+                    let shouldReturn = hasReturned.withLock { hasReturned in
+                        if !hasReturned {
+                            hasReturned = true
+                            return true
+                        }
+                        return false
+                    }
+                    
+                    if shouldReturn {
+                        self.logger.error("Transcription failed: \(error.localizedDescription)")
+                        self.logger.error("Error code: \(error._code)")
+                        self.logger.error("Error domain: \(error._domain)")
+                        continuation.resume(throwing: SpeechTranscriptionError.processingFailed(error.localizedDescription))
+                    }
                     return
                 }
                 
@@ -288,17 +312,26 @@ public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol, @unc
                     self.logger.info("Transcription segments: \(result.bestTranscription.segments.count)")
                     
                     if result.isFinal {
-                        hasReturned = true
-                        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-                        let transcriptionResult = self.createTranscriptionResult(from: result, processingTime: processingTime)
+                        let shouldReturn = hasReturned.withLock { hasReturned in
+                            if !hasReturned {
+                                hasReturned = true
+                                return true
+                            }
+                            return false
+                        }
                         
-                        // Check if we got an empty result
-                        if transcriptionResult.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            self.logger.warning("Final result is empty - no speech detected in audio")
-                            continuation.resume(throwing: SpeechTranscriptionError.processingFailed("No speech detected"))
-                        } else {
-                            self.logger.info("Batch transcription completed: \(result.bestTranscription.formattedString.prefix(50))...")
-                            continuation.resume(returning: transcriptionResult)
+                        if shouldReturn {
+                            let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+                            let transcriptionResult = self.createTranscriptionResult(from: result, processingTime: processingTime)
+                            
+                            // Check if we got an empty result
+                            if transcriptionResult.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                self.logger.warning("Final result is empty - no speech detected in audio")
+                                continuation.resume(throwing: SpeechTranscriptionError.processingFailed("No speech detected"))
+                            } else {
+                                self.logger.info("Batch transcription completed: \(result.bestTranscription.formattedString.prefix(50))...")
+                                continuation.resume(returning: transcriptionResult)
+                            }
                         }
                     } else {
                         self.logger.info("Partial result: '\(result.bestTranscription.formattedString)'")

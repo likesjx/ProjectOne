@@ -337,6 +337,7 @@ struct NoteCard: View {
 // MARK: - Preview Extensions
 
 extension ModelContext {
+    @MainActor
     static var preview: ModelContext {
         let container = try! SwiftData.ModelContainer(for: ProcessedNote.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         

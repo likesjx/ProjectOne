@@ -327,7 +327,7 @@ public struct ChatRequest: Codable {
     }
 }
 
-public struct ChatMessage: Codable {
+public struct ChatMessage: Codable, Sendable {
     let role: String
     let content: String
 }

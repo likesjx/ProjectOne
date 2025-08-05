@@ -98,14 +98,14 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
             // Initialize audio processor
             audioProcessor = MLXAudioProcessor(configuration: audioConfig)
             
-            await updateLoadingStatus(.ready)
-            await updateAvailability(true)
+            updateLoadingStatus(.ready)
+            updateAvailability(true)
             
             logger.info("✅ MLX Audio VLM model loaded successfully")
             
         } catch {
             await updateLoadingStatus(.failed(error.localizedDescription))
-            await updateAvailability(false)
+            updateAvailability(false)
             logger.error("❌ MLX Audio VLM model loading failed: \(error.localizedDescription)")
             throw error
         }
@@ -124,7 +124,7 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
         vlmModel = nil
         audioProcessor = nil
         #endif
-        await updateAvailability(false)
+        updateAvailability(false)
         logger.info("MLX Audio VLM provider cleaned up")
     }
     
@@ -173,7 +173,7 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
     /// Process real-time audio stream
     public func processAudioStream(_ audioStream: AsyncStream<Data>, prompt: String) -> AsyncThrowingStream<AudioUnderstandingResult, Error> {
         return AsyncThrowingStream { continuation in
-            Task { @Sendable in
+            Task { @MainActor in
                 do {
                     for try await audioChunk in audioStream {
                         let result = try await processAudioWithPrompt(audioChunk, prompt: prompt)
@@ -265,7 +265,9 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
     
     /// Convert various audio formats to MLX-compatible format
     public func preprocessAudio(_ audioData: Data, originalFormat: AVAudioFormat) async throws -> Data {
-        logger.info("Preprocessing audio for MLX compatibility")
+        await MainActor.run {
+            logger.info("Preprocessing audio for MLX compatibility")
+        }
         
         // Convert to required format (16kHz mono)
         let targetFormat = AVAudioFormat(
@@ -280,22 +282,32 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
     }
     
     private func convertAudioFormat(_ audioData: Data, from sourceFormat: AVAudioFormat, to targetFormat: AVAudioFormat) async throws -> Data {
-        // Audio format conversion implementation
-        // This would use AVAudioConverter to convert between formats
-        
-        guard let audioBuffer = createAudioBuffer(from: audioData, format: sourceFormat) else {
-            throw ExternalAIError.generationFailed("Failed to create audio buffer")
+        return try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor in
+                do {
+                    // Audio format conversion implementation
+                    // This would use AVAudioConverter to convert between formats
+                    
+                    guard let audioBuffer = self.createAudioBuffer(from: audioData, format: sourceFormat) else {
+                        continuation.resume(throwing: ExternalAIError.generationFailed("Failed to create audio buffer"))
+                        return
+                    }
+                    
+                    let converter = AVAudioConverter(from: sourceFormat, to: targetFormat)!
+                    
+                    // Convert audio data
+                    let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: audioBuffer.frameCapacity)!
+                    
+                    try converter.convert(to: convertedBuffer, from: audioBuffer)
+                    
+                    // Convert buffer back to Data
+                    let result = self.convertBufferToData(convertedBuffer)
+                    continuation.resume(returning: result)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-        
-        let converter = AVAudioConverter(from: sourceFormat, to: targetFormat)!
-        
-        // Convert audio data
-        let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: audioBuffer.frameCapacity)!
-        
-        try converter.convert(to: convertedBuffer, from: audioBuffer)
-        
-        // Convert buffer back to Data
-        return convertBufferToData(convertedBuffer)
     }
     
     private func createAudioBuffer(from data: Data, format: AVAudioFormat) -> AVAudioPCMBuffer? {
@@ -375,7 +387,7 @@ private class MLXAudioProcessor {
 
 // MARK: - Supporting Types
 
-public struct AudioUnderstandingResult {
+public struct AudioUnderstandingResult: Sendable {
     public let content: String
     public let confidence: Double
     public let audioMetadata: AudioMetadata
@@ -389,7 +401,7 @@ public struct AudioUnderstandingResult {
     }
 }
 
-public struct AudioAnalysisResult {
+public struct AudioAnalysisResult: Sendable {
     public let emotionalTone: MLXEmotionalTone
     public let speakerCharacteristics: SpeakerCharacteristics
     public let contentCategories: [String]
@@ -405,7 +417,7 @@ public struct AudioAnalysisResult {
     }
 }
 
-public struct AudioMetadata {
+public struct AudioMetadata: Sendable {
     public let duration: TimeInterval
     public let sampleRate: Double
     public let channels: Int
@@ -421,7 +433,7 @@ public struct AudioMetadata {
     }
 }
 
-public enum MLXEmotionalTone: String, CaseIterable {
+public enum MLXEmotionalTone: String, CaseIterable, Sendable {
     case neutral, happy, sad, angry, excited, calm, frustrated, confident, uncertain
     
     public var displayName: String {
@@ -429,7 +441,7 @@ public enum MLXEmotionalTone: String, CaseIterable {
     }
 }
 
-public struct SpeakerCharacteristics {
+public struct SpeakerCharacteristics: Sendable {
     public let estimatedGender: String?
     public let estimatedAge: String?
     public let accent: String?
@@ -445,7 +457,7 @@ public struct SpeakerCharacteristics {
     }
 }
 
-public struct EnvironmentalContext {
+public struct EnvironmentalContext: Sendable {
     public let noiseLevel: String
     public let acousticEnvironment: String
     public let backgroundSounds: [String]

@@ -56,9 +56,20 @@ public struct DeviceCapabilities {
         let osVersion: String
         
         #if canImport(UIKit)
-        let device = UIDevice.current
-        deviceModel = device.model
-        osVersion = device.systemVersion
+        // Use DispatchQueue to safely access main actor properties
+        if Thread.isMainThread {
+            deviceModel = UIDevice.current.model
+            osVersion = UIDevice.current.systemVersion
+        } else {
+            var model = ""
+            var version = ""
+            DispatchQueue.main.sync {
+                model = UIDevice.current.model
+                version = UIDevice.current.systemVersion
+            }
+            deviceModel = model
+            osVersion = version
+        }
         #elseif canImport(AppKit)
         deviceModel = "Mac"
         osVersion = ProcessInfo.processInfo.operatingSystemVersionString

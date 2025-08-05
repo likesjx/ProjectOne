@@ -84,7 +84,7 @@ public class OpenAIProvider: ExternalAIProvider, @unchecked Sendable {
             throw ExternalAIError.modelNotReady
         }
         
-        self.logger.info("Generating OpenAI response with functions")
+        logger.info("Generating OpenAI response with functions")
         
         let request = OpenAIFunctionRequest(
             model: configuration.model,
@@ -95,7 +95,8 @@ public class OpenAIProvider: ExternalAIProvider, @unchecked Sendable {
         )
         
         do {
-            return try await httpClient.sendFunctionRequest(request)
+            let response = try await httpClient.sendFunctionRequest(request)
+            return response
         } catch {
             logger.error("❌ OpenAI function generation failed: \(error.localizedDescription)")
             throw ExternalAIError.generationFailed(error.localizedDescription)
@@ -125,7 +126,7 @@ public class OpenAIProvider: ExternalAIProvider, @unchecked Sendable {
 
 // MARK: - OpenAI-Specific Types
 
-public struct OpenAIFunction: Codable {
+public struct OpenAIFunction: Codable, Sendable {
     let name: String
     let description: String
     let parameters: [String: String] // Simplified to String values for Codable compliance
@@ -137,7 +138,7 @@ public struct OpenAIFunction: Codable {
     }
 }
 
-public struct OpenAIFunctionRequest: Codable {
+public struct OpenAIFunctionRequest: Codable, Sendable {
     let model: String
     let messages: [ChatMessage]
     let functions: [OpenAIFunction]?
@@ -207,6 +208,9 @@ public struct OpenAIModelsResponse: Codable {
 
 extension HTTPClient {
     func sendFunctionRequest(_ request: OpenAIFunctionRequest) async throws -> OpenAIFunctionResponse {
+        // Copy request data to avoid race conditions
+        let requestCopy = request
+        
         guard let url = URL(string: "\(configuration.baseURL)/chat/completions") else {
             throw ExternalAIError.configurationInvalid("Invalid base URL")
         }
@@ -219,7 +223,8 @@ extension HTTPClient {
             urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         
-        urlRequest.httpBody = try JSONEncoder().encode(request)
+        // Use the copy to avoid race conditions
+        urlRequest.httpBody = try JSONEncoder().encode(requestCopy)
         
         let (data, response) = try await urlSession.data(for: urlRequest)
         

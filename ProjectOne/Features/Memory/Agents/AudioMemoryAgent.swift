@@ -154,7 +154,7 @@ public class AudioMemoryAgent: ObservableObject {
     /// Process real-time audio stream
     public func processAudioStream(_ audioStream: AsyncStream<Data>, context: String = "") -> AsyncThrowingStream<AudioMemoryResult, Error> {
         return AsyncThrowingStream { continuation in
-            Task {
+            Task { @MainActor @Sendable in
                 do {
                     for try await audioChunk in audioStream {
                         let result = try await processAudioMemory(audioChunk, context: context)

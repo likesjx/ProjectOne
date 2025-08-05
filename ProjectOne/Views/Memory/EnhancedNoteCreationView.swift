@@ -76,7 +76,7 @@ struct EnhancedNoteCreationView: View {
         self.voiceMemoContext = voiceMemoContext
         self._memoryService = StateObject(wrappedValue: RealTimeMemoryService(modelContext: modelContext))
         // Use shared memory service from system manager if available
-        let sharedMemoryService = systemManager?.memoryService
+        let sharedMemoryService = systemManager?.memoryService as? MemoryAgentService
         self._textIngestionAgent = StateObject(wrappedValue: TextIngestionAgent(modelContext: modelContext, memoryService: sharedMemoryService))
         
         if let note = existingNote {
