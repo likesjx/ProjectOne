@@ -11,7 +11,7 @@ import AVFoundation
 // MARK: - Core Data Types
 
 /// Represents audio data for processing
-public struct AudioData {
+public struct AudioData: @unchecked Sendable {
     let audioBuffer: AVAudioBuffer?
     let samples: [Float]
     let format: AVAudioFormat
@@ -58,7 +58,7 @@ public struct ProcessedAudioData {
 }
 
 /// Result of transcription operation with enhanced metadata
-public struct SpeechTranscriptionResult {
+public struct SpeechTranscriptionResult: Sendable {
     let text: String
     let confidence: Float
     let segments: [SpeechTranscriptionSegment]
@@ -77,7 +77,7 @@ public struct SpeechTranscriptionResult {
 }
 
 /// Individual segment of transcribed text with enhanced metadata
-public struct SpeechTranscriptionSegment {
+public struct SpeechTranscriptionSegment: Sendable {
     let text: String
     let startTime: TimeInterval
     let endTime: TimeInterval
@@ -92,7 +92,7 @@ public struct SpeechTranscriptionSegment {
 }
 
 /// Transcription method used
-public enum TranscriptionMethod {
+public enum TranscriptionMethod: Sendable {
     case appleSpeech
     case speechAnalyzer
     case mlx
@@ -191,7 +191,7 @@ public enum SpeechTranscriptionError: Error {
 // MARK: - Main Protocol
 
 /// Main protocol for speech transcription implementations
-public protocol SpeechTranscriptionProtocol: AnyObject {
+public protocol SpeechTranscriptionProtocol: AnyObject, Sendable {
     
     /// Transcribe audio data in batch mode
     func transcribe(audio: AudioData, configuration: TranscriptionConfiguration) async throws -> SpeechTranscriptionResult

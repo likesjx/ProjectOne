@@ -16,8 +16,8 @@ private func disableHapticsInSimulator() {
 @main
 struct ProjectOneApp: App {
     @State private var urlHandler = URLHandler()
-    @State private var memoryAgentService: MemoryAgentService?
-    @StateObject private var gemmaCore = Gemma3nCore()
+    @State private var unifiedSystemManager: UnifiedSystemManager?
+    @State private var initializingSystemManager: UnifiedSystemManager?
     
     var sharedModelContainer: SwiftData.ModelContainer = {
         let schema = Schema([
@@ -45,7 +45,10 @@ struct ProjectOneApp: App {
             PromptTemplate.self,
             
             // User profile models
-            UserSpeechProfile.self
+            UserSpeechProfile.self,
+            
+            // Cognitive decision models
+            CognitiveDecision.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -58,35 +61,32 @@ struct ProjectOneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(urlHandler)
-                .environmentObject(gemmaCore)
-                .onOpenURL { url in
-                    Task {
-                        await urlHandler.handleURL(url, with: sharedModelContainer.mainContext)
+            if let systemManager = unifiedSystemManager {
+                ContentView()
+                    .environmentObject(urlHandler)
+                    .environmentObject(systemManager)
+                    .environmentObject(Gemma3nCore())
+                    .onOpenURL { url in
+                        Task {
+                            await urlHandler.handleURL(url, with: sharedModelContainer.mainContext)
+                        }
                     }
+            } else {
+                if let initManager = initializingSystemManager {
+                    SystemInitializationView(systemManager: initManager)
+                } else {
+                    SystemInitializationView()
+                        .task {
+                            // Disable haptic feedback in simulator to prevent log errors
+                            #if os(iOS)
+                            disableHapticsInSimulator()
+                            #endif
+                            
+                            // Initialize the unified system
+                            await initializeUnifiedSystem()
+                        }
                 }
-                .task {
-                    // Disable haptic feedback in simulator to prevent log errors
-                    #if os(iOS)
-                    disableHapticsInSimulator()
-                    #endif
-                    
-                    // Start background WhisperKit model preloading when app launches
-                    await startBackgroundModelPreloading()
-                    
-                    // Initialize Gemma3nCore after app is stable
-                    await initializeGemmaCore()
-                    
-                    // Initialize Memory Agent system with new prompt integration
-                    await initializeMemoryAgent()
-                    
-                    // Run enhanced prompt system tests - temporarily disabled during prompt testing
-                    // await runEnhancedPromptTests()
-                    
-                    // Run memory system tests - temporarily disabled during prompt testing
-                    // await runMemorySystemTests(modelContext: sharedModelContainer.mainContext)
-                }
+            }
         }
         .modelContainer(sharedModelContainer)
         #if os(macOS)
@@ -97,48 +97,25 @@ struct ProjectOneApp: App {
     }
     
     @MainActor
-    private func startBackgroundModelPreloading() async {
-        print("🚀 [ProjectOneApp] Starting background WhisperKit model preloading...")
-        WhisperKitModelPreloader.shared.startPreloading()
-    }
-    
-    @MainActor
-    private func initializeGemmaCore() async {
-        print("🧠 [ProjectOneApp] Initializing Gemma3nCore...")
-        gemmaCore.setup()
-        print("✅ [ProjectOneApp] Gemma3nCore setup initiated")
-    }
-    
-    @MainActor
-    private func initializeMemoryAgent() async {
-        print("🧠 [ProjectOneApp] Initializing Memory Agent system...")
+    private func initializeUnifiedSystem() async {
+        print("🚀 [ProjectOneApp] Starting unified system initialization...")
         
-        do {
-            print("🔧 [ProjectOneApp] Creating MemoryAgentService...")
-            let service = MemoryAgentService(modelContext: sharedModelContainer.mainContext)
-            
-            print("🚀 [ProjectOneApp] Starting MemoryAgentService...")
-            try await service.start()
-            
-            print("💾 [ProjectOneApp] Storing service reference...")
-            memoryAgentService = service
-            
-            print("✅ [ProjectOneApp] Memory Agent system initialized successfully")
-        } catch {
-            print("❌ [ProjectOneApp] Failed to initialize Memory Agent: \(error)")
-            print("📊 [ProjectOneApp] Error details: \(error.localizedDescription)")
-        }
-    }
-    
-    @MainActor
-    private func runEnhancedPromptTests() async {
-        print("🧪 [ProjectOneApp] Enhanced Prompt System Tests disabled during development")
-        // Tests temporarily disabled during prompt management integration
-    }
-    
-    @MainActor
-    private func runMemorySystemTests(modelContext: ModelContext) async {
-        print("🧪 [ProjectOneApp] Memory System Tests disabled during development")
-        // Tests temporarily disabled during prompt management integration
+        // Create the unified system manager
+        let systemManager = UnifiedSystemManager(
+            modelContext: sharedModelContainer.mainContext,
+            configuration: .default
+        )
+        
+        // Store the initializing system manager so the UI can observe progress
+        initializingSystemManager = systemManager
+        
+        // Initialize the entire system
+        await systemManager.initializeSystem()
+        
+        // Store the system manager for use throughout the app
+        unifiedSystemManager = systemManager
+        initializingSystemManager = nil
+        
+        print("🎉 [ProjectOneApp] Unified system initialization completed successfully")
     }
 }

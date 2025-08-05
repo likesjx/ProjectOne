@@ -7,8 +7,14 @@ import Speech
 import UIKit
 #endif
 
+// iOS 26.0+ Speech framework extensions for SpeechAnalyzer and SpeechTranscriber
+#if canImport(Speech) && swift(>=6.0)
+// SpeechAnalyzer and SpeechTranscriber are available in iOS 26.0+ beta
+// These are part of the Speech framework in iOS 26.0 beta
+#endif
+
 @available(iOS 26.0, macOS 26.0, *)
-public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
+public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol, @unchecked Sendable {
     private let logger = Logger(subsystem: "com.projectone.speech", category: "SpeechAnalyzerTranscriber")
     private var locale: Locale
     
@@ -272,7 +278,7 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
         
         // Validate original audio content
         if let originalChannelData = audioBuffer.floatChannelData {
-            let originalSamples = Array(UnsafeBufferPointer(start: originalChannelData[0], count: Int(audioBuffer.frameLength)))
+            let originalSamples = Array(UnsafeBufferPointer<Float>(start: originalChannelData[0], count: Int(audioBuffer.frameLength)))
             let originalMax = originalSamples.map(abs).max() ?? 0.0
             let originalNonZero = originalSamples.filter { abs($0) > 0.001 }.count
             logger.info("🔊 Original audio content:")
@@ -285,7 +291,7 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
                 throw SpeechTranscriptionError.processingFailed("Original audio contains no content")
             }
         } else if let originalInt16Data = audioBuffer.int16ChannelData {
-            let originalSamples = Array(UnsafeBufferPointer(start: originalInt16Data[0], count: Int(audioBuffer.frameLength)))
+            let originalSamples = Array(UnsafeBufferPointer<Int16>(start: originalInt16Data[0], count: Int(audioBuffer.frameLength)))
             let originalMax = originalSamples.map(abs).max() ?? 0
             logger.info("🔊 Original int16 audio content: max=\(originalMax)")
             
@@ -341,7 +347,7 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
             // Validate converted audio content immediately
             logger.info("🔍 Post-conversion validation:")
             if let convertedChannelData = convertedBuffer.floatChannelData {
-                let convertedSamples = Array(UnsafeBufferPointer(start: convertedChannelData[0], count: Int(convertedBuffer.frameLength)))
+                let convertedSamples = Array(UnsafeBufferPointer<Float>(start: convertedChannelData[0], count: Int(convertedBuffer.frameLength)))
                 let convertedMax = convertedSamples.map(abs).max() ?? 0.0
                 let convertedNonZero = convertedSamples.filter { abs($0) > 0.001 }.count
                 logger.info("🔊 Converted float audio content:")
@@ -353,7 +359,7 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
                     logger.error("❌ Audio conversion resulted in silent buffer!")
                 }
             } else if let convertedInt16Data = convertedBuffer.int16ChannelData {
-                let convertedSamples = Array(UnsafeBufferPointer(start: convertedInt16Data[0], count: Int(convertedBuffer.frameLength)))
+                let convertedSamples = Array(UnsafeBufferPointer<Int16>(start: convertedInt16Data[0], count: Int(convertedBuffer.frameLength)))
                 let convertedMax = convertedSamples.map(abs).max() ?? 0
                 let convertedNonZero = convertedSamples.filter { abs($0) > 0 }.count
                 logger.info("🔊 Converted int16 audio content:")
@@ -388,7 +394,7 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
         #endif
         
         if let channelData = optimalBuffer.floatChannelData {
-            let samples = Array(UnsafeBufferPointer(start: channelData[0], count: Int(optimalBuffer.frameLength)))
+            let samples = Array(UnsafeBufferPointer<Float>(start: channelData[0], count: Int(optimalBuffer.frameLength)))
             let maxAmplitude = samples.map(abs).max() ?? 0.0
             let avgAmplitude = samples.map(abs).reduce(0, +) / Float(samples.count)
             let nonZeroSamples = samples.filter { abs($0) > 0.001 }.count
@@ -434,7 +440,7 @@ public class SpeechAnalyzerTranscriber: NSObject, SpeechTranscriptionProtocol {
             // Try alternative channel data access
             if let int16Data = optimalBuffer.int16ChannelData {
                 logger.info("🔄 Trying int16 channel data instead...")
-                let samples = Array(UnsafeBufferPointer(start: int16Data[0], count: Int(optimalBuffer.frameLength)))
+                let samples = Array(UnsafeBufferPointer<Int16>(start: int16Data[0], count: Int(optimalBuffer.frameLength)))
                 let maxValue = samples.map(abs).max() ?? 0
                 logger.info("📊 Int16 audio analysis: max=\(maxValue), samples=\(samples.count)")
             }

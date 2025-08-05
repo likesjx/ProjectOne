@@ -9,8 +9,8 @@
 import Foundation
 import SwiftUI
 import Combine
-import MLXLMCommon
-import MLXVLM
+import MLX
+// import MLXVLM // TODO: Module not available in current MLX Swift
 import os.log
 
 #if canImport(UIKit)
@@ -29,6 +29,7 @@ public typealias PlatformImage = Any
 #endif
 
 /// Multimodal VLM provider wrapping MLXService
+@MainActor
 public class MLXVLMProvider: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MLXVLMProvider")

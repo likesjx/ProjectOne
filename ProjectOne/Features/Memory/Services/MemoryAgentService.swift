@@ -42,9 +42,9 @@ public class MemoryAgentService: ObservableObject {
     // MARK: - Lifecycle
     
     public func start() async throws {
-        guard !isRunning else {
-            print("⚠️ [MemoryAgentService] Service already running")
-            logger.warning("Memory Agent Service already running")
+        guard !isRunning && !isInitialized else {
+            print("⚠️ [MemoryAgentService] Service already running or initialized")
+            logger.warning("Memory Agent Service already running or initialized")
             return
         }
         
@@ -109,8 +109,8 @@ public class MemoryAgentService: ObservableObject {
         let kgService = KnowledgeGraphService(modelContext: modelContext)
         knowledgeGraphService = kgService
         
-        // Initialize TextIngestionAgent
-        textIngestionAgent = TextIngestionAgent(modelContext: modelContext)
+        // Initialize TextIngestionAgent with reference to this service (avoiding circular dependency)
+        textIngestionAgent = TextIngestionAgent(modelContext: modelContext, memoryService: self)
         
         // Initialize AI providers
         let aiModelProvider = MemoryAgentModelProvider()

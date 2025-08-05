@@ -28,6 +28,9 @@ Production implementation with real MLX Swift 0.25.6 APIs and community models.
 ### ⬆️ [iOS 26.0+ MLX Compatibility Update](XCODE26_MLX_COMPATIBILITY_UPDATE.md) ✅ **Complete**
 Project updated for iOS 26.0+ Foundation Models framework integration.
 
+### 🔍 [Vector Similarity Search Specification](VECTOR_SIMILARITY_SEARCH_SPEC.md) ✅ **Complete**
+Implementation of semantic vector similarity search using local MLX embeddings for enhanced memory retrieval.
+
 ## Navigation
 
 - **← Back to [Main Documentation](../README.md)**

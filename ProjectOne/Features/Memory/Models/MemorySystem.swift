@@ -355,7 +355,16 @@ final class LongTermMemory {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class EpisodicEvent: MemoryItem {
+final class EpisodicEvent {
+    // Base memory properties
+    var id: UUID
+    var timestamp: Date
+    var importance: Double // 0.0 - 1.0
+    var accessCount: Int
+    var lastAccessed: Date
+    var decay: Double // How much this memory has decayed over time
+    
+    // Specific properties
     var summary: String
     var involvedEntityIds: [String] // Entity UUIDs
     var location: String?
@@ -365,13 +374,19 @@ final class EpisodicEvent: MemoryItem {
     
     init(summary: String, involvedEntityIds: [String] = [], location: String? = nil, 
          emotionalValence: Double = 0.0, contextType: String = "general", importance: Double = 0.5) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.importance = importance
+        self.accessCount = 0
+        self.lastAccessed = Date()
+        self.decay = 0.0
+        
         self.summary = summary
         self.involvedEntityIds = involvedEntityIds
         self.location = location
         self.emotionalValence = emotionalValence
         self.contextType = contextType
         self.sourceNoteIds = []
-        super.init(importance: importance)
     }
     
     func isSimilar(to other: EpisodicEvent) -> Bool {
@@ -385,6 +400,15 @@ final class EpisodicEvent: MemoryItem {
         let locationMatch = location == other.location
         
         return entitySimilarity > 0.5 && timeProximity && (locationMatch || location == nil || other.location == nil)
+    }
+    
+    func recordAccess() {
+        accessCount += 1
+        lastAccessed = Date()
+        
+        // Accessing memory strengthens it
+        importance = min(1.0, importance + 0.05)
+        decay = max(0.0, decay - 0.1)
     }
     
     func merge(with other: EpisodicEvent) {
@@ -408,7 +432,16 @@ final class EpisodicEvent: MemoryItem {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class SemanticConcept: MemoryItem {
+final class SemanticConcept {
+    // Base memory properties
+    var id: UUID
+    var timestamp: Date
+    var importance: Double // 0.0 - 1.0
+    var accessCount: Int
+    var lastAccessed: Date
+    var decay: Double // How much this memory has decayed over time
+    
+    // Specific properties
     var name: String
     var type: SemanticType
     var strength: Double // How well-established this concept is
@@ -416,12 +449,27 @@ final class SemanticConcept: MemoryItem {
     var relatedConceptIds: [String] // Related semantic concepts
     
     init(name: String, type: SemanticType, strength: Double = 0.5, evidence: [String] = [], importance: Double = 0.5) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.importance = importance
+        self.accessCount = 0
+        self.lastAccessed = Date()
+        self.decay = 0.0
+        
         self.name = name
         self.type = type
         self.strength = strength
         self.evidence = evidence
         self.relatedConceptIds = []
-        super.init(importance: importance)
+    }
+    
+    func recordAccess() {
+        accessCount += 1
+        lastAccessed = Date()
+        
+        // Accessing memory strengthens it
+        importance = min(1.0, importance + 0.05)
+        decay = max(0.0, decay - 0.1)
     }
     
     func reinforce(with newConcept: SemanticConcept) {
@@ -442,7 +490,16 @@ enum SemanticType: String, CaseIterable, Codable {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class ProcedurePattern: MemoryItem {
+final class ProcedurePattern {
+    // Base memory properties
+    var id: UUID
+    var timestamp: Date
+    var importance: Double // 0.0 - 1.0
+    var accessCount: Int
+    var lastAccessed: Date
+    var decay: Double // How much this memory has decayed over time
+    
+    // Specific properties
     var name: String
     var type: ProcedureType
     var strength: Double
@@ -451,13 +508,28 @@ final class ProcedurePattern: MemoryItem {
     var outcomes: [String] // Expected outcomes
     
     init(name: String, type: ProcedureType, strength: Double = 0.5, steps: [String] = [], importance: Double = 0.5) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.importance = importance
+        self.accessCount = 0
+        self.lastAccessed = Date()
+        self.decay = 0.0
+        
         self.name = name
         self.type = type
         self.strength = strength
         self.steps = steps
         self.triggers = []
         self.outcomes = []
-        super.init(importance: importance)
+    }
+    
+    func recordAccess() {
+        accessCount += 1
+        lastAccessed = Date()
+        
+        // Accessing memory strengthens it
+        importance = min(1.0, importance + 0.05)
+        decay = max(0.0, decay - 0.1)
     }
     
     func reinforce() {
@@ -475,7 +547,16 @@ enum ProcedureType: String, CaseIterable, Codable {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class ConsolidatedFact: MemoryItem {
+final class ConsolidatedFact {
+    // Base memory properties
+    var id: UUID
+    var timestamp: Date
+    var importance: Double // 0.0 - 1.0
+    var accessCount: Int
+    var lastAccessed: Date
+    var decay: Double // How much this memory has decayed over time
+    
+    // Specific properties
     var statement: String
     var confidence: Double
     var supportingEvidence: [String]
@@ -483,12 +564,27 @@ final class ConsolidatedFact: MemoryItem {
     var domain: String // Topic area
     
     init(statement: String, confidence: Double = 0.8, domain: String = "general", importance: Double = 0.7) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.importance = importance
+        self.accessCount = 0
+        self.lastAccessed = Date()
+        self.decay = 0.0
+        
         self.statement = statement
         self.confidence = confidence
         self.supportingEvidence = []
         self.contradictingEvidence = []
         self.domain = domain
-        super.init(importance: importance)
+    }
+    
+    func recordAccess() {
+        accessCount += 1
+        lastAccessed = Date()
+        
+        // Accessing memory strengthens it
+        importance = min(1.0, importance + 0.05)
+        decay = max(0.0, decay - 0.1)
     }
     
     func addEvidence(_ evidence: String, supporting: Bool) {
@@ -507,18 +603,42 @@ final class ConsolidatedFact: MemoryItem {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class InteractionMemory: MemoryItem {
+final class InteractionMemory {
+    // Base memory properties
+    var id: UUID
+    var timestamp: Date
+    var importance: Double // 0.0 - 1.0
+    var accessCount: Int
+    var lastAccessed: Date
+    var decay: Double // How much this memory has decayed over time
+    
+    // Specific properties
     var type: InteractionType
     var content: String
     var involvedEntityIds: [String]
     var outcome: String?
     
     init(type: InteractionType, content: String, involvedEntityIds: [String] = [], outcome: String? = nil, importance: Double = 0.5) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.importance = importance
+        self.accessCount = 0
+        self.lastAccessed = Date()
+        self.decay = 0.0
+        
         self.type = type
         self.content = content
         self.involvedEntityIds = involvedEntityIds
         self.outcome = outcome
-        super.init(importance: importance)
+    }
+    
+    func recordAccess() {
+        accessCount += 1
+        lastAccessed = Date()
+        
+        // Accessing memory strengthens it
+        importance = min(1.0, importance + 0.05)
+        decay = max(0.0, decay - 0.1)
     }
 }
 
@@ -532,7 +652,16 @@ enum InteractionType: String, CaseIterable, Codable {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class TemporaryRelationship: MemoryItem {
+final class TemporaryRelationship {
+    // Base memory properties
+    var id: UUID
+    var timestamp: Date
+    var importance: Double // 0.0 - 1.0
+    var accessCount: Int
+    var lastAccessed: Date
+    var decay: Double // How much this memory has decayed over time
+    
+    // Specific properties
     var subjectEntityId: String
     var predicate: String
     var objectEntityId: String
@@ -541,12 +670,27 @@ final class TemporaryRelationship: MemoryItem {
     
     init(subjectEntityId: String, predicate: String, objectEntityId: String, 
          confidence: Double = 0.5, context: String = "", importance: Double = 0.3) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.importance = importance
+        self.accessCount = 0
+        self.lastAccessed = Date()
+        self.decay = 0.0
+        
         self.subjectEntityId = subjectEntityId
         self.predicate = predicate
         self.objectEntityId = objectEntityId
         self.confidence = confidence
         self.context = context
-        super.init(importance: importance)
+    }
+    
+    func recordAccess() {
+        accessCount += 1
+        lastAccessed = Date()
+        
+        // Accessing memory strengthens it
+        importance = min(1.0, importance + 0.05)
+        decay = max(0.0, decay - 0.1)
     }
 }
 

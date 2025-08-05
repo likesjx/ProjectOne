@@ -204,7 +204,7 @@ public class TranscriptionDiagnostic {
         var issues: [DiagnosticIssue] = []
         var recommendations: [String] = []
         do {
-            let factory = SpeechEngineFactory()
+            let factory = await MainActor.run { SpeechEngineFactory() }
             let engine = try await factory.getTranscriptionEngine()
             logger.info("✅ Successfully selected engine: \(engine.method.displayName)")
             

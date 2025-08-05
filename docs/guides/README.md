@@ -4,6 +4,13 @@ This directory contains practical implementation guides, troubleshooting documen
 
 ## Documents
 
+### 🧪 [AI Provider Testing Suite](AI_PROVIDER_TESTING.md) ⭐ **Latest**
+Comprehensive guide for testing and comparing all AI providers:
+- Enhanced testing interface with provider management
+- Local (MLX, Apple Foundation) and external (OpenAI, Ollama, OpenRouter) providers
+- Performance benchmarking and comparison tools
+- Configuration management and troubleshooting
+
 ### 💾 [SwiftData Implementation Guide](SWIFTDATA_IMPLEMENTATION_GUIDE.md)
 Best practices for SwiftData usage:
 - Model design patterns
@@ -61,6 +68,15 @@ Complete implementation guide for the audio recording system:
 - UI components and playback controls
 - iOS Simulator fallback strategy
 - Testing and troubleshooting guide
+
+### 🔍 [Vector Similarity Search Implementation](VECTOR_SIMILARITY_SEARCH_IMPLEMENTATION.md) ✅ **Complete**
+Comprehensive guide for semantic vector search using local MLX embeddings:
+- Model selection and configuration guide
+- Performance optimization strategies
+- Migration and setup procedures
+- Troubleshooting and best practices
+- Integration examples with SwiftUI and Combine
+- Advanced usage patterns and customization
 
 ### 📱 [iOS Simulator Fallback Strategy](IOS_SIMULATOR_FALLBACK_STRATEGY.md)
 Comprehensive guide to the iOS Simulator fallback strategy implementation:

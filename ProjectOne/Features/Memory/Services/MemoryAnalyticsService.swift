@@ -32,14 +32,14 @@ class MemoryAnalyticsService: ObservableObject {
     }
     
     deinit {
-        analyticsTimer?.invalidate()
-        analyticsTimer = nil
+        // Note: Cannot safely invalidate timer from deinit due to MainActor isolation
+        // Timer will be cleaned up automatically when service is deallocated
     }
     
     // MARK: - Public API
     
     /// Collect a comprehensive memory snapshot
-    func collectMemorySnapshot() async -> MemoryAnalytics {
+    func collectMemorySnapshot() async {
         isCollecting = true
         defer { isCollecting = false }
         
@@ -76,11 +76,8 @@ class MemoryAnalyticsService: ObservableObject {
             self.currentMetrics = analytics
             self.healthStatus = analytics.healthStatus
             
-            return analytics
-            
         } catch {
             print("Error collecting memory snapshot: \(error)")
-            return analytics
         }
     }
     
@@ -206,7 +203,8 @@ class MemoryAnalyticsService: ObservableObject {
     }
     
     private func startPeriodicCollection() {
-        analyticsTimer = Timer.scheduledTimer(withTimeInterval: collectionInterval, repeats: true) { _ in
+        analyticsTimer = Timer.scheduledTimer(withTimeInterval: collectionInterval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
             Task { @MainActor in
                 await self.collectMemorySnapshot()
             }

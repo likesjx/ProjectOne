@@ -153,7 +153,7 @@ public class EmbeddingMigrationService: ObservableObject {
             totalItemsToMigrate = try await countAllItemsNeedingMigration()
             migratedItems = 0
             
-            logger.info("Starting full migration for \(totalItemsToMigrate) items")
+            logger.info("Starting full migration for \(self.totalItemsToMigrate) items")
             
             // Migrate each content type
             await migrateContentType(STMEntry.self, typeName: "Short-term memories")
@@ -191,7 +191,7 @@ public class EmbeddingMigrationService: ObservableObject {
             totalItemsToMigrate = try await countItemsWithoutEmbeddings()
             migratedItems = 0
             
-            logger.info("Generating initial embeddings for \(totalItemsToMigrate) items")
+            logger.info("Generating initial embeddings for \(self.totalItemsToMigrate) items")
             
             // Generate embeddings for each content type
             await generateEmbeddingsForType(STMEntry.self, typeName: "Short-term memories", mode: .missingOnly)
@@ -229,7 +229,7 @@ public class EmbeddingMigrationService: ObservableObject {
             totalItemsToMigrate = try await countItemsWithModelVersion(oldModelVersion)
             migratedItems = 0
             
-            logger.info("Migrating \(totalItemsToMigrate) items from model version \(oldModelVersion)")
+            logger.info("Migrating \(self.totalItemsToMigrate) items from model version \(oldModelVersion)")
             
             // Migrate each content type
             await generateEmbeddingsForType(STMEntry.self, typeName: "Short-term memories", mode: .specificVersion(oldModelVersion))
@@ -267,7 +267,7 @@ public class EmbeddingMigrationService: ObservableObject {
             totalItemsToMigrate = try await countItemsWithOldEmbeddings(maxAge: maxAge)
             migratedItems = 0
             
-            logger.info("Migrating \(totalItemsToMigrate) items with embeddings older than \(maxAge) seconds")
+            logger.info("Migrating \(self.totalItemsToMigrate) items with embeddings older than \(maxAge) seconds")
             
             // Migrate each content type
             await generateEmbeddingsForType(STMEntry.self, typeName: "Short-term memories", mode: .olderThan(maxAge))
@@ -290,11 +290,11 @@ public class EmbeddingMigrationService: ObservableObject {
     
     // MARK: - Content Type Migration
     
-    private func migrateContentType<T>(_ type: T.Type, typeName: String) async where T: EmbeddingCapable {
+    private func migrateContentType<T>(_ type: T.Type, typeName: String) async where T: EmbeddingCapable & PersistentModel {
         await generateEmbeddingsForType(type, typeName: typeName, mode: .all)
     }
     
-    private func generateEmbeddingsForType<T>(_ type: T.Type, typeName: String, mode: MigrationMode) async where T: EmbeddingCapable {
+    private func generateEmbeddingsForType<T>(_ type: T.Type, typeName: String, mode: MigrationMode) async where T: EmbeddingCapable & PersistentModel {
         currentOperation = "Migrating \(typeName.lowercased())..."
         
         do {
@@ -324,18 +324,18 @@ public class EmbeddingMigrationService: ObservableObject {
         }
     }
     
-    private func processMigrationBatch<T>(_ batch: [T], typeName: String) async where T: EmbeddingCapable {
+    private func processMigrationBatch<T>(_ batch: [T], typeName: String) async where T: EmbeddingCapable & PersistentModel {
         for (index, item) in batch.enumerated() {
             do {
                 try Task.checkCancellation()
                 
                 // Generate new embedding
-                let embedding = try await embeddingGenerationService.generateEmbedding(for: item)
+                _ = try await embeddingGenerationService.generateEmbedding(for: item)
                 
                 migratedItems += 1
                 migrationProgress = Double(migratedItems) / Double(totalItemsToMigrate)
                 
-                logger.debug("Migrated \(typeName) item \(index + 1)/\(batch.count) (\(migratedItems)/\(totalItemsToMigrate) total)")
+                logger.debug("Migrated \(typeName) item \(index + 1)/\(batch.count) (\(self.migratedItems)/\(self.totalItemsToMigrate) total)")
                 
             } catch {
                 logger.error("Failed to migrate \(typeName) item: \(error.localizedDescription)")
@@ -391,28 +391,28 @@ public class EmbeddingMigrationService: ObservableObject {
         return stmCount + ltmCount + episodicCount + noteCount + entityCount
     }
     
-    private func countItemsNeedingMigration<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable {
+    private func countItemsNeedingMigration<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable & PersistentModel {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
-        return allItems.filter { $0.needsEmbeddingUpdate(currentModelVersion: targetModelVersion) }.count
+        return allItems.filter { $0.needsEmbeddingUpdate(currentModelVersion: targetModelVersion, maxAge: 30 * 24 * 3600) }.count
     }
     
-    private func countItemsWithoutEmbeddings<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable {
+    private func countItemsWithoutEmbeddings<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable & PersistentModel {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
         return allItems.filter { !$0.hasEmbedding }.count
     }
     
-    private func countItemsWithModelVersion<T>(type: T.Type, modelVersion: String) async throws -> Int where T: EmbeddingCapable {
+    private func countItemsWithModelVersion<T>(type: T.Type, modelVersion: String) async throws -> Int where T: EmbeddingCapable & PersistentModel {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
         return allItems.filter { $0.embeddingModelVersion == modelVersion }.count
     }
     
-    private func countItemsWithOldEmbeddings<T>(type: T.Type, cutoffDate: Date) async throws -> Int where T: EmbeddingCapable {
+    private func countItemsWithOldEmbeddings<T>(type: T.Type, cutoffDate: Date) async throws -> Int where T: EmbeddingCapable & PersistentModel {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
@@ -422,13 +422,13 @@ public class EmbeddingMigrationService: ObservableObject {
         }.count
     }
     
-    private func fetchItemsForMigration<T>(type: T.Type, mode: MigrationMode) async throws -> [T] where T: EmbeddingCapable {
+    private func fetchItemsForMigration<T>(type: T.Type, mode: MigrationMode) async throws -> [T] where T: EmbeddingCapable & PersistentModel {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
         switch mode {
         case .all:
-            return allItems.filter { $0.needsEmbeddingUpdate(currentModelVersion: targetModelVersion) }
+            return allItems.filter { $0.needsEmbeddingUpdate(currentModelVersion: targetModelVersion, maxAge: 30 * 24 * 3600) }
         case .missingOnly:
             return allItems.filter { !$0.hasEmbedding }
         case .specificVersion(let modelVersion):
@@ -478,7 +478,7 @@ public class EmbeddingMigrationService: ObservableObject {
         return stmCount + ltmCount + episodicCount + noteCount + entityCount
     }
     
-    private func countItemsWithEmbeddings<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable {
+    private func countItemsWithEmbeddings<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable & PersistentModel {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
@@ -523,11 +523,20 @@ public struct MigrationStats {
     }
 }
 
-public enum MigrationMode: Equatable {
+public enum MigrationMode: CustomStringConvertible, Equatable {
     case all
     case missingOnly
     case specificVersion(String)
     case olderThan(TimeInterval)
+    
+    public var description: String {
+        switch self {
+        case .all: return "all"
+        case .missingOnly: return "missingOnly"
+        case .specificVersion(let version): return "specificVersion(\(version))"
+        case .olderThan(let interval): return "olderThan(\(interval))"
+        }
+    }
 }
 
 // MARK: - Array Extension

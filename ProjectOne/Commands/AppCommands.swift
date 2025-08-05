@@ -11,6 +11,7 @@ import SwiftUI
 struct AppCommands: Commands {
     @FocusedValue(\.selectedSection) private var selectedSection
     @FocusedValue(\.showingQuickNote) private var showingQuickNote
+    @FocusedValue(\.triggerVoiceMemoRecording) private var triggerVoiceMemoRecording
     
     var body: some Commands {
         // File Menu
@@ -22,7 +23,7 @@ struct AppCommands: Commands {
             
             Button("New Voice Memo") {
                 selectedSection?.wrappedValue = .voiceMemos
-                // Trigger voice memo recording
+                triggerVoiceMemoRecording?.wrappedValue = true
             }
             .keyboardShortcut("r", modifiers: .command)
         }
@@ -87,6 +88,10 @@ private struct ShowingQuickNoteKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+private struct TriggerVoiceMemoRecordingKey: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
 extension FocusedValues {
     var selectedSection: Binding<SidebarSection>? {
         get { self[SelectedSectionKey.self] }
@@ -96,6 +101,11 @@ extension FocusedValues {
     var showingQuickNote: Binding<Bool>? {
         get { self[ShowingQuickNoteKey.self] }
         set { self[ShowingQuickNoteKey.self] = newValue }
+    }
+    
+    var triggerVoiceMemoRecording: Binding<Bool>? {
+        get { self[TriggerVoiceMemoRecordingKey.self] }
+        set { self[TriggerVoiceMemoRecordingKey.self] = newValue }
     }
 }
 #endif

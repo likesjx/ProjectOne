@@ -6,8 +6,8 @@
 //
 
 import Foundation
-import WhisperKit
-import AVFoundation
+@preconcurrency import WhisperKit
+@preconcurrency import AVFoundation
 
 /// Simple test to verify WhisperKit integration
 class WhisperKitTest {

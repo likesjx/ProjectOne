@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ProjectOne}",
+            "name": "Debug ProjectOne",
+            "program": "${workspaceFolder:ProjectOne}/.build/debug/ProjectOne",
+            "preLaunchTask": "swift: Build Debug ProjectOne"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ProjectOne}",
+            "name": "Release ProjectOne",
+            "program": "${workspaceFolder:ProjectOne}/.build/release/ProjectOne",
+            "preLaunchTask": "swift: Build Release ProjectOne"
+        }
+    ]
+}

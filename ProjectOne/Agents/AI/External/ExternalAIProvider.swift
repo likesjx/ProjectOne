@@ -10,12 +10,11 @@ import Combine
 import os.log
 
 /// Base class for external AI service providers
-@MainActor
-public class ExternalAIProvider: BaseAIProvider {
+public class ExternalAIProvider: BaseAIProvider, @unchecked Sendable {
     
     // MARK: - Configuration
     
-    public struct Configuration {
+    public struct Configuration: Sendable {
         let apiKey: String?
         let baseURL: String
         let model: String
@@ -232,7 +231,7 @@ public enum ExternalAIError: Error, LocalizedError {
 
 // MARK: - HTTP Client
 
-public class HTTPClient {
+public class HTTPClient: @unchecked Sendable {
     internal let configuration: ExternalAIProvider.Configuration
     internal let urlSession: URLSession
     

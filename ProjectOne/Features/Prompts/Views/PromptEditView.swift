@@ -426,7 +426,11 @@ struct PromptEditView: View {
         guard !duplicateName.isEmpty else { return }
         
         Task {
-            try await promptManager.duplicateTemplate(template, newName: duplicateName)
+            do {
+                try await promptManager.duplicateTemplate(template, newName: duplicateName)
+            } catch {
+                print("Failed to duplicate template: \(error)")
+            }
         }
     }
 }

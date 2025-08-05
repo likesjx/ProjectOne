@@ -7,15 +7,18 @@ import os.log
 // Note: These files should be in the same target, so no module import needed
 
 /// Gemma3nCore - Integration layer for MLX Gemma3n with Memory Agent
+@MainActor
 class Gemma3nCore: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "Gemma3nCore")
     private var mlxProvider: WorkingMLXProvider?
     private var currentModelId: String?
+    private var actualLoadedModel: WorkingMLXProvider.MLXModel?
     
     @Published var isReady = false
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var actualModelName: String = "No Model Loaded"
     
     public init() {
         logger.info("Initializing Gemma3nCore")
@@ -39,7 +42,7 @@ class Gemma3nCore: ObservableObject {
         
         logger.info("🚀 [GEMMA3N] Starting Gemma3nCore preparation")
         logger.info("🚀 [GEMMA3N] Provider type: \(type(of: provider))")
-        logger.info("🚀 [GEMMA3N] Provider is MLX supported: \(provider.isMLXSupported)")
+        logger.info("🚀 [GEMMA3N] Provider is available: \(provider.isAvailable)")
         
         isLoading = true
         errorMessage = nil
@@ -61,13 +64,21 @@ class Gemma3nCore: ObservableObject {
             
             do {
                 logger.info("🚀 [GEMMA3N] About to call provider.loadModel...")
-                try await provider.loadModel(targetModel)
+                try await provider.loadModel(targetModel.rawValue)
                 
                 logger.info("🚀 [GEMMA3N] Model loaded successfully!")
                 currentModelId = targetModel.rawValue
+                actualLoadedModel = targetModel
+                actualModelName = targetModel.displayName
                 isReady = true
                 modelLoaded = true
-                logger.info("✅ [GEMMA3N] Gemma3nCore is ready with model: \(targetModel.displayName)")
+                
+                // Log the actual model loaded vs what the class is named
+                if targetModel.rawValue.contains("qwen") {
+                    logger.warning("⚠️ [GEMMA3N] IMPORTANT: Gemma3nCore is actually running \(targetModel.displayName) (Qwen), not Gemma-3n!")
+                } else {
+                    logger.info("✅ [GEMMA3N] Gemma3nCore is ready with actual Gemma model: \(targetModel.displayName)")
+                }
                 break
                 
             } catch {
@@ -106,7 +117,7 @@ class Gemma3nCore: ObservableObject {
         }
         
         do {
-            let response = try await provider.generateResponse(to: text)
+            let response = try await provider.generate(prompt: text)
             return response
         } catch {
             logger.error("Text processing failed: \(error.localizedDescription)")
@@ -124,11 +135,40 @@ class Gemma3nCore: ObservableObject {
         return mlxProvider
     }
     
+    /// Get the actual model that was loaded (might be different from "Gemma3n" name)
+    func getActualLoadedModel() -> WorkingMLXProvider.MLXModel? {
+        return actualLoadedModel
+    }
+    
+    /// Get the actual model name that was loaded
+    func getActualModelName() -> String {
+        return actualModelName
+    }
+    
+    /// Get detailed model information including discrepancy warning
+    func getModelStatus() -> String {
+        guard let model = actualLoadedModel else {
+            return "No model loaded"
+        }
+        
+        if model.rawValue.contains("qwen") {
+            return "⚠️ Running \(model.displayName) (NOT Gemma-3n)"
+        } else {
+            return "✅ Running \(model.displayName)"
+        }
+    }
+    
+    /// Check if we're actually running a Gemma model vs a fallback
+    func isActuallyGemma() -> Bool {
+        guard let model = actualLoadedModel else { return false }
+        return model.rawValue.contains("gemma") && !model.rawValue.contains("qwen")
+    }
+    
     /// Reload the model (useful for debugging or model updates)
     func reloadModel() async {
         logger.info("Reloading Gemma3n model")
         
-        await mlxProvider?.unloadModel()
+        await mlxProvider?.cleanup()
         await prepareProvider()
     }
     

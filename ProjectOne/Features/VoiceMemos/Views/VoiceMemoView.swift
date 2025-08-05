@@ -10,6 +10,7 @@ import SwiftData
 
 struct VoiceMemoView: View {
     let modelContext: ModelContext
+    @Binding var triggerRecording: Bool
     
     @StateObject private var audioRecorder: AudioRecorder
     @StateObject private var audioPlayer = AudioPlayer()
@@ -18,8 +19,9 @@ struct VoiceMemoView: View {
     @State private var hasRequestedPermission = false
     @State private var showingNoteCreation = false
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, triggerRecording: Binding<Bool> = .constant(false)) {
         self.modelContext = modelContext
+        self._triggerRecording = triggerRecording
         
         // Configure speech engine based on model preloader results
         let recommendedStrategy = WhisperKitModelPreloader.shared.getRecommendedStrategy()
@@ -118,6 +120,34 @@ struct VoiceMemoView: View {
                 
                 print("🔄 [VoiceMemoView] Model preloader completed, updating to strategy: \(recommendedStrategy.description)")
                 audioRecorder.configureSpeechEngine(updatedConfig)
+            }
+        }
+        .onChange(of: triggerRecording) { _, shouldTrigger in
+            if shouldTrigger {
+                print("🎙️ [VoiceMemoView] Quick action microphone triggered")
+                triggerRecording = false // Reset the trigger
+                
+                if !hasRequestedPermission {
+                    print("🎙️ [VoiceMemoView] Requesting microphone permission for quick action")
+                    audioRecorder.requestPermission { granted in
+                        DispatchQueue.main.async {
+                            hasRequestedPermission = true
+                            if granted {
+                                print("🎙️ [VoiceMemoView] Permission granted, starting recording")
+                                audioRecorder.startRecording()
+                            } else {
+                                print("🎙️ [VoiceMemoView] Permission denied for quick action")
+                            }
+                        }
+                    }
+                } else {
+                    if !audioRecorder.isRecording {
+                        print("🎙️ [VoiceMemoView] Starting recording via quick action")
+                        audioRecorder.startRecording()
+                    } else {
+                        print("🎙️ [VoiceMemoView] Already recording, ignoring trigger")
+                    }
+                }
             }
         }
 #if os(iOS)
@@ -1421,7 +1451,8 @@ struct SoundWaveVisualization: View {
 
 #Preview {
     @Previewable @State var modelContainer = try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)
+    @Previewable @State var triggerRecording = false
     NavigationView {
-        VoiceMemoView(modelContext: modelContainer.mainContext)
+        VoiceMemoView(modelContext: modelContainer.mainContext, triggerRecording: $triggerRecording)
     }
 }

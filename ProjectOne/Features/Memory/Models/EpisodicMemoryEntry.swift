@@ -13,6 +13,11 @@ import SwiftData
 public final class EpisodicMemoryEntry {
     public var id: UUID
     var eventDescription: String
+    
+    // Computed property for compatibility with MemoryBrowserView
+    var description: String {
+        return eventDescription
+    }
     var timestamp: Date
     var location: String?
     var participants: [String]
@@ -34,10 +39,10 @@ public final class EpisodicMemoryEntry {
     var embedding: Data?
     
     /// Version identifier for the embedding model used
-    var embeddingModelVersion: String?
+    public var embeddingModelVersion: String?
     
     /// Timestamp when the embedding was generated
-    var embeddingGeneratedAt: Date?
+    public var embeddingGeneratedAt: Date?
     
     init(
         eventDescription: String,
@@ -121,25 +126,25 @@ public final class EpisodicMemoryEntry {
     // MARK: - Embedding Management
     
     /// Check if the memory has a valid embedding
-    var hasEmbedding: Bool {
+    public var hasEmbedding: Bool {
         return embedding != nil && embeddingModelVersion != nil
     }
     
     /// Set the embedding for this memory entry
-    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+    public func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
         self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
         self.embeddingModelVersion = modelVersion
         self.embeddingGeneratedAt = Date()
     }
     
     /// Get the embedding as a float array for calculations
-    func getEmbedding() -> [Float]? {
+    public func getEmbedding() -> [Float]? {
         guard let embeddingData = embedding else { return nil }
         return EmbeddingUtils.dataToEmbedding(embeddingData)
     }
     
     /// Check if embedding needs regeneration (model version changed or too old)
-    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 14 * 24 * 3600) -> Bool {
+    public func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 14 * 24 * 3600) -> Bool {
         guard hasEmbedding else { return true }
         
         // Check model version
@@ -157,7 +162,7 @@ public final class EpisodicMemoryEntry {
     }
     
     /// Get combined text for embedding generation
-    var embeddingText: String {
+    public var embeddingText: String {
         var text = eventDescription
         
         if let location = location, !location.isEmpty {

@@ -12,9 +12,10 @@ import SwiftData
 struct ContentView_macOS: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var urlHandler: URLHandler
-    @EnvironmentObject private var gemmaCore: Gemma3nCore
+    @EnvironmentObject private var systemManager: UnifiedSystemManager
     @State private var selectedSection: SidebarSection = .allContent
     @State private var showingQuickNote = false
+    @State private var triggerVoiceMemoRecording = false
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
     
     var body: some View {
@@ -27,9 +28,29 @@ struct ContentView_macOS: View {
                 case .allContent:
                     ContentListView()
                 case .voiceMemos:
-                    VoiceMemoView(modelContext: modelContext)
+                    VoiceMemoView(modelContext: modelContext, triggerRecording: $triggerVoiceMemoRecording)
                 case .memory:
                     MemoryDashboardView(modelContext: modelContext)
+                case .cognitive:
+                    if let cognitiveEngine = systemManager.cognitiveEngine {
+                        CognitiveDecisionDashboard(
+                            cognitiveEngine: cognitiveEngine,
+                            coordinator: systemManager.agentModelCoordinator
+                        )
+                    } else {
+                        VStack {
+                            Image(systemName: "cpu.fill")
+                                .font(.system(size: 60))
+                                .foregroundColor(.cyan.opacity(0.6))
+                            Text("Cognitive Dashboard Initializing...")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                            Text("Decision tracking engine starting up")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 case .knowledge:
                     KnowledgeGraphView(modelContext: modelContext)
                 case .notes:
@@ -39,7 +60,12 @@ struct ContentView_macOS: View {
                 case .prompts:
                     PromptManagementView(modelContext: modelContext)
                 case .settings:
-                    SettingsView(gemmaCore: gemmaCore)
+                    if let gemmaCore = systemManager.gemmaCore {
+                        SettingsView(gemmaCore: gemmaCore)
+                    } else {
+                        Text("Settings unavailable - Gemma core not initialized")
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .frame(minWidth: 600, minHeight: 400)
@@ -47,12 +73,16 @@ struct ContentView_macOS: View {
         .navigationTitle("ProjectOne")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                MacOSToolbarGroup(showingQuickNote: $showingQuickNote, selectedSection: $selectedSection)
+                MacOSToolbarGroup(
+                    showingQuickNote: $showingQuickNote, 
+                    selectedSection: $selectedSection,
+                    triggerVoiceMemoRecording: $triggerVoiceMemoRecording
+                )
             }
         }
         .sheet(isPresented: $showingQuickNote) {
-            NoteCreationView()
-                .frame(minWidth: 500, minHeight: 400)
+            EnhancedNoteCreationView(modelContext: modelContext)
+                .frame(minWidth: 800, minHeight: 600)
         }
         .alert("Note Imported", isPresented: $urlHandler.showingImportedNote) {
             Button("View All Content") {
@@ -64,6 +94,7 @@ struct ContentView_macOS: View {
         }
         .focusedSceneValue(\.selectedSection, $selectedSection)
         .focusedSceneValue(\.showingQuickNote, $showingQuickNote)
+        .focusedSceneValue(\.triggerVoiceMemoRecording, $triggerVoiceMemoRecording)
     }
 }
 
@@ -73,6 +104,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case allContent = "All Content"
     case voiceMemos = "Voice Memos"
     case memory = "Memory"
+    case cognitive = "Cognitive"
     case knowledge = "Knowledge"
     case notes = "Notes"
     case data = "Data"
@@ -86,6 +118,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .allContent: return "list.bullet"
         case .voiceMemos: return "mic.circle.fill"
         case .memory: return "brain.head.profile"
+        case .cognitive: return "cpu.fill"
         case .knowledge: return "network"
         case .notes: return "doc.text.fill"
         case .data: return "externaldrive.fill"
@@ -99,6 +132,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .allContent: return .indigo
         case .voiceMemos: return .blue
         case .memory: return .purple
+        case .cognitive: return .cyan
         case .knowledge: return .green
         case .notes: return .mint
         case .data: return .orange
@@ -112,11 +146,12 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .allContent: return "1"
         case .voiceMemos: return "2"
         case .memory: return "3"
-        case .knowledge: return "4"
-        case .notes: return "5"
-        case .data: return "6"
-        case .prompts: return "7"
-        case .settings: return "8"
+        case .cognitive: return "4"
+        case .knowledge: return "5"
+        case .notes: return "6"
+        case .data: return "7"
+        case .prompts: return "8"
+        case .settings: return "9"
         }
     }
 }
@@ -201,6 +236,7 @@ struct MacOSSidebarBackground: View {
 struct MacOSToolbarGroup: View {
     @Binding var showingQuickNote: Bool
     @Binding var selectedSection: SidebarSection
+    @Binding var triggerVoiceMemoRecording: Bool
     
     var body: some View {
         HStack(spacing: 8) {
@@ -217,7 +253,8 @@ struct MacOSToolbarGroup: View {
                 color: .red,
                 tooltip: "Quick Voice Memo (⌘R)"
             ) {
-                selectedSection = .voiceMemos // Switch to Voice Memos section
+                selectedSection = .voiceMemos
+                triggerVoiceMemoRecording = true
             }
         }
     }
@@ -288,9 +325,15 @@ struct PressEventsModifier: ViewModifier {
 }
 
 #Preview {
+    let schema = Schema([ProcessedNote.self])
+    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    let container = try! SwiftData.ModelContainer(for: schema, configurations: [configuration])
+    let systemManager = UnifiedSystemManager(modelContext: container.mainContext)
+    
     ContentView_macOS()
         .environmentObject(URLHandler())
-        .modelContainer(for: ProcessedNote.self, inMemory: true)
+        .environmentObject(systemManager)
+        .modelContainer(container)
 }
 
 #endif

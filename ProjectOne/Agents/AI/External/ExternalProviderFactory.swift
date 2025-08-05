@@ -12,7 +12,7 @@ import os.log
 
 /// Factory for creating and managing external AI providers
 @MainActor
-public class ExternalProviderFactory: ObservableObject {
+public class ExternalProviderFactory: ObservableObject, @unchecked Sendable {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "ExternalProviderFactory")
     private let settings: AIProviderSettings
@@ -20,7 +20,7 @@ public class ExternalProviderFactory: ObservableObject {
     
     // MARK: - Configuration Management
     
-    public struct ProviderConfigurations {
+    public struct ProviderConfigurations: Sendable {
         public var openAI: OpenAIConfig?
         public var openRouter: OpenRouterConfig?
         public var ollama: OllamaConfig?
@@ -38,7 +38,7 @@ public class ExternalProviderFactory: ObservableObject {
     
     // MARK: - Provider Configuration Types
     
-    public struct OpenAIConfig {
+    public struct OpenAIConfig: Sendable {
         public let apiKey: String
         public let model: String
         public let baseURL: String
@@ -52,7 +52,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
-    public struct OpenRouterConfig {
+    public struct OpenRouterConfig: Sendable {
         public let apiKey: String
         public let model: String
         public let appName: String
@@ -68,7 +68,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
-    public struct OllamaConfig {
+    public struct OllamaConfig: Sendable {
         public let baseURL: String
         public let model: String
         public let autoDownload: Bool
@@ -80,7 +80,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
-    public struct MLXConfig {
+    public struct MLXConfig: Sendable {
         public let modelPath: String
         public let modelName: String
         public let vocabularyPath: String?
@@ -94,7 +94,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
-    public struct AnthropicConfig {
+    public struct AnthropicConfig: Sendable {
         public let apiKey: String
         public let model: String
         public let baseURL: String
@@ -106,7 +106,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
-    public struct CustomConfig {
+    public struct CustomConfig: Sendable {
         public let apiKey: String?
         public let baseURL: String
         public let model: String
@@ -175,6 +175,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
+    @MainActor
     public func configureOpenAI(_ config: OpenAIConfig) async {
         logger.info("Configuring OpenAI provider")
         configurations.openAI = config
@@ -194,6 +195,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
+    @MainActor
     public func configureOpenRouter(_ config: OpenRouterConfig) async {
         logger.info("Configuring OpenRouter provider")
         configurations.openRouter = config
@@ -213,6 +215,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
+    @MainActor
     public func configureOllama(_ config: OllamaConfig) async {
         logger.info("Configuring Ollama provider")
         configurations.ollama = config
@@ -232,6 +235,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
+    @MainActor
     public func configureMLX(_ config: MLXConfig) async {
         logger.info("Configuring MLX provider")
         
@@ -260,6 +264,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
+    @MainActor
     public func configureAnthropic(_ config: AnthropicConfig) async {
         logger.info("Configuring Anthropic provider")
         providerStatus["anthropic"] = .configuring
@@ -278,6 +283,7 @@ public class ExternalProviderFactory: ObservableObject {
         }
     }
     
+    @MainActor
     public func configureCustomProvider(_ id: String, _ config: CustomConfig) async {
         logger.info("Configuring custom provider: \(id)")
         configurations.custom[id] = config
@@ -375,14 +381,17 @@ public class ExternalProviderFactory: ObservableObject {
     
     // MARK: - Provider Access
     
+    @MainActor
     public func getProvider(_ id: String) -> ExternalAIProvider? {
         return activeProviders[id]
     }
     
+    @MainActor
     public func getAllActiveProviders() -> [ExternalAIProvider] {
         return Array(activeProviders.values)
     }
     
+    @MainActor
     public func getProvidersByCapability(_ capability: ProviderCapability) -> [ExternalAIProvider] {
         return activeProviders.values.compactMap { provider in
             guard hasCapability(provider, capability) else { return nil }
@@ -408,6 +417,7 @@ public class ExternalProviderFactory: ObservableObject {
     
     // MARK: - Provider Management
     
+    @MainActor
     public func removeProvider(_ id: String) async {
         if let provider = activeProviders[id] {
             await provider.cleanup()
@@ -421,6 +431,7 @@ public class ExternalProviderFactory: ObservableObject {
         logger.info("Removed provider: \(id)")
     }
     
+    @MainActor
     public func refreshProvider(_ id: String) async {
         guard let provider = activeProviders[id] else { return }
         
@@ -440,8 +451,10 @@ public class ExternalProviderFactory: ObservableObject {
     public func refreshAllProviders() async {
         logger.info("Refreshing all providers")
         
+        let providerIds = await MainActor.run { Array(activeProviders.keys) }
+        
         await withTaskGroup(of: Void.self) { group in
-            for id in activeProviders.keys {
+            for id in providerIds {
                 group.addTask {
                     await self.refreshProvider(id)
                 }
@@ -453,11 +466,14 @@ public class ExternalProviderFactory: ObservableObject {
     
     // MARK: - Cleanup
     
+    @MainActor
     public func cleanup() async {
         logger.info("Cleaning up all providers")
         
+        let providers = Array(activeProviders.values)
+        
         await withTaskGroup(of: Void.self) { group in
-            for provider in activeProviders.values {
+            for provider in providers {
                 group.addTask {
                     await provider.cleanup()
                 }
@@ -497,6 +513,7 @@ extension ExternalProviderFactory {
     }
     
     /// Get the best available provider for a specific use case
+    @MainActor
     public func getBestProviderFor(_ useCase: UseCase) -> ExternalAIProvider? {
         switch useCase {
         case .coding:

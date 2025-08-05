@@ -10,6 +10,7 @@ import AVFoundation
 import SwiftUI
 import Combine
 
+@MainActor
 class AudioPlayer: NSObject, ObservableObject {
     private var audioPlayer: AVAudioPlayer?
     private var progressTimer: Timer?
@@ -26,7 +27,10 @@ class AudioPlayer: NSObject, ObservableObject {
     }
     
     deinit {
-        stopPlayback()
+        // Note: Cannot call MainActor methods from deinit
+        // stopPlayback() should be called manually before deallocation
+        // Cannot access non-Sendable audioPlayer from deinit - handled in cleanup
+        progressTimer?.invalidate()
     }
     
     private func setupAudioSession() {
@@ -120,7 +124,9 @@ class AudioPlayer: NSObject, ObservableObject {
     private func startProgressTimer() {
         stopProgressTimer()
         progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            self.updateProgress()
+            Task { @MainActor in
+                self.updateProgress()
+            }
         }
     }
     
@@ -157,7 +163,7 @@ class AudioPlayer: NSObject, ObservableObject {
 
 // MARK: - AVAudioPlayerDelegate
 
-extension AudioPlayer: AVAudioPlayerDelegate {
+extension AudioPlayer: @preconcurrency AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         DispatchQueue.main.async {
             self.isPlaying = false

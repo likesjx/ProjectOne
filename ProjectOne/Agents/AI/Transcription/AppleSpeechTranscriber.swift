@@ -7,11 +7,11 @@
 
 import Foundation
 import Speech
-import AVFoundation
+@preconcurrency import AVFoundation
 import os.log
 
 /// Apple Speech Framework implementation of speech transcription
-public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol {
+public class AppleSpeechTranscriber: NSObject, SpeechTranscriptionProtocol, @unchecked Sendable {
     
     // MARK: - Properties
     

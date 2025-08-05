@@ -16,7 +16,7 @@ import MLXRandom
 #endif
 
 /// Real MLX provider for local Apple Silicon AI inference
-public class MLXProvider: ExternalAIProvider {
+public class MLXProvider: ExternalAIProvider, @unchecked Sendable {
     
     // MARK: - MLX Configuration
     
@@ -374,7 +374,7 @@ public protocol Tokenizer {
 // MARK: - MLX Model Repository
 
 public struct MLXModelRepository {
-    public static let popularModels = [
+    @MainActor public static let popularModels: [MLXModelSpec] = [
         MLXModelSpec(
             name: "Llama-3-8B-Instruct",
             repo: "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
@@ -402,7 +402,7 @@ public struct MLXModelRepository {
     ]
 }
 
-public struct MLXModelSpec {
+public struct MLXModelSpec: Sendable {
     public let name: String
     public let repo: String
     public let filename: String

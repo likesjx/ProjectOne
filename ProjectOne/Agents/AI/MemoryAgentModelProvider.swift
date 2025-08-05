@@ -10,7 +10,8 @@ import os.log
 
 /// High-level orchestrator for AI model providers that manages context,
 /// provider selection, fallbacks, and response processing for the Memory Agent
-public class MemoryAgentModelProvider {
+@MainActor
+public class MemoryAgentModelProvider: Sendable {
     
     // MARK: - Dependencies
     
@@ -27,7 +28,7 @@ public class MemoryAgentModelProvider {
     
     // MARK: - Configuration
     
-    public struct Configuration {
+    public struct Configuration: Sendable {
         let maxRetries: Int
         let fallbackEnabled: Bool
         let healthMonitoringEnabled: Bool
@@ -251,7 +252,7 @@ public class MemoryAgentModelProvider {
         
         // Try external providers
         if let factory = externalProviderFactory {
-            let activeProviders = factory.getAllActiveProviders()
+            let activeProviders = await MainActor.run { factory.getAllActiveProviders() }
             for provider in activeProviders {
                 attemptCount += 1
                 
@@ -349,9 +350,9 @@ public class MemoryAgentModelProvider {
     }
     
     /// Execute operation with timeout
-    private func withTimeout<T>(
+    private func withTimeout<T: Sendable>(
         _ timeoutInterval: TimeInterval,
-        operation: @escaping () async throws -> T
+        operation: @escaping @Sendable () async throws -> T
     ) async throws -> T {
         return try await withThrowingTaskGroup(of: Optional<T>.self) { group in
             // Add the main operation
@@ -471,12 +472,12 @@ public class MemoryContextManager {
             userQuery: context.userQuery,
             containsPersonalData: context.containsPersonalData,
             contextData: [
-                "entities": Array(context.entities.prefix(maxEntities)),
-                "relationships": context.relationships,
-                "shortTermMemories": Array(context.shortTermMemories.prefix(maxSTM)),
-                "longTermMemories": Array(context.longTermMemories.prefix(maxLTM)),
-                "episodicMemories": context.episodicMemories,
-                "relevantNotes": Array(context.relevantNotes.prefix(maxNotes))
+                "entities_count": "\(min(context.entities.count, maxEntities))",
+                "relationships_count": "\(context.relationships.count)",
+                "stm_count": "\(min(context.shortTermMemories.count, maxSTM))",
+                "ltm_count": "\(min(context.longTermMemories.count, maxLTM))",
+                "episodic_count": "\(context.episodicMemories.count)",
+                "notes_count": "\(min(context.relevantNotes.count, maxNotes))"
             ]
         )
     }
@@ -496,6 +497,7 @@ public class AIProviderSelector {
     public init() {}
     
     /// Select and order providers based on criteria and health
+    @MainActor
     public func selectProviders(
         from providers: [AIModelProvider],
         criteria: ModelSelectionCriteria,

@@ -24,6 +24,7 @@ public class MemoryAgent: ObservableObject {
     private let aiModelProvider: MemoryAgentModelProvider
     private let promptManager: PromptManager
     private let promptResolver: MemoryPromptResolver
+    private let cognitiveEngine: CognitiveDecisionEngine
     
     // MARK: - State
     
@@ -34,7 +35,7 @@ public class MemoryAgent: ObservableObject {
     
     // MARK: - Configuration
     
-    public struct Configuration {
+    public struct Configuration: Sendable {
         let enableRAG: Bool
         let enableMemoryConsolidation: Bool
         let maxContextSize: Int
@@ -57,7 +58,8 @@ public class MemoryAgent: ObservableObject {
         knowledgeGraphService: KnowledgeGraphService,
         configuration: Configuration = .default,
         aiModelProvider: MemoryAgentModelProvider? = nil,
-        promptManager: PromptManager? = nil
+        promptManager: PromptManager? = nil,
+        cognitiveEngine: CognitiveDecisionEngine? = nil
     ) {
         self.modelContext = modelContext
         self.knowledgeGraphService = knowledgeGraphService
@@ -66,8 +68,9 @@ public class MemoryAgent: ObservableObject {
         self.aiModelProvider = aiModelProvider ?? MemoryAgentModelProvider()
         self.promptManager = promptManager ?? PromptManager(modelContext: modelContext)
         self.promptResolver = MemoryPromptResolver(promptManager: self.promptManager)
+        self.cognitiveEngine = cognitiveEngine ?? CognitiveDecisionEngine(modelContext: modelContext)
         
-        logger.info("Memory Agent initializing with prompt management integration...")
+        logger.info("Memory Agent initializing with prompt management and cognitive decision tracking...")
     }
     
     // MARK: - Lifecycle
@@ -112,6 +115,8 @@ public class MemoryAgent: ObservableObject {
         processingQuery = true
         errorMessage = nil
         
+        let startTime = Date()
+        
         defer {
             Task { @MainActor in
                 processingQuery = false
@@ -120,20 +125,75 @@ public class MemoryAgent: ObservableObject {
         
         do {
             // Step 1: Retrieve relevant memories using RAG
+            let memoryRetrievalStart = Date()
             let memoryContext = try await retrieveRelevantContext(for: query)
+            let memoryRetrievalTime = Date().timeIntervalSince(memoryRetrievalStart)
+            
+            // Track memory retrieval decision
+            await cognitiveEngine.recordDecision(
+                decisionType: .memoryClassification,
+                agentId: "MemoryAgent",
+                modelUsed: "MemoryRetrievalEngine",
+                prompt: "Retrieve context for: \(query.prefix(100))",
+                response: "Retrieved \(memoryContext.shortTermMemories.count) STM, \(memoryContext.longTermMemories.count) LTM, \(memoryContext.entities.count) entities",
+                confidence: configuration.enableRAG ? 0.9 : 0.5,
+                processingTime: memoryRetrievalTime,
+                context: [
+                    "ragEnabled": configuration.enableRAG,
+                    "contextSize": memoryContext.shortTermMemories.count + memoryContext.longTermMemories.count
+                ],
+                outcome: .success,
+                reasoning: "Retrieved relevant memories for context augmented generation",
+                flags: memoryContext.containsPersonalData ? [.containsPersonalData] : []
+            )
             
             // Step 2: Generate response using intelligent provider selection
+            let responseStart = Date()
             let response = try await aiModelProvider.generateResponse(prompt: query, context: memoryContext)
+            let responseTime = Date().timeIntervalSince(responseStart)
             
-            // Step 4: Store the interaction as a short-term memory
+            // Track AI response generation decision
+            await cognitiveEngine.recordDecision(
+                agentId: "MemoryAgent",
+                decisionType: .userInteraction,
+                context: "Query: \(query), Memory context size: \(memoryContext.shortTermMemories.count + memoryContext.longTermMemories.count)",
+                reasoning: "Generated response using memory-augmented context",
+                confidence: response.confidence,
+                metadata: [
+                    "modelUsed": response.modelUsed,
+                    "isOnDevice": String(response.isOnDevice),
+                    "tokensUsed": String(response.tokensUsed),
+                    "processingTime": String(responseTime)
+                ]
+            )
+            
+            // Step 3: Store the interaction as a short-term memory
             try await storeInteraction(query: query, response: response, context: memoryContext)
             
             lastResponse = response
-            logger.info("Query processed successfully using \(response.modelUsed)")
+            
+            let totalTime = Date().timeIntervalSince(startTime)
+            logger.info("Query processed successfully using \(response.modelUsed) in \(String(format: "%.2f", totalTime))s")
             
             return response
             
         } catch {
+            let totalTime = Date().timeIntervalSince(startTime)
+            
+            // Track failed decision
+            await cognitiveEngine.recordDecision(
+                agentId: "MemoryAgent",
+                decisionType: .userInteraction,
+                context: "Query processing: \(query)",
+                reasoning: "Query processing failed due to error: \(error.localizedDescription)",
+                confidence: 0.0,
+                metadata: [
+                    "outcome": "failure",
+                    "error": error.localizedDescription,
+                    "processingTime": String(totalTime)
+                ]
+            )
+            
             errorMessage = error.localizedDescription
             logger.error("Query processing failed: \(error.localizedDescription)")
             throw error
@@ -621,6 +681,13 @@ public class MemoryAgent: ObservableObject {
         modelContext.insert(conversationToResponse)
         
         try modelContext.save()
+    }
+    
+    // MARK: - Cognitive Decision Access
+    
+    /// Access to the cognitive decision engine for UI components
+    public var cognitiveDecisionEngine: CognitiveDecisionEngine {
+        return cognitiveEngine
     }
 }
 

@@ -5,7 +5,7 @@ import SwiftData
 struct MemoryDashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var analyticsService: MemoryAnalyticsService
-    @State private var selectedTimeRange: TimeRange = .last24Hours
+    @State private var selectedTimeRange: MemoryTimeRange = .last24Hours
     @State private var showingDetailedMetrics = false
     @State private var refreshTask: Task<Void, Never>?
     
@@ -49,6 +49,9 @@ struct MemoryDashboardView: View {
                     
                     // Quick Actions
                     QuickActionsCard()
+                    
+                    // Memory Browser Link
+                    MemoryBrowserLinkCard()
                 }
                 .padding()
             }
@@ -135,7 +138,7 @@ struct MemoryDashboardView: View {
     
     private var timeRangeMenu: some View {
         Menu {
-            ForEach(TimeRange.allCases, id: \.self) { range in
+            ForEach(MemoryTimeRange.allCases, id: \.self) { range in
                 Button(range.displayName) {
                     selectedTimeRange = range
                     Task {
@@ -177,7 +180,7 @@ struct MemoryDashboardView: View {
         }
     }
     
-    private func updateForTimeRange(_ range: TimeRange) async {
+    private func updateForTimeRange(_ range: MemoryTimeRange) async {
         let timeRange = range.dateInterval
         _ = await analyticsService.getMemoryTrends(timeRange: timeRange)
         // Update UI based on time range data
@@ -502,7 +505,7 @@ enum MetricFormat {
 
 // MARK: - Time Range Enum
 
-enum TimeRange: String, CaseIterable {
+enum MemoryTimeRange: String, CaseIterable {
     case lastHour = "1h"
     case last24Hours = "24h"
     case lastWeek = "7d"
@@ -545,6 +548,69 @@ enum TimeRange: String, CaseIterable {
 }
 
 // MARK: - Preview
+
+// MARK: - Memory Browser Link Card
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+struct MemoryBrowserLinkCard: View {
+    var body: some View {
+        NavigationLink {
+            Text("Memory Browser") // MemoryBrowserView() - TODO: Implement
+        } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                HStack {
+                    Text("Browse All Memories")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                }
+                
+                // Description
+                Text("View and search through all individual memory items across Short-Term, Long-Term, Working, and Episodic memory types.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .lineLimit(3)
+                
+                // Action indicators
+                HStack(spacing: 16) {
+                    FeatureIndicator(icon: "magnifyingglass", title: "Search", color: .blue)
+                    FeatureIndicator(icon: "line.3.horizontal.decrease", title: "Filter", color: .green)
+                    FeatureIndicator(icon: "info.circle", title: "Details", color: .orange)
+                }
+            }
+            .padding()
+            .background(Color.primary.opacity(0.05))
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct FeatureIndicator: View {
+    let icon: String
+    let title: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+        }
+    }
+}
 
 #Preview {
     NavigationView {

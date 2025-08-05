@@ -80,7 +80,7 @@ public class EmbeddingGenerationService: ObservableObject {
     
     /// Generate embedding for a single piece of content
     public func generateEmbedding<T>(for item: T) async throws -> [Float] where T: EmbeddingCapable {
-        guard embeddingProvider.isModelLoaded else {
+        if !embeddingProvider.isModelLoaded {
             logger.info("Loading embedding model...")
             try await embeddingProvider.loadModel()
         }
@@ -182,7 +182,7 @@ public class EmbeddingGenerationService: ObservableObject {
             totalItems = try await countItemsNeedingEmbeddings()
             processedItems = 0
             
-            logger.info("Starting embedding generation for \(totalItems) items")
+            logger.info("Starting embedding generation for \(self.totalItems) items")
             
             // Generate embeddings for each content type
             await generateEmbeddingsForType(STMEntry.self, typeName: "Short-term memories")
@@ -225,7 +225,7 @@ public class EmbeddingGenerationService: ObservableObject {
             totalItems = try await countItemsWithModelVersion(modelVersion)
             processedItems = 0
             
-            logger.info("Starting embedding regeneration for \(totalItems) items with model version: \(modelVersion)")
+            logger.info("Starting embedding regeneration for \(self.totalItems) items with model version: \(modelVersion)")
             
             // Regenerate embeddings for each content type
             await regenerateEmbeddingsForType(STMEntry.self, modelVersion: modelVersion, typeName: "Short-term memories")
@@ -311,11 +311,11 @@ public class EmbeddingGenerationService: ObservableObject {
             do {
                 try Task.checkCancellation()
                 
-                let embedding = try await generateEmbedding(for: item)
+                _ = try await generateEmbedding(for: item)
                 processedItems += 1
                 generationProgress = Double(processedItems) / Double(totalItems)
                 
-                logger.debug("Generated embedding for \(typeName) item (\(processedItems)/\(totalItems))")
+                logger.debug("Generated embedding for \(typeName) item (\(self.processedItems)/\(self.totalItems))")
                 
             } catch {
                 logger.error("Failed to generate embedding for \(typeName) item: \(error.localizedDescription)")

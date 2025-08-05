@@ -8,7 +8,7 @@
 import Foundation
 
 /// MLX model configuration with metadata
-public struct MLXModelConfiguration {
+public struct MLXModelConfiguration: Sendable {
     public let name: String
     public let modelId: String
     public let type: MLXModelType
@@ -37,7 +37,7 @@ public struct MLXModelConfiguration {
 }
 
 /// Platform targeting
-public enum Platform: String, CaseIterable {
+public enum Platform: String, CaseIterable, Sendable {
     case iOS = "ios"
     case macOS = "macos"
     case both = "both"
@@ -163,6 +163,30 @@ public struct MLXModelRegistry {
             recommendedPlatform: .both,
             quantization: "4-bit", 
             description: "Microsoft's efficient Phi model, excellent quality/size ratio"
+        ),
+        
+        // MARK: - Gemma 3n Models (Latest Google Models with MLX Swift 0.25.6 Support)
+        // ✨ NEW: Gemma 3n models - these are TEXT-ONLY LLMs (not VLM)
+        // Note: These model IDs need to be verified and may require text-only variants
+        
+        MLXModelConfiguration(
+            name: "Gemma 3n 2B Text", 
+            modelId: "mlx-community/gemma-3n-2b-text-4bit", // Text-only variant
+            type: .llm,
+            memoryRequirement: "~1.5GB RAM",
+            recommendedPlatform: .iOS,
+            quantization: "4-bit",
+            description: "Latest Gemma 3n compact text model, optimized for mobile devices"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Gemma 3n 9B Text", 
+            modelId: "mlx-community/gemma-3n-9b-text-4bit", // Text-only variant
+            type: .llm,
+            memoryRequirement: "~5GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "4-bit",
+            description: "Latest Gemma 3n model for desktop use, excellent text generation quality"
         )
     ]
     
@@ -232,6 +256,50 @@ public struct MLXModelRegistry {
             recommendedPlatform: .macOS,
             quantization: "4-bit",
             description: "Mistral's powerful vision-language model for complex visual tasks"
+        ),
+        
+        // MARK: - Gemma 3n VLM Models (Latest Google Vision-Language Models)
+        // ✨ NEW: Gemma 3n VLM models with MLX Swift 0.25.6 support
+        // These are the ACTUAL model IDs from WorkingMLXProvider that should work
+        
+        MLXModelConfiguration(
+            name: "Gemma-3n E2B VLM (4-bit)",
+            modelId: "mlx-community/gemma-3n-E2B-it-4bit", // From WorkingMLXProvider
+            type: .vlm,
+            memoryRequirement: "~3GB RAM",
+            recommendedPlatform: .iOS,
+            quantization: "4-bit",
+            description: "Gemma 3n E2B Vision-Language model, optimized for iOS devices"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Gemma-3n E2B VLM (5-bit)",
+            modelId: "mlx-community/gemma-3n-E2B-it-5bit", // From WorkingMLXProvider
+            type: .vlm,
+            memoryRequirement: "~3.5GB RAM",
+            recommendedPlatform: .both,
+            quantization: "5-bit",
+            description: "Gemma 3n E2B Vision-Language model, balanced quality and efficiency"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Gemma-3n E4B VLM (5-bit)",
+            modelId: "mlx-community/gemma-3n-E4B-it-5bit", // From WorkingMLXProvider
+            type: .vlm,
+            memoryRequirement: "~5GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "5-bit",
+            description: "Gemma 3n E4B Vision-Language model, Mac optimized for quality"
+        ),
+        
+        MLXModelConfiguration(
+            name: "Gemma-3n E4B VLM (8-bit)",
+            modelId: "mlx-community/gemma-3n-E4B-it-8bit", // From WorkingMLXProvider
+            type: .vlm,
+            memoryRequirement: "~7GB RAM",
+            recommendedPlatform: .macOS,
+            quantization: "8-bit",
+            description: "Gemma 3n E4B Vision-Language model, highest quality for high-end Macs"
         )
     ]
     
@@ -270,13 +338,16 @@ public struct MLXModelRegistry {
         
         switch type {
         case .llm:
-            // Recommend Gemma 2 2B for iOS - best balance of quality and efficiency
-            return platformModels.first { $0.name.contains("Gemma 2 2B") } ?? 
+            // Recommend Gemma 3n 2B for iOS - latest model with best efficiency
+            return platformModels.first { $0.name.contains("Gemma 3n 2B") } ??
+                   platformModels.first { $0.name.contains("Gemma 2 2B") } ?? 
                    platformModels.first { $0.name.contains("Qwen2.5 3B") } ??
                    platformModels.first
         case .vlm:
-            // Recommend Qwen2-VL 2B for iOS - best mobile VLM
-            return platformModels.first { $0.name.contains("Qwen2-VL 2B") } ?? platformModels.first
+            // Recommend Gemma-3n E2B VLM for iOS - latest VLM with excellent mobile performance
+            return platformModels.first { $0.name.contains("Gemma-3n E2B") && $0.name.contains("4-bit") } ??
+                   platformModels.first { $0.name.contains("Qwen2-VL 2B") } ?? 
+                   platformModels.first
         }
         
         #else
@@ -285,13 +356,16 @@ public struct MLXModelRegistry {
         
         switch type {
         case .llm:
-            // Recommend Qwen2.5 7B for macOS - excellent quality/performance balance
-            return platformModels.first { $0.name.contains("Qwen2.5 7B") } ??
+            // Recommend Gemma 3n 9B for macOS - latest model with excellent quality
+            return platformModels.first { $0.name.contains("Gemma 3n 9B") } ??
+                   platformModels.first { $0.name.contains("Qwen2.5 7B") } ??
                    platformModels.first { $0.name.contains("Gemma 2 9B") } ??
                    platformModels.first
         case .vlm:
-            // Recommend Qwen2-VL 7B for macOS - best desktop VLM
-            return platformModels.first { $0.name.contains("Qwen2-VL 7B") } ?? platformModels.first
+            // Recommend Gemma-3n E4B VLM for macOS - latest VLM with excellent desktop performance
+            return platformModels.first { $0.name.contains("Gemma-3n E4B") && $0.name.contains("5-bit") } ??
+                   platformModels.first { $0.name.contains("Qwen2-VL 7B") } ?? 
+                   platformModels.first
         }
         #endif
     }

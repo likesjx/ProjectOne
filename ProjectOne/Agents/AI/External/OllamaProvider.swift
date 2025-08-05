@@ -10,7 +10,7 @@ import Foundation
 import os.log
 
 /// Ollama local AI provider
-public class OllamaProvider: ExternalAIProvider {
+public class OllamaProvider: ExternalAIProvider, @unchecked Sendable {
     
     // MARK: - Predefined Configurations
     
@@ -392,10 +392,13 @@ extension HTTPClient {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try JSONEncoder().encode(request)
         
+        // Capture immutable copy for Sendable closure
+        let finalRequest = urlRequest
+        
         return AsyncThrowingStream { continuation in
-            Task {
+            Task { @Sendable in
                 do {
-                    let (asyncBytes, response) = try await urlSession.bytes(for: urlRequest)
+                    let (asyncBytes, response) = try await urlSession.bytes(for: finalRequest)
                     
                     guard let httpResponse = response as? HTTPURLResponse,
                           200...299 ~= httpResponse.statusCode else {

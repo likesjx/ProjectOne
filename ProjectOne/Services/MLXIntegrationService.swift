@@ -10,6 +10,7 @@ import MLXRandom
 
 /// Service for managing MLX Swift model integration and lifecycle
 /// This service will handle loading, caching, and coordinating MLX models
+@MainActor
 class MLXIntegrationService: ObservableObject {
     
     // MARK: - Properties

@@ -20,7 +20,7 @@ public class MemoryRetrievalEngine: ObservableObject {
     
     // MARK: - Configuration
     
-    public struct RetrievalConfiguration {
+    public struct RetrievalConfiguration: Sendable {
         let maxResults: Int
         let recencyWeight: Double // 0.0 to 1.0
         let relevanceWeight: Double // 0.0 to 1.0
@@ -148,21 +148,13 @@ public class MemoryRetrievalEngine: ObservableObject {
         // Generate query embedding for semantic search if enabled
         let queryEmbedding = await generateQueryEmbedding(query, configuration: configuration)
         
-        // Retrieve different types of memories in parallel
-        async let stmResults = configuration.includeSTM ? retrieveShortTermMemories(queryTerms: queryTerms, limit: configuration.maxResults / 2) : []
-        async let ltmResults = configuration.includeLTM ? retrieveLongTermMemories(queryTerms: queryTerms, limit: configuration.maxResults / 2) : []
-        async let episodicResults = configuration.includeEpisodic ? retrieveEpisodicMemories(queryTerms: queryTerms, limit: configuration.maxResults / 3) : []
-        async let entityResults = configuration.includeEntities ? retrieveRelevantEntities(queryTerms: queryTerms, limit: configuration.maxResults / 3) : []
-        async let relationshipResults = configuration.includeEntities ? retrieveRelevantRelationships(queryTerms: queryTerms, limit: configuration.maxResults / 4) : []
-        async let noteResults = configuration.includeNotes ? retrieveRelevantNotes(queryTerms: queryTerms, limit: configuration.maxResults / 3) : []
-        
-        // Await all results
-        let shortTermMemories = try await stmResults
-        let longTermMemories = try await ltmResults
-        let episodicMemories = try await episodicResults
-        let entities = try await entityResults
-        let relationships = try await relationshipResults
-        let notes = try await noteResults
+        // Retrieve different types of memories sequentially (avoiding async let data race issues)
+        let shortTermMemories = configuration.includeSTM ? try await retrieveShortTermMemories(queryTerms: queryTerms, limit: configuration.maxResults / 2) : []
+        let longTermMemories = configuration.includeLTM ? try await retrieveLongTermMemories(queryTerms: queryTerms, limit: configuration.maxResults / 2) : []
+        let episodicMemories = configuration.includeEpisodic ? try await retrieveEpisodicMemories(queryTerms: queryTerms, limit: configuration.maxResults / 3) : []
+        let entities = configuration.includeEntities ? try await retrieveRelevantEntities(queryTerms: queryTerms, limit: configuration.maxResults / 3) : []
+        let relationships = configuration.includeEntities ? try await retrieveRelevantRelationships(queryTerms: queryTerms, limit: configuration.maxResults / 4) : []
+        let notes = configuration.includeNotes ? try await retrieveRelevantNotes(queryTerms: queryTerms, limit: configuration.maxResults / 3) : []
         
         // Score and rank all results with semantic search if available
         let rankedSTM: [STMEntry]
@@ -195,12 +187,12 @@ public class MemoryRetrievalEngine: ObservableObject {
             userQuery: query,
             containsPersonalData: containsPersonalData,
             contextData: [
-                "entities": rankedEntities,
-                "relationships": relationships,
-                "shortTermMemories": rankedSTM,
-                "longTermMemories": rankedLTM,
-                "episodicMemories": rankedEpisodic,
-                "relevantNotes": rankedNotes
+                "entities": "\(rankedEntities.count) entities",
+                "relationships": "\(relationships.count) relationships",
+                "shortTermMemories": "\(rankedSTM.count) STM entries",
+                "longTermMemories": "\(rankedLTM.count) LTM entries",
+                "episodicMemories": "\(rankedEpisodic.count) episodic memories",
+                "relevantNotes": "\(rankedNotes.count) relevant notes"
             ]
         )
     }
@@ -694,7 +686,8 @@ public class MemoryRetrievalEngine: ObservableObject {
         
         do {
             // Ensure model is loaded
-            if !embeddingProvider.isModelLoaded {
+            let isLoaded = await MainActor.run { embeddingProvider.isModelLoaded }
+            if !isLoaded {
                 try await embeddingProvider.loadModel()
             }
             

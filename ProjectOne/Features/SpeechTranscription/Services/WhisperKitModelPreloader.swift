@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import WhisperKit
+@preconcurrency import WhisperKit
 import os.log
 import Combine
 
@@ -173,11 +173,11 @@ public class WhisperKitModelPreloader: ObservableObject {
         let timeoutDuration: TimeInterval = 300.0
         
         return try await withThrowingTaskGroup(of: WhisperKit.self) { group in
-            group.addTask { 
+            group.addTask { @Sendable in
                 try await loadingTask.value
             }
             
-            group.addTask {
+            group.addTask { @Sendable in
                 try await Task.sleep(nanoseconds: UInt64(timeoutDuration * 1_000_000_000))
                 throw SpeechTranscriptionError.processingFailed("Model preloading timeout after \(timeoutDuration)s")
             }

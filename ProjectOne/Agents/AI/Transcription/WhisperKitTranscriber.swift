@@ -6,13 +6,13 @@
 //
 
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import os.log
 import CoreML
-import WhisperKit
+@preconcurrency import WhisperKit
 
 /// WhisperKit-based speech transcription implementation using CoreML-optimized Whisper models
-public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
+public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol, @unchecked Sendable {
     
     // MARK: - Properties
     
@@ -243,8 +243,17 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
             
             let transcriptionTimeout: TimeInterval = 120.0 // 2 minutes for transcription
             
-            let results = try await withThrowingTaskGroup(of: [Any].self) { group in
-                group.addTask { try await transcriptionTask.value }
+            // Use a race between transcription and timeout
+            let transcriptionResult = try await withThrowingTaskGroup(of: TranscriptionSegment.self) { group in
+                group.addTask {
+                    let result = try await transcriptionTask.value
+                    // Convert result to TranscriptionSegment format
+                    if let segments = result as? [TranscriptionSegment] {
+                        return segments.first ?? TranscriptionSegment(text: "", startTime: 0, endTime: 0, confidence: 0.0)
+                    } else {
+                        return TranscriptionSegment(text: String(describing: result), startTime: 0, endTime: 0, confidence: 1.0)
+                    }
+                }
                 
                 group.addTask {
                     try await Task.sleep(nanoseconds: UInt64(transcriptionTimeout * 1_000_000_000))
@@ -262,13 +271,9 @@ public class WhisperKitTranscriber: NSObject, SpeechTranscriptionProtocol {
             let processingTime = CFAbsoluteTimeGetCurrent() - startTime
             logger.info("WhisperKit transcription completed in \(String(format: "%.2f", processingTime))s")
             
-            // Use the first result (WhisperKit returns array)
-            guard let result = results.first else {
-                throw SpeechTranscriptionError.processingFailed("No transcription results returned")
-            }
-            
+            // Use the transcription result directly
             return createTranscriptionResult(
-                from: result,
+                from: transcriptionResult,
                 processingTime: processingTime,
                 configuration: configuration
             )

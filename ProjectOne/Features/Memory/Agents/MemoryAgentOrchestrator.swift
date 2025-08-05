@@ -33,7 +33,7 @@ public class MemoryAgentOrchestrator: ObservableObject {
     
     // MARK: - Configuration
     
-    public struct OrchestratorConfiguration {
+    public struct OrchestratorConfiguration: Sendable {
         let enableProactiveInsights: Bool
         let enableAutonomousActions: Bool
         let insightGenerationInterval: TimeInterval

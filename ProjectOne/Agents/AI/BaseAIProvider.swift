@@ -17,6 +17,7 @@ import Foundation
 import os.log        // 🎓 SWIFT LEARNING: Apple's unified logging system - preferred over print()
 import SwiftData     // 🎓 SWIFT LEARNING: Apple's modern data persistence framework
 import Combine       // 🎓 SWIFT LEARNING: Reactive programming framework for handling asynchronous events
+import Atomics       // 🎓 SWIFT LEARNING: Thread-safe atomic operations for concurrent programming
 
 #if canImport(UIKit)
 import UIKit         // 🎓 PLATFORM OPTIMIZATION: iOS/iPadOS-specific optimizations
@@ -34,7 +35,7 @@ import OSLog         // 🎓 PLATFORM OPTIMIZATION: Enhanced logging for debuggi
 // 🎓 PLATFORM OPTIMIZATION: Types supporting cross-platform performance optimization
 
 /// Platform-specific configuration for optimal AI provider performance
-public struct PlatformConfiguration {
+public struct PlatformConfiguration: Sendable {
     public let maxConcurrentOperations: Int
     public let preferredQuality: QualityPreference
     public let backgroundProcessingAllowed: Bool
@@ -42,13 +43,13 @@ public struct PlatformConfiguration {
     public let memoryPressureThreshold: Double
     public let targetResponseTime: TimeInterval
     
-    public enum QualityPreference {
+    public enum QualityPreference: Sendable {
         case efficiency    // Optimize for battery life and resource usage
         case balanced     // Balance between quality and efficiency
         case quality      // Optimize for best possible results
     }
     
-    public enum ThermalManagement {
+    public enum ThermalManagement: Sendable {
         case passive      // No thermal management
         case balanced     // Standard thermal management
         case aggressive   // Aggressive thermal throttling
@@ -65,7 +66,7 @@ public struct PlatformConfiguration {
 }
 
 /// System metrics for platform-aware optimization
-public struct SystemMetrics {
+public struct SystemMetrics: Sendable {
     public let memoryPressure: Double        // 0.0 to 1.0
     public let batteryLevel: Double          // 0.0 to 1.0 (iOS only)
     public let thermalState: ThermalState
@@ -93,7 +94,7 @@ public struct SystemMetrics {
 }
 
 /// Thermal state monitoring for performance throttling
-public enum ThermalState: Int, CaseIterable {
+public enum ThermalState: Int, CaseIterable, Sendable {
     case nominal = 0
     case fair = 1
     case serious = 2
@@ -130,7 +131,7 @@ public enum ThermalState: Int, CaseIterable {
 /// • **Computed Properties**: `isLoading` and `description` provide derived information
 /// • **String Interpolation**: Using \() to embed values in strings
 /// • **Switch Statements**: Pattern matching with exhaustive case coverage
-public enum ModelLoadingStatus: Equatable {
+public enum ModelLoadingStatus: Equatable, Sendable {
     case notStarted
     case preparing
     case downloading(progress: Double)
@@ -183,7 +184,7 @@ public enum ModelLoadingStatus: Equatable {
 /// • **Protocol Conformance**: Implements AIModelProvider protocol (contract/interface)
 /// • **ObservableObject**: SwiftUI protocol that allows UI to automatically update when properties change
 /// • **Multiple Inheritance**: Swift classes can inherit from one class but conform to many protocols
-public class BaseAIProvider: AIModelProvider, ObservableObject {
+public class BaseAIProvider: AIModelProvider, ObservableObject, @unchecked Sendable {
     
     // MARK: - AIModelProvider Protocol Requirements
     public var identifier: String { "BaseAIProvider" }
@@ -317,7 +318,7 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
         
         private func getIOSBatteryLevel() async -> Double {
             #if canImport(UIKit)
-            return Double(UIDevice.current.batteryLevel)
+            return await Double(UIDevice.current.batteryLevel)
             #else
             return 1.0
             #endif
@@ -357,10 +358,10 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
             
             guard result == KERN_SUCCESS else { return 0.5 }
             
-            let pageSize = vm_kernel_page_size
-            let usedPages = info.internal_page_count + (info.compressor_page_count ?? 0)
+            let pageSize = UInt64(4096) // Standard page size fallback
+            let usedPages = info.internal_page_count + (info.compressor_page_count)
             let totalMemory = ProcessInfo.processInfo.physicalMemory
-            let usedMemory = UInt64(usedPages) * UInt64(pageSize)
+            let usedMemory = UInt64(usedPages) * pageSize
             
             return Double(usedMemory) / Double(totalMemory)
         }
@@ -632,21 +633,14 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     /// Builds enriched prompt with PromptManager integration and fallback
     internal func buildEnrichedPromptWithFallback(prompt: String, context: MemoryContext) -> String {
         // Use SwiftData-based PromptManager for centralized prompt generation
-        do {
-            let templateName = selectOptimalTemplate(for: prompt, context: context)
-            let arguments = buildArgumentsFromContext(context: context, userQuery: prompt)
-            
-            logger.debug("Using template: \(templateName) for query type")
-            
-            // PromptManager not yet implemented - use manual prompt
-            logger.debug("Using manual prompt generation (PromptManager not implemented)")
-            return buildManualPrompt(prompt: prompt, context: context)
-        } catch {
-            logger.warning("Failed to use PromptManager, falling back to manual prompt: \(error.localizedDescription)")
-            
-            // Fallback to manual prompt construction
-            return buildManualPrompt(prompt: prompt, context: context)
-        }
+        let templateName = selectOptimalTemplate(for: prompt, context: context)
+        let _ = buildArgumentsFromContext(context: context, userQuery: prompt) // Arguments for future PromptManager integration
+        
+        logger.debug("Using template: \(templateName) for query type")
+        
+        // PromptManager not yet implemented - use manual prompt
+        logger.debug("Using manual prompt generation (PromptManager not implemented)")
+        return buildManualPrompt(prompt: prompt, context: context)
     }
     
     /// Get the SwiftData-based PromptManager instance
@@ -991,8 +985,8 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     // 🎓 SWIFT CONCURRENCY: Advanced async/await patterns and best practices
     
     /// Execute operation with platform-aware task management
-    public func executeWithOptimization<T>(
-        _ operation: @escaping () async throws -> T,
+    public func executeWithOptimization<T: Sendable>(
+        _ operation: @escaping @Sendable () async throws -> T,
         priority: TaskPriority = .userInitiated
     ) async throws -> T {
         
@@ -1013,7 +1007,7 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
             
             // Add timeout task for safety
             group.addTask(priority: .background) { [self] in
-                let timeoutInterval = await platformConfig.targetResponseTime * 2
+                let timeoutInterval = await MainActor.run { platformConfig.targetResponseTime * 2 }
                 try await Task.sleep(nanoseconds: UInt64(timeoutInterval * 1_000_000_000))
                 throw AIModelProviderError.processingFailed("Operation timed out after \(timeoutInterval)s")
             }
@@ -1033,8 +1027,8 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     }
     
     /// Perform CPU-intensive work with cooperative yielding
-    public func performCPUIntensiveWork<T>(
-        _ work: @escaping () throws -> T,
+    public func performCPUIntensiveWork<T: Sendable>(
+        _ work: @escaping @Sendable () throws -> T,
         yieldInterval: Int = 1000
     ) async rethrows -> T {
         
@@ -1074,25 +1068,25 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     /// Stream processing with backpressure handling - simplified version to fix linker issues
     public func processStringStream(
         input: AsyncThrowingStream<String, Error>,
-        transform: @escaping (String) async throws -> String
+        transform: @escaping @Sendable (String) async throws -> String
     ) -> AsyncThrowingStream<String, Error> {
         
         return AsyncThrowingStream { continuation in
-            Task {
+            Task { @Sendable in
                 do {
                     let config = platformConfig
-                    var activeOperations = 0
+                    let activeOperations = ManagedAtomic<Int>(0)
                     let maxConcurrent = config.maxConcurrentOperations
                     
                     for try await item in input {
                         // Implement backpressure by limiting concurrent operations
-                        while activeOperations >= maxConcurrent {
+                        while activeOperations.load(ordering: .relaxed) >= maxConcurrent {
                             await Task.yield()
                         }
                         
-                        Task {
-                            defer { activeOperations -= 1 }
-                            activeOperations += 1
+                        Task { @Sendable in
+                            defer { activeOperations.wrappingDecrement(ordering: .relaxed) }
+                            activeOperations.wrappingIncrement(ordering: .relaxed)
                             
                             do {
                                 let result = try await transform(item)
@@ -1104,7 +1098,7 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
                     }
                     
                     // Wait for remaining operations to complete
-                    while activeOperations > 0 {
+                    while activeOperations.load(ordering: .relaxed) > 0 {
                         await Task.yield()
                     }
                     
@@ -1198,7 +1192,8 @@ public class BaseAIProvider: AIModelProvider, ObservableObject {
     #endif
     
     deinit {
-        stopSystemMonitoring()
+        // Note: Cannot call MainActor methods from deinit
+        // stopSystemMonitoring() should be called manually before deallocation
         logger.info("BaseAIProvider deinitialized")
     }
 }

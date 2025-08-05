@@ -37,7 +37,8 @@ public final class KnowledgeGraphService: ObservableObject {
     }
     
     deinit {
-        layoutTimer?.invalidate()
+        // Note: Cannot call MainActor methods from deinit
+        // layoutTimer should be invalidated manually before deallocation
     }
     
     // MARK: - Data Loading
@@ -170,7 +171,9 @@ public final class KnowledgeGraphService: ObservableObject {
     
     private func startForceDirectedLayout() {
         layoutTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
-            self?.updateForceDirectedLayout()
+            Task { @MainActor [weak self] in
+                self?.updateForceDirectedLayout()
+            }
         }
     }
     

@@ -31,7 +31,7 @@ import FoundationModels
 /// Apple Foundation Models provider for iOS 26.0+
 /// Note: Temporarily disabled inheritance to fix build issues
 @available(iOS 26.0, macOS 26.0, *)
-public class AppleFoundationModelsProvider: AIModelProvider, ObservableObject {
+public class AppleFoundationModelsProvider: AIModelProvider, ObservableObject, @unchecked Sendable {
     
     // MARK: - AIModelProvider Implementation
     
@@ -183,6 +183,7 @@ public class AppleFoundationModelsProvider: AIModelProvider, ObservableObject {
         #endif
     }
     
+    @MainActor
     public func generateModelResponse(_ prompt: String) async throws -> String {
         #if canImport(FoundationModels)
         guard isAvailable, let model = languageModel else {
@@ -238,6 +239,7 @@ public class AppleFoundationModelsProvider: AIModelProvider, ObservableObject {
     // MARK: - Advanced Foundation Models Features
     
     /// Generate text with guided generation (@Generable support)
+    @MainActor
     public func generateWithGuidance<T: Generable>(prompt: String, type: T.Type) async throws -> T {
         #if false && canImport(FoundationModels)
         guard isAvailable, let model = languageModel else {

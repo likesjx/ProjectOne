@@ -7,3 +7,18 @@ DerivedData/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 project.pbxproj
+
+# SwiftPM & SPM build artifacts
+.build/
+.swiftpm/
+
+# User-specific and local config
+.claude/
+*.local.json
+
+# Database and cache files
+*.db
+*.yaml
+
+# Debug symbols
+*.dSYM/

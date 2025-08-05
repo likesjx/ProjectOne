@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 /// Represents a named entity in the knowledge graph (people, organizations, activities, concepts, locations)
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
@@ -38,10 +39,10 @@ public final class Entity {
     var embedding: Data?
     
     /// Version identifier for the embedding model used
-    var embeddingModelVersion: String?
+    public var embeddingModelVersion: String?
     
     /// Timestamp when the embedding was generated
-    var embeddingGeneratedAt: Date?
+    public var embeddingGeneratedAt: Date?
     
     /// Deprecated: Use embedding methods instead
     @available(*, deprecated, message: "Use embedding property and methods instead")
@@ -177,6 +178,7 @@ public enum EntityType: String, CaseIterable, Codable {
             return "Objects, items, things"
         }
     }
+    
 }
 
 // MARK: - Extensions
@@ -274,12 +276,12 @@ extension Entity {
     // MARK: - Embedding Management
     
     /// Check if the entity has a valid embedding
-    var hasEmbedding: Bool {
+    public var hasEmbedding: Bool {
         return embedding != nil && embeddingModelVersion != nil
     }
     
     /// Set the embedding for this entity
-    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+    public func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
         self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
         self.embeddingModelVersion = modelVersion
         self.embeddingGeneratedAt = Date()
@@ -289,13 +291,13 @@ extension Entity {
     }
     
     /// Get the embedding as a float array for calculations
-    func getEmbedding() -> [Float]? {
+    public func getEmbedding() -> [Float]? {
         guard let embeddingData = embedding else { return nil }
         return EmbeddingUtils.dataToEmbedding(embeddingData)
     }
     
     /// Check if embedding needs regeneration
-    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 14 * 24 * 3600) -> Bool {
+    public func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 14 * 24 * 3600) -> Bool {
         guard hasEmbedding else { return true }
         
         // Check model version
@@ -318,7 +320,7 @@ extension Entity {
     }
     
     /// Get combined text for embedding generation
-    var embeddingText: String {
+    public var embeddingText: String {
         var text = name
         
         if !aliases.isEmpty {

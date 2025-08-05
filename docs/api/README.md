@@ -38,6 +38,27 @@ graph TB
 
 ## Available Documentation
 
+### 🧪 [Enhanced AI Provider Test View API](EnhancedAIProviderTestView_API.md) ⭐ **Latest**
+**Comprehensive testing interface for all AI providers:**
+
+- **Multi-Provider Testing**: Local (MLX, Apple Foundation) and external (OpenAI, Ollama, OpenRouter) providers
+- **Parallel Testing**: TaskGroup-based concurrent provider testing with performance comparison
+- **Configuration Management**: Secure API key storage and provider setup validation
+- **Real-time Monitoring**: Provider status indicators and health checking
+- **Performance Analytics**: Response time measurement and success rate tracking
+- **User Interface**: SwiftUI components with interactive provider selection
+- **Error Handling**: Comprehensive error types with actionable user guidance
+
+### 🤖 [Working MLX Provider API](WorkingMLXProvider_API.md) ⭐ **VLM Complete**
+**Revolutionary Gemma 3n Vision-Language Model integration:**
+
+- **4 Optimized VLM Variants**: E2B-4bit (iOS), E2B-5bit (mobile), E4B-5bit (Mac), E4B-8bit (quality)
+- **60-70% Performance Improvement**: Direct audio processing bypassing transcription
+- **Cross-Temporal Memory**: Enhanced memory integration with emotional context
+- **Platform Optimization**: iOS (1.7GB) and macOS (3-8GB) model variants
+- **Swift Atomics Integration**: Thread-safe concurrent operations
+- **On-Device Processing**: Complete privacy with no cloud dependencies
+
 ### 🤖 [AI Provider APIs](AI_PROVIDERS.md)
 **Complete three-layer AI provider architecture with production implementations:**
 
@@ -78,6 +99,20 @@ graph TB
 - **Performance Optimization**: Session pooling, prewarming, and streaming support
 - **Production Patterns**: Real API usage with comprehensive error handling
 - **Testing Support**: Mock providers and validation frameworks
+
+### 🎙️ [Audio Recording API](AUDIO_RECORDING_API.md)
+**Production-ready audio recording and transcription system:**
+
+- **AudioRecorder Service**: Cross-platform recording with real-time monitoring
+- **PCM Format Recording**: Eliminates conversion issues during transcription
+- **Apple Speech Integration**: SFSpeechRecognizer and iOS 26+ SpeechAnalyzer support
+- **Memory Safety Patterns**: Comprehensive async/await with proper resource management
+- **SwiftData Integration**: Persistent recording storage with RecordingItem model
+- **Permission Management**: Microphone and speech recognition authorization
+- **Real-time Feedback**: Audio level monitoring and recording validation
+- **Cross-Platform Support**: iOS and macOS compatibility with platform-specific optimizations
+- **Error Handling**: Comprehensive error types with recovery strategies
+- **Performance Optimized**: Sub-200ms recording start, minimal memory footprint
 
 ## Advanced Features
 

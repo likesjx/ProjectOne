@@ -23,6 +23,7 @@ import FoundationModels
 
 /// Enhanced Gemma3n core with dual AI providers for iOS 26.0+ target
 @available(iOS 26.0, macOS 26.0, *)
+@MainActor
 class EnhancedGemma3nCore: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "EnhancedGemma3nCore")

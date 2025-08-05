@@ -25,20 +25,23 @@ public final class ProcessedNote {
     
     // Gemma 3n enrichment results
     var summary: String
-    var topics: [String]
+    var topics: [String] = []
     var sentiment: String?
     
     // Vector embedding for semantic search (stored as Data for SwiftData compatibility)
     var embeddingData: Data?
     
     // Embedding metadata
-    var embeddingModelVersion: String?
-    var embeddingGeneratedAt: Date?
+    public var embeddingModelVersion: String?
+    public var embeddingGeneratedAt: Date?
     
     // Memory system integration
     var accessFrequency: Int
     var lastAccessed: Date
     var consolidationLevel: ConsolidationLevel
+    
+    // Metadata for additional properties
+    var metadata: [String: String]?
     
     // SwiftData relationships to KG entities
     @Relationship(deleteRule: .nullify)
@@ -48,9 +51,14 @@ public final class ProcessedNote {
     var relationships: [Relationship] = []
     
     // Temporary storage for extracted data before KG integration
-    var extractedEntityNames: [String] // Will be processed into entities
-    var extractedRelationships: [String] // Will be processed into relationships
-    var extractedKeywords: [String] // Extracted keywords for search
+    var extractedEntityNames: [String] = [] // Will be processed into entities
+    var extractedRelationships: [String] = [] // Will be processed into relationships
+    var extractedKeywords: [String] = [] // Extracted keywords for search
+    
+    // Processing status tracking
+    var processingStartedAt: Date?
+    var processingCompletedAt: Date?
+    var processingErrors: [String] = [] // Store any processing errors
     
     // Computed properties for backward compatibility
     var extractedEntities: [Entity] {
@@ -79,6 +87,9 @@ public final class ProcessedNote {
         self.extractedEntityNames = []
         self.extractedRelationships = []
         self.extractedKeywords = []
+        self.processingStartedAt = nil
+        self.processingCompletedAt = nil
+        self.processingErrors = []
         self.embeddingModelVersion = nil
         self.embeddingGeneratedAt = nil
     }
@@ -86,25 +97,25 @@ public final class ProcessedNote {
     // MARK: - Embedding Management
     
     /// Check if the note has a valid embedding
-    var hasEmbedding: Bool {
+    public var hasEmbedding: Bool {
         return embeddingData != nil && embeddingModelVersion != nil
     }
     
     /// Set the embedding for this note
-    func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
+    public func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
         self.embeddingData = EmbeddingUtils.embeddingToData(embeddingVector)
         self.embeddingModelVersion = modelVersion
         self.embeddingGeneratedAt = Date()
     }
     
     /// Get the embedding as a float array for calculations
-    func getEmbedding() -> [Float]? {
+    public func getEmbedding() -> [Float]? {
         guard let data = embeddingData else { return nil }
         return EmbeddingUtils.dataToEmbedding(data)
     }
     
     /// Check if embedding needs regeneration
-    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 7 * 24 * 3600) -> Bool {
+    public func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval = 7 * 24 * 3600) -> Bool {
         guard hasEmbedding else { return true }
         
         // Check model version
@@ -160,11 +171,64 @@ public final class ProcessedNote {
     }
     
     // Get content for embedding generation
-    var contentForEmbedding: String {
+    public var contentForEmbedding: String {
         let baseContent = originalText
         let enrichedContent = summary.isEmpty ? "" : " " + summary
         let topicContent = topics.isEmpty ? "" : " " + topics.joined(separator: " ")
         return baseContent + enrichedContent + topicContent
+    }
+    
+    // MARK: - Processing Status Tracking
+    
+    /// Mark processing as started
+    public func startProcessing() {
+        processingStartedAt = Date()
+        processingCompletedAt = nil
+        processingErrors = []
+        consolidationLevel = .consolidating
+    }
+    
+    /// Mark processing as completed
+    public func completeProcessing() {
+        processingCompletedAt = Date()
+        consolidationLevel = .stable
+    }
+    
+    /// Add a processing error
+    public func addProcessingError(_ error: String) {
+        processingErrors.append(error)
+    }
+    
+    /// Check if currently being processed
+    public var isBeingProcessed: Bool {
+        return processingStartedAt != nil && processingCompletedAt == nil
+    }
+    
+    /// Check if processing completed successfully
+    public var processingCompletedSuccessfully: Bool {
+        return processingCompletedAt != nil && processingErrors.isEmpty
+    }
+    
+    /// Get processing duration
+    public var processingDuration: TimeInterval? {
+        guard let startTime = processingStartedAt else { return nil }
+        let endTime = processingCompletedAt ?? Date()
+        return endTime.timeIntervalSince(startTime)
+    }
+    
+    /// Get processing status description
+    public var processingStatusDescription: String {
+        if isBeingProcessed {
+            return "Processing in progress..."
+        } else if processingCompletedSuccessfully {
+            return "Processing completed successfully"
+        } else if !processingErrors.isEmpty {
+            return "Processing completed with errors"
+        } else if processingStartedAt == nil {
+            return "Not processed"
+        } else {
+            return "Processing status unknown"
+        }
     }
 }
 

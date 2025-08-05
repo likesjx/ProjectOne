@@ -344,8 +344,8 @@ struct UnifiedAITestView: View {
             // Setup Working MLX Provider for direct testing
             if workingMLXProvider.isMLXSupported {
                 do {
-                    let recommendedModel = workingMLXProvider.getRecommendedModel()
-                    print("🔄 Loading MLX model: \(recommendedModel.displayName)")
+                    let recommendedModel = "mlx-community/Llama-3.2-1B-Instruct-4bit"
+                    print("🔄 Loading MLX model: \(recommendedModel)")
                     try await workingMLXProvider.loadModel(recommendedModel)
                     print("✅ Working MLX Provider ready: \(workingMLXProvider.isReady)")
                 } catch {
@@ -460,7 +460,9 @@ struct UnifiedAITestView: View {
         switch providerType {
         case .mlxLLM:
             // Use the working MLX provider since it has the real implementation
-            return try await workingMLXProvider.generateResponse(to: prompt)
+            let context = MemoryContext(userQuery: prompt)
+            let response = try await workingMLXProvider.generateResponse(prompt: prompt, context: context)
+            return response.content
             
         case .mlxVLM:
             return try await mlxVLMProvider.generateResponse(to: prompt)

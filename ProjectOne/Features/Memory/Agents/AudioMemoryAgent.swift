@@ -36,7 +36,7 @@ public class AudioMemoryAgent: ObservableObject {
     
     // MARK: - Configuration
     
-    public struct AudioConfiguration {
+    public struct AudioConfiguration: Sendable {
         let enableDirectAudioProcessing: Bool
         let fallbackToTranscription: Bool
         let maxAudioDuration: TimeInterval

@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
 import os.log
 
@@ -19,7 +19,7 @@ import MLXRandom
 
 /// MLX provider for direct audio processing using VLM capabilities
 @MainActor
-public class MLXAudioProvider: BaseAIProvider {
+public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
     
     // MARK: - Configuration
     
@@ -173,7 +173,7 @@ public class MLXAudioProvider: BaseAIProvider {
     /// Process real-time audio stream
     public func processAudioStream(_ audioStream: AsyncStream<Data>, prompt: String) -> AsyncThrowingStream<AudioUnderstandingResult, Error> {
         return AsyncThrowingStream { continuation in
-            Task {
+            Task { @Sendable in
                 do {
                     for try await audioChunk in audioStream {
                         let result = try await processAudioWithPrompt(audioChunk, prompt: prompt)

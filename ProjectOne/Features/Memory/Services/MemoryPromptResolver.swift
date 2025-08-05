@@ -18,7 +18,7 @@ public class MemoryPromptResolver {
     
     // MARK: - Configuration
     
-    public struct Configuration {
+    public struct Configuration: Sendable {
         let enableContextAdaptation: Bool
         let enablePerformanceTracking: Bool
         let fallbackToDefault: Bool

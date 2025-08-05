@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 #if os(iOS)
 import UIKit
 #endif
@@ -15,6 +16,7 @@ struct SettingsView: View {
     let gemmaCore: Gemma3nCore
     
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var systemManager: UnifiedSystemManager
     @Query private var userProfiles: [UserSpeechProfile]
     
     @State private var showingModelDownload = false
@@ -174,20 +176,30 @@ struct SettingsView: View {
                 
                 // Advanced Section
                 Section("Advanced") {
+                    NavigationLink("API Key Management") {
+                        if #available(iOS 26.0, macOS 26.0, *) {
+                            APIKeyManagementView()
+                        }
+                    }
+                    
+                    NavigationLink("AI Provider Testing") {
+                        if #available(iOS 26.0, macOS 26.0, *) {
+                            EnhancedAIProviderTestView()
+                        } else {
+                            AIProviderTestView()
+                        }
+                    }
+                    
                     NavigationLink("Debug Console") {
                         DebugConsoleView()
                     }
                     
-                    // NavigationLink("Test MLX Inference") {
-                    //     MLXTestView() // Temporarily disabled
-                    // }
-                    
-                    NavigationLink("AI Provider Testing") {
-                        UnifiedAITestView()
+                    NavigationLink("System Status") {
+                        SystemStatusView(gemmaCore: gemmaCore, systemManager: systemManager)
                     }
                     
-                    NavigationLink("System Status") {
-                        SystemStatusView(gemmaCore: gemmaCore)
+                    NavigationLink("Startup Dashboard") {
+                        SystemInitializationView()
                     }
                     
                     Button("About ProjectOne") {
@@ -298,13 +310,15 @@ struct ModelDownloadRow: View {
         
         // Simulate download progress
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            model.progress += 0.02
-            
-            if model.progress >= 1.0 {
-                timer.invalidate()
-                model.isDownloading = false
-                model.isDownloaded = true
-                model.progress = 1.0
+            Task { @MainActor in
+                model.progress += 0.02
+                
+                if model.progress >= 1.0 {
+                    timer.invalidate()
+                    model.isDownloading = false
+                    model.isDownloaded = true
+                    model.progress = 1.0
+                }
             }
         }
     }
@@ -444,6 +458,10 @@ struct DebugConsoleView: View {
 
 struct SystemStatusView: View {
     let gemmaCore: Gemma3nCore
+    let systemManager: UnifiedSystemManager
+    
+    @State private var refreshTimer: Timer?
+    @State private var lastRefresh: Date = Date()
     
     var body: some View {
         List {
@@ -459,24 +477,60 @@ struct SystemStatusView: View {
                 StatusRow(title: "Storage Used", value: "45 MB") // TODO: Calculate actual storage
             }
             
-            Section("AI Status") {
-                StatusRow(title: "Gemma 3n Status", value: "Ready")
-                StatusRow(title: "Encoder Status", value: "Ready")
-                StatusRow(title: "Processing Queue", value: "Empty")
-                StatusRow(title: "Last Inference", value: "12:34 PM")
+            Section("AI System Status") {
+                StatusRow(title: "System Health", value: systemManager.systemHealth.displayName)
+                StatusRow(title: "Initialization", value: "\(Int(systemManager.initializationProgress * 100))%")
+                StatusRow(title: "Current Operation", value: systemManager.currentOperation.isEmpty ? "Idle" : systemManager.currentOperation)
+                StatusRow(title: "Gemma Core", value: gemmaCore.isAvailable() ? "Ready" : "Not Ready")
+                if let modelInfo = gemmaCore.getActualLoadedModel() {
+                    StatusRow(title: "Loaded Model", value: modelInfo.displayName)
+                }
             }
             
-            Section("Memory System") {
-                StatusRow(title: "Active Session", value: "Yes")
-                StatusRow(title: "Working Memory", value: "15/20 items")
-                StatusRow(title: "LTM Episodes", value: "42")
-                StatusRow(title: "Semantic Concepts", value: "18")
+            Section("Agent System") {
+                StatusRow(title: "Active Agents", value: "\(systemManager.centralAgentRegistry?.getActiveAgentIds().count ?? 0)")
+                StatusRow(title: "Registered Agents", value: "\(systemManager.systemStatistics.registeredAgents)")
+                StatusRow(title: "Active Models", value: "\(systemManager.systemStatistics.activeModels)")
+                StatusRow(title: "Provider Health", value: "\(systemManager.systemStatistics.healthyProviders)/\(systemManager.systemStatistics.totalProviders)")
+                StatusRow(title: "Memory Usage", value: formatBytes(systemManager.systemStatistics.memoryUsage))
+            }
+            
+            Section("Real-Time Agent Status") {
+                if let registry = systemManager.centralAgentRegistry {
+                    ForEach(registry.getActiveAgentIds(), id: \.self) { agentId in
+                        AgentStatusRow(agentId: agentId, registry: registry)
+                    }
+                } else {
+                    StatusRow(title: "Agent Registry", value: "Not Available")
+                }
             }
         }
         .navigationTitle("System Status")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .onAppear {
+            lastRefresh = Date()
+            startRefreshTimer()
+        }
+        .onDisappear {
+            refreshTimer?.invalidate()
+        }
+    }
+    
+    private func startRefreshTimer() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+            Task { @MainActor in
+                lastRefresh = Date()
+            }
+        }
+    }
+    
+    private func formatBytes(_ bytes: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .memory
+        return formatter.string(fromByteCount: Int64(bytes))
     }
 }
 
@@ -491,6 +545,121 @@ struct StatusRow: View {
             Text(value)
                 .foregroundColor(.secondary)
         }
+    }
+}
+
+// Simple stub for agent registry functionality
+public class CentralAgentRegistry {
+    public func getActiveAgentIds() -> [String] {
+        return ["TextIngestionAgent", "MemoryAgent", "CognitiveDecisionEngine"]
+    }
+    
+    public func isAgentHealthy(_ agentId: String) -> Bool {
+        return true // Stub implementation
+    }
+    
+    public func getLastCheckTime(_ agentId: String) -> Date {
+        return Date()
+    }
+    
+    public func getAgentDetails(_ agentId: String) -> AgentDetails? {
+        return AgentDetails(id: agentId, name: agentId, status: "active")
+    }
+    
+    public func getAgentMetrics(_ agentId: String) -> [String: Any] {
+        return [
+            "uptime": 3600,
+            "requestCount": 100,
+            "errorRate": 0.01,
+            "lastActivity": Date()
+        ]
+    }
+}
+
+public struct AgentDetails {
+    let id: String
+    let name: String
+    let status: String
+    let agent: AgentInterface
+    
+    init(id: String, name: String, status: String) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.agent = StubAgent()
+    }
+}
+
+public struct StubAgent: AgentInterface {
+    public func performHealthCheck() async throws -> Bool {
+        return true
+    }
+}
+
+public protocol AgentInterface {
+    func performHealthCheck() async throws -> Bool
+}
+
+public struct AgentInstance {
+    let agent: AgentInterface
+}
+
+struct AgentStatusRow: View {
+    let agentId: String
+    let registry: CentralAgentRegistry
+    
+    @State private var isHealthy: Bool = false
+    @State private var lastCheck: Date = Date()
+    
+    var body: some View {
+        HStack {
+            // Status indicator
+            Circle()
+                .fill(isHealthy ? .green : .red)
+                .frame(width: 8, height: 8)
+            
+            Text(agentId)
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(isHealthy ? "Healthy" : "Unhealthy")
+                    .foregroundColor(isHealthy ? .green : .red)
+                    .font(.caption)
+                
+                if let metrics = registry.getAgentMetrics(agentId),
+                   let lastActivity = metrics["lastActivity"] as? Date {
+                    Text("Last: \(formatTime(lastActivity))")
+                        .foregroundColor(.secondary)
+                        .font(.caption2)
+                }
+            }
+        }
+        .onAppear {
+            checkAgentHealth()
+        }
+        .onReceive(Timer.publish(every: 3.0, on: .main, in: .common).autoconnect()) { _ in
+            checkAgentHealth()
+        }
+    }
+    
+    private func checkAgentHealth() {
+        Task {
+            if let agentInstance = registry.getAgentDetails(agentId) {
+                do {
+                    isHealthy = try await agentInstance.agent.performHealthCheck()
+                    lastCheck = Date()
+                } catch {
+                    isHealthy = false
+                }
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

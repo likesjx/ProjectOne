@@ -159,8 +159,12 @@ public class MemoryAgentIntegration: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            Task {
-                await self?.handleTranscriptionCompleted(notification)
+            // Extract data on main queue to avoid Sendable issues
+            let transcriptionResult = notification.userInfo?["result"] as? String
+            let recordingId = notification.userInfo?["recordingId"] as? UUID
+            
+            Task { @MainActor in
+                await self?.handleTranscriptionCompleted(result: transcriptionResult, recordingId: recordingId)
             }
         }
         
@@ -267,8 +271,11 @@ public class MemoryAgentIntegration: ObservableObject {
             queue: .main
         ) { [weak self] notification in
             print("🎯 [MemoryAgentIntegration] .newNoteCreated notification observer triggered!")
-            Task {
-                await self?.handleNewNote(notification)
+            // Extract data on main queue to avoid Sendable issues
+            let noteId = notification.userInfo?["noteId"] as? UUID
+            
+            Task { @MainActor in
+                await self?.handleNewNote(noteId: noteId)
             }
         }
         
@@ -279,8 +286,11 @@ public class MemoryAgentIntegration: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            Task {
-                await self?.handleEntityUpdate(notification)
+            // Extract data on main queue to avoid Sendable issues
+            let entityId = notification.userInfo?["entityId"] as? UUID
+            
+            Task { @MainActor in
+                await self?.handleEntityUpdate(entityId: entityId)
             }
         }
         
@@ -326,17 +336,17 @@ public class MemoryAgentIntegration: ObservableObject {
         }
     }
     
-    private func handleTranscriptionCompleted(_ notification: Notification) async {
+    private func handleTranscriptionCompleted(result: String?, recordingId: UUID?) async {
         logger.debug("Handling transcription completed")
         
-        guard let transcriptionResult = notification.userInfo?["result"] as? String else {
-            logger.warning("No transcription result in notification")
+        guard let transcriptionResult = result else {
+            logger.warning("No transcription result provided")
             return
         }
         
         // Try to find the recording item if provided
         var recordingItem: RecordingItem?
-        if let recordingId = notification.userInfo?["recordingId"] as? UUID {
+        if let recordingId = recordingId {
             let descriptor = FetchDescriptor<RecordingItem>(
                 predicate: #Predicate { $0.id == recordingId }
             )
@@ -354,10 +364,10 @@ public class MemoryAgentIntegration: ObservableObject {
             type: .transcription,
             content: transcriptionResult,
             timestamp: Date(),
-            confidence: notification.userInfo?["confidence"] as? Double ?? 0.8,
+            confidence: 0.8,
             metadata: [
                 "source": "speech_transcription",
-                "method": notification.userInfo?["method"] as? String ?? "unknown",
+                "method": "speech_recognition",
                 "recordingId": recordingItem?.id.uuidString ?? ""
             ]
         )
@@ -405,13 +415,13 @@ public class MemoryAgentIntegration: ObservableObject {
         }
     }
     
-    private func handleNewNote(_ notification: Notification) async {
+    private func handleNewNote(noteId: UUID?) async {
         print("🔔 [MemoryAgentIntegration] Received .newNoteCreated notification!")
         logger.debug("Handling new note notification")
         
-        guard let noteId = notification.userInfo?["noteId"] as? UUID else {
-            print("⚠️ [MemoryAgentIntegration] No note ID in notification")
-            logger.warning("No note ID in notification")
+        guard let noteId = noteId else {
+            print("⚠️ [MemoryAgentIntegration] No note ID provided")
+            logger.warning("No note ID provided")
             return
         }
         
@@ -507,11 +517,11 @@ public class MemoryAgentIntegration: ObservableObject {
         }
     }
     
-    private func handleEntityUpdate(_ notification: Notification) async {
+    private func handleEntityUpdate(entityId: UUID?) async {
         logger.debug("Handling entity update notification")
         
-        guard let entityId = notification.userInfo?["entityId"] as? UUID else {
-            logger.warning("No entity ID in notification")
+        guard let entityId = entityId else {
+            logger.warning("No entity ID provided")
             return
         }
         

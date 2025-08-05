@@ -81,7 +81,7 @@ public struct DeviceCapabilities {
 // MARK: - Engine Selection Strategy
 
 /// Strategy for selecting transcription implementation
-public enum EngineSelectionStrategy {
+public enum EngineSelectionStrategy: Sendable {
     case automatic
     case preferApple
     case preferWhisperKit
@@ -136,7 +136,7 @@ public enum EngineStatusChange {
 // MARK: - Configuration
 
 /// Configuration for the speech engine factory
-public struct SpeechEngineConfiguration {
+public struct SpeechEngineConfiguration: Sendable {
     let strategy: EngineSelectionStrategy
     let enableFallback: Bool
     let maxMemoryUsage: UInt64?
@@ -157,18 +157,19 @@ public struct SpeechEngineConfiguration {
         self.logLevel = logLevel
     }
     
-    public static let `default` = SpeechEngineConfiguration(strategy: .appleOnly, enableFallback: false)
+    @MainActor public static let `default` = SpeechEngineConfiguration(strategy: .appleOnly, enableFallback: false)
 }
 
 // MARK: - Factory
 
 /// Factory for creating and managing speech transcription implementations
+@MainActor
 public class SpeechEngineFactory {
     
     // MARK: - Properties
     
     private let logger = Logger(subsystem: "com.projectone.speech", category: "SpeechEngineFactory")
-    private let configuration: SpeechEngineConfiguration
+    private var configuration: SpeechEngineConfiguration
     private let deviceCapabilities: DeviceCapabilities
     
     private var currentEngine: SpeechTranscriptionProtocol?
@@ -800,12 +801,31 @@ public class SpeechEngineFactory {
 extension SpeechEngineFactory {
     
     /// Shared instance with default configuration
-    public static let shared = SpeechEngineFactory()
+    @MainActor public static let shared = SpeechEngineFactory()
     
     /// Configure the shared instance
     public static func configure(with configuration: SpeechEngineConfiguration) {
-        // In a real implementation, we'd need to handle reconfiguration
-        // For now, this is a placeholder
-        fatalError("Reconfiguration not yet implemented - create new instance instead")
+        // Reset shared instance with new configuration
+        shared.reconfigure(with: configuration)
+    }
+    
+    /// Reconfigure this factory instance with new settings
+    public func reconfigure(with newConfiguration: SpeechEngineConfiguration) {
+        Task {
+            logger.info("Reconfiguring SpeechEngineFactory from \(self.configuration.strategy.description) to \(newConfiguration.strategy.description)")
+            
+            // Clean up existing engines
+            await cleanup()
+            
+            // Update configuration
+            self.configuration = newConfiguration
+            
+            // Notify of configuration change
+            if let statusChangeHandler = self.statusChangeHandler {
+                statusChangeHandler(.primaryEngineChanged(from: self.currentEngine?.method, to: nil))
+            }
+            
+            logger.info("SpeechEngineFactory reconfiguration completed")
+        }
     }
 }

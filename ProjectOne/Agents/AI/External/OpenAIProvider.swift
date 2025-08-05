@@ -9,7 +9,7 @@ import Foundation
 import os.log
 
 /// OpenAI API provider
-public class OpenAIProvider: ExternalAIProvider {
+public class OpenAIProvider: ExternalAIProvider, @unchecked Sendable {
     
     // MARK: - Predefined Configurations
     

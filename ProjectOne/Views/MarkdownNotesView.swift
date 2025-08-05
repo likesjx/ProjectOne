@@ -19,7 +19,6 @@ struct MarkdownNotesView: View {
     }
     
     @State private var showingNoteCreation = false
-    @State private var showingEnhancedCreation = false
     @State private var selectedNoteForEditing: ProcessedNote?
     @State private var searchText = ""
     
@@ -69,45 +68,29 @@ struct MarkdownNotesView: View {
                             
                             Spacer()
                             
-                            // New note buttons
-                            HStack(spacing: 12) {
-                                // Enhanced note creation button
-                                Button {
-                                    showingEnhancedCreation = true
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "brain.head.profile")
-                                            .font(.system(size: 16, weight: .medium))
-                                        Text("Smart")
-                                            .font(.caption.weight(.semibold))
-                                    }
-                                    .foregroundStyle(.mint)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background {
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(.regularMaterial)
-                                            .overlay { Color.mint.opacity(0.15) }
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                
-                                // Quick note button
-                                Button {
-                                    showingNoteCreation = true
-                                } label: {
+                            // New note button
+                            Button {
+                                showingNoteCreation = true
+                            } label: {
+                                HStack(spacing: 8) {
                                     Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 24, weight: .medium))
-                                        .foregroundStyle(.mint)
-                                        .frame(width: 44, height: 44)
-                                        .background {
-                                            Circle()
-                                                .fill(.regularMaterial)
-                                                .overlay { Color.mint.opacity(0.15) }
+                                        .font(.system(size: 20, weight: .medium))
+                                    Text("New Note")
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                                .foregroundStyle(.mint)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(.regularMaterial)
+                                        .overlay { 
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .fill(.mint.opacity(0.15)) 
                                         }
                                 }
-                                .buttonStyle(.plain)
                             }
+                            .buttonStyle(.plain)
                         }
                         
                         // Search bar
@@ -155,40 +138,23 @@ struct MarkdownNotesView: View {
                         }
                         
                         if searchText.isEmpty {
-                            VStack(spacing: 12) {
-                                Button {
-                                    showingEnhancedCreation = true
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "brain.head.profile")
-                                        Text("Create Smart Note")
-                                    }
-                                    .font(.headline.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 24)
-                                    .padding(.vertical, 12)
-                                    .background {
-                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .fill(.mint)
-                                    }
+                            Button {
+                                showingNoteCreation = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Create Your First Note")
                                 }
-                                .buttonStyle(.plain)
-                                
-                                Button {
-                                    showingNoteCreation = true
-                                } label: {
-                                    Text("Quick Note")
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(.mint)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 8)
-                                        .background {
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .fill(.mint.opacity(0.1))
-                                        }
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(.mint)
                                 }
-                                .buttonStyle(.plain)
                             }
+                            .buttonStyle(.plain)
                         }
                         
                         Spacer()
@@ -202,7 +168,7 @@ struct MarkdownNotesView: View {
                                 NoteCard(note: note)
                                     .onTapGesture {
                                         selectedNoteForEditing = note
-                                        showingEnhancedCreation = true
+                                        showingNoteCreation = true
                                     }
                             }
                         }
@@ -213,12 +179,8 @@ struct MarkdownNotesView: View {
             }
         }
         .navigationTitle("Notes")
-        .sheet(isPresented: $showingNoteCreation) {
-            LiquidGlassSheet {
-                NoteCreationView()
-            }
-        }
-        .sheet(isPresented: $showingEnhancedCreation, onDismiss: {
+#if os(iOS)
+        .fullScreenCover(isPresented: $showingNoteCreation, onDismiss: {
             selectedNoteForEditing = nil
         }) {
             EnhancedNoteCreationView(
@@ -226,6 +188,17 @@ struct MarkdownNotesView: View {
                 modelContext: modelContext
             )
         }
+#else
+        .sheet(isPresented: $showingNoteCreation, onDismiss: {
+            selectedNoteForEditing = nil
+        }) {
+            EnhancedNoteCreationView(
+                existingNote: selectedNoteForEditing,
+                modelContext: modelContext
+            )
+            .frame(width: 1200, height: 800)
+        }
+#endif
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif

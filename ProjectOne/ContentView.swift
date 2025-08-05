@@ -4,7 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var urlHandler: URLHandler
-    @EnvironmentObject private var gemmaCore: Gemma3nCore
+    @EnvironmentObject private var systemManager: UnifiedSystemManager
     @State private var selectedTab = 0
     @State private var showingQuickNote = false
     
@@ -12,7 +12,7 @@ struct ContentView: View {
         #if os(macOS)
         ContentView_macOS()
             .environmentObject(urlHandler)
-            .environmentObject(gemmaCore)
+            .environmentObject(systemManager)
         #else
         NavigationStack {
             LiquidGlassTabContainer(selectedTab: $selectedTab) {
@@ -49,11 +49,38 @@ struct ContentView: View {
                         .background { Color.purple.opacity(0.15) }
                         .glassEffect(.regular)
                     
+                    Group {
+                        if let cognitiveEngine = systemManager.cognitiveEngine {
+                            CognitiveDecisionDashboard(
+                                cognitiveEngine: cognitiveEngine,
+                                coordinator: systemManager.agentModelCoordinator
+                            )
+                        } else {
+                            VStack {
+                                Image(systemName: "cpu.fill")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.cyan.opacity(0.6))
+                                Text("Cognitive Dashboard")
+                                    .font(.title2)
+                                    .foregroundColor(.secondary)
+                                Text("Initializing...")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                    .tabItem {
+                        Label("Cognitive", systemImage: "cpu.fill")
+                    }
+                    .tag(4)
+                    .background { Color.cyan.opacity(0.15) }
+                    .glassEffect(.regular)
+                    
                     KnowledgeGraphView(modelContext: modelContext)
                         .tabItem {
                             Label("Knowledge", systemImage: "network")
                         }
-                        .tag(4)
+                        .tag(5)
                         .background { Color.green.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -61,7 +88,7 @@ struct ContentView: View {
                         .tabItem {
                             Label("Notes", systemImage: "doc.text.fill")
                         }
-                        .tag(5)
+                        .tag(6)
                         .background { Color.mint.opacity(0.15) }
                         .glassEffect(.regular)
                     
@@ -69,15 +96,15 @@ struct ContentView: View {
                         .tabItem {
                             Label("Data", systemImage: "externaldrive.fill")
                         }
-                        .tag(6)
+                        .tag(7)
                         .background { Color.orange.opacity(0.15) }
                         .glassEffect(.regular)
                     
-                    SettingsView(gemmaCore: gemmaCore)
+                    SettingsView(gemmaCore: systemManager.gemmaCore ?? Gemma3nCore())
                         .tabItem {
                             Label("Settings", systemImage: "gearshape.fill")
                         }
-                        .tag(7)
+                        .tag(8)
                         .background { Color.gray.opacity(0.15) }
                         .glassEffect(.regular)
                 }
@@ -104,11 +131,11 @@ struct ContentView: View {
         #endif
         .liquidGlassContainer()
         .sheet(isPresented: $showingQuickNote) {
-            NoteCreationView()
+            EnhancedNoteCreationView(modelContext: modelContext, systemManager: systemManager)
         }
         .alert("Note Imported", isPresented: $urlHandler.showingImportedNote) {
             Button("View Notes") {
-                selectedTab = 4 // Switch to Notes tab
+                selectedTab = 6 // Switch to Notes tab
             }
             Button("OK") { }
         } message: {
@@ -143,13 +170,14 @@ struct LiquidGlassBackgroundExtension: View {
     private var activeColor: Color {
         switch selectedTab {
         case 0: return .indigo
-        case 1: return .blue
-        case 2: return .purple
-        case 3: return .green
-        case 4: return .mint
-        case 5: return .orange
-        case 6: return .pink
-        case 7: return .gray
+        case 1: return .pink
+        case 2: return .blue
+        case 3: return .purple
+        case 4: return .cyan
+        case 5: return .green
+        case 6: return .mint
+        case 7: return .orange
+        case 8: return .gray
         default: return .indigo
         }
     }

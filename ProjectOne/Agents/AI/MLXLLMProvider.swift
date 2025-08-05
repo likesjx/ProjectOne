@@ -18,7 +18,7 @@
 import Foundation
 import SwiftUI      // 🎓 SWIFT LEARNING: Apple's declarative UI framework
 import Combine      // 🎓 SWIFT LEARNING: Reactive programming - handles async events
-import MLXLMCommon  // 🎓 SWIFT LEARNING: MLX Swift framework for Apple Silicon ML
+import MLX  // 🎓 SWIFT LEARNING: MLX Swift framework for Apple Silicon ML
 import os.log       // 🎓 SWIFT LEARNING: Apple's structured logging system
 
 // MARK: - MLX Text-Only LLM Provider
@@ -32,6 +32,7 @@ import os.log       // 🎓 SWIFT LEARNING: Apple's structured logging system
 /// • **Publisher Pattern**: @Published properties create data streams UI can subscribe to
 /// • **Dependency Injection**: Takes MLXService as dependency rather than creating it directly
 /// • **State Management**: Manages loading, error, and availability states
+@MainActor
 public class MLXLLMProvider: ObservableObject {
     
     // 🎓 SWIFT LEARNING: Logger for structured, performance-optimized logging
@@ -216,7 +217,7 @@ public class MLXLLMProvider: ObservableObject {
             let response = try await mlxService.generate(with: container, prompt: prompt)
             
             // 🔧 ADDED: Validate response quality
-            guard !response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard !response.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty else {
                 throw MLXLLMError.generationFailed("Model returned empty response")
             }
             

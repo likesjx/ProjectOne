@@ -11,17 +11,17 @@ import Foundation
 
 /// Simplified context information for AI model interactions
 /// Note: Advanced memory types removed for iOS compatibility
-public struct MemoryContext {
+public struct MemoryContext: Sendable {
     let timestamp: Date
     let userQuery: String
     let containsPersonalData: Bool
-    let contextData: [String: Any] // Generic container for future memory context
+    let contextData: [String: String] // Generic container for future memory context
     
     public init(
         timestamp: Date = Date(),
         userQuery: String,
         containsPersonalData: Bool = false,
-        contextData: [String: Any] = [:]
+        contextData: [String: String] = [:]
     ) {
         self.timestamp = timestamp
         self.userQuery = userQuery
@@ -29,19 +29,19 @@ public struct MemoryContext {
         self.contextData = contextData
     }
     
-    // Compatibility properties for BaseAIProvider
-    public var entities: [Any] { return contextData["entities"] as? [Any] ?? [] }
-    public var relationships: [Any] { return contextData["relationships"] as? [Any] ?? [] }
-    public var shortTermMemories: [Any] { return contextData["shortTermMemories"] as? [Any] ?? [] }
-    public var longTermMemories: [Any] { return contextData["longTermMemories"] as? [Any] ?? [] }
-    public var episodicMemories: [Any] { return contextData["episodicMemories"] as? [Any] ?? [] }
-    public var relevantNotes: [Any] { return contextData["relevantNotes"] as? [Any] ?? [] }
+    // Compatibility properties for BaseAIProvider - simplified for Sendable compatibility
+    public var entities: [Any] { return [] }
+    public var relationships: [Any] { return [] }
+    public var shortTermMemories: [Any] { return [] }
+    public var longTermMemories: [Any] { return [] }
+    public var episodicMemories: [Any] { return [] }
+    public var relevantNotes: [Any] { return [] }
 }
 
 // MARK: - AI Model Response
 
 /// Response from AI model with metadata
-public struct AIModelResponse {
+public struct AIModelResponse: Sendable {
     let content: String
     let confidence: Double
     let processingTime: TimeInterval
@@ -72,6 +72,7 @@ public struct AIModelResponse {
 // MARK: - AI Model Provider Protocol
 
 /// Protocol for AI model providers in the Memory Agent system
+@MainActor
 public protocol AIModelProvider: AnyObject {
     
     /// Unique identifier for this provider

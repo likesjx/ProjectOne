@@ -10,7 +10,7 @@ import Foundation
 import os.log
 
 /// OpenRouter API provider - unified access to multiple AI models
-public class OpenRouterProvider: ExternalAIProvider {
+public class OpenRouterProvider: ExternalAIProvider, @unchecked Sendable {
     
     // MARK: - Predefined Configurations
     
