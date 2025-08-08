@@ -11,6 +11,9 @@ import SwiftData
 import Charts
 import Combine
 import os.log
+#if os(macOS)
+import AppKit
+#endif
 
 /// SwiftUI dashboard for visualizing AI agent decision-making processes
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
@@ -102,7 +105,7 @@ public struct CognitiveDecisionDashboard: View {
                     }
                 }
                 #if os(iOS)
-                .menuStyle(BorderedProminentMenuStyle())
+                .menuStyle(.automatic)
                 #endif
             }
         }
@@ -328,7 +331,13 @@ struct CognitiveMetricCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(NSColor.controlBackgroundColor))
+.background({
+            #if os(macOS)
+            return Color(NSColor.controlBackgroundColor)
+            #else
+            return Color(.systemBackground)
+            #endif
+        }())
         .cornerRadius(8)
         .shadow(radius: 2)
     }
@@ -425,7 +434,13 @@ struct DecisionRow: View {
             ConfidenceIndicator(confidence: decision.confidence)
         }
         .padding()
-        .background(Color(NSColor.controlBackgroundColor))
+.background({
+            #if os(macOS)
+            return Color(NSColor.controlBackgroundColor)
+            #else
+            return Color(.systemBackground)
+            #endif
+        }())
         .cornerRadius(8)
         .shadow(radius: 1)
     }

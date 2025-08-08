@@ -410,15 +410,23 @@ struct PromptEditView: View {
     
     private func resetToDefault() {
         Task {
-            try await promptManager.resetTemplateToDefault(template)
-            editedTemplate = template.template
-            validationResult = template.validateArguments()
+            do {
+                try await promptManager.resetTemplateToDefault(template)
+                editedTemplate = template.template
+                validationResult = template.validateArguments()
+            } catch {
+                print("Failed to reset template: \(error)")
+            }
         }
     }
     
     private func deleteTemplate() {
         Task {
-            try await promptManager.deleteTemplate(template)
+            do {
+                try await promptManager.deleteTemplate(template)
+            } catch {
+                print("Failed to delete template: \(error)")
+            }
         }
     }
     
@@ -427,7 +435,7 @@ struct PromptEditView: View {
         
         Task {
             do {
-                try await promptManager.duplicateTemplate(template, newName: duplicateName)
+                _ = try await promptManager.duplicateTemplate(template, newName: duplicateName)
             } catch {
                 print("Failed to duplicate template: \(error)")
             }

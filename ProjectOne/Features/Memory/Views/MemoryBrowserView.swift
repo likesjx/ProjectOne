@@ -83,10 +83,10 @@ public struct MemoryBrowserView: View {
             .task {
                 updateAnalytics()
             }
-            .onChange(of: selectedMemoryType) { _ in
+            .onChange(of: selectedMemoryType) {
                 updateAnalytics()
             }
-            .onChange(of: selectedTimeRange) { _ in
+            .onChange(of: selectedTimeRange) {
                 updateAnalytics()
             }
         }

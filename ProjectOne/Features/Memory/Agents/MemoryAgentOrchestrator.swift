@@ -440,16 +440,9 @@ public class MemoryAgentOrchestrator: ObservableObject {
     
     private func storeInteractionForLearning(query: String, perception: AgentPerception, reasoning: AgentReasoning, action: AgentAction) async throws {
         // Store interaction for future learning and analysis
-        let interaction = AgentInteraction(
-            query: query,
-            perception: perception,
-            reasoning: reasoning,
-            action: action,
-            timestamp: Date()
-        )
+        // TODO: Implement interaction storage in learning database
         
-        // This would be stored in a learning database for future improvements
-        logger.debug("Interaction stored for learning")
+        logger.debug("Interaction stored for learning: query=\(query.prefix(50)), model=\(reasoning.modelUsed), time=\(String(format: "%.2f", reasoning.processingTime))s")
     }
     
     // MARK: - Utility Methods

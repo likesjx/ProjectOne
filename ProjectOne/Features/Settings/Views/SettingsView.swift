@@ -266,6 +266,7 @@ struct ModelDownloadInfo {
 
 struct ModelDownloadRow: View {
     @Binding var model: ModelDownloadInfo
+    @State private var downloadTimer: Timer?
     
     var body: some View {
         HStack {
@@ -291,6 +292,8 @@ struct ModelDownloadRow: View {
                     .font(.title2)
             } else if model.isDownloading {
                 Button("Cancel") {
+                    downloadTimer?.invalidate()
+                    downloadTimer = nil
                     model.isDownloading = false
                     model.progress = 0.0
                 }
@@ -309,12 +312,13 @@ struct ModelDownloadRow: View {
         model.isDownloading = true
         
         // Simulate download progress
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+        downloadTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             Task { @MainActor in
                 model.progress += 0.02
                 
                 if model.progress >= 1.0 {
-                    timer.invalidate()
+                    downloadTimer?.invalidate()
+                    downloadTimer = nil
                     model.isDownloading = false
                     model.isDownloaded = true
                     model.progress = 1.0
@@ -467,8 +471,8 @@ struct SystemStatusView: View {
         List {
             Section("System Information") {
                 #if os(iOS)
-                StatusRow(title: "iOS Version", value: UIDevice.current.systemVersion)
-                StatusRow(title: "Device Model", value: UIDevice.current.model)
+                StatusRow(title: "iOS Version", value: getSystemVersion())
+                StatusRow(title: "Device Model", value: getDeviceModel())
                 #else
                 StatusRow(title: "macOS Version", value: ProcessInfo.processInfo.operatingSystemVersionString)
                 StatusRow(title: "Device Model", value: "Mac")
@@ -489,10 +493,10 @@ struct SystemStatusView: View {
             
             Section("Agent System") {
                 StatusRow(title: "Active Agents", value: "\(systemManager.centralAgentRegistry?.getActiveAgentIds().count ?? 0)")
-                StatusRow(title: "Registered Agents", value: "\(systemManager.systemStatistics.registeredAgents)")
-                StatusRow(title: "Active Models", value: "\(systemManager.systemStatistics.activeModels)")
-                StatusRow(title: "Provider Health", value: "\(systemManager.systemStatistics.healthyProviders)/\(systemManager.systemStatistics.totalProviders)")
-                StatusRow(title: "Memory Usage", value: formatBytes(systemManager.systemStatistics.memoryUsage))
+                StatusRow(title: "Registered Agents", value: "\(systemManager.centralAgentRegistry?.getActiveAgentIds().count ?? 0)")
+                StatusRow(title: "Active Models", value: "\(systemManager.systemStatistics["activeModels"] as? Int ?? 0)")
+                StatusRow(title: "Provider Health", value: "\((systemManager.systemStatistics["healthyProviders"] as? Int ?? 0))/\((systemManager.systemStatistics["totalProviders"] as? Int ?? 0))")
+                StatusRow(title: "Memory Usage", value: formatBytes(systemManager.systemStatistics["memoryUsage"] as? Int ?? 0))
             }
             
             Section("Real-Time Agent Status") {
@@ -532,6 +536,24 @@ struct SystemStatusView: View {
         formatter.countStyle = .memory
         return formatter.string(fromByteCount: Int64(bytes))
     }
+    
+    #if os(iOS)
+    private func getSystemVersion() -> String {
+        if Thread.isMainThread {
+            return UIDevice.current.systemVersion
+        } else {
+            return DispatchQueue.main.sync { UIDevice.current.systemVersion }
+        }
+    }
+    
+    private func getDeviceModel() -> String {
+        if Thread.isMainThread {
+            return UIDevice.current.model
+        } else {
+            return DispatchQueue.main.sync { UIDevice.current.model }
+        }
+    }
+    #endif
 }
 
 struct StatusRow: View {
@@ -591,13 +613,13 @@ public struct AgentDetails {
 }
 
 public struct StubAgent: AgentInterface {
-    public func performHealthCheck() async throws -> Bool {
+    @MainActor public func performHealthCheck() async throws -> Bool {
         return true
     }
 }
 
 public protocol AgentInterface {
-    func performHealthCheck() async throws -> Bool
+    @MainActor func performHealthCheck() async throws -> Bool
 }
 
 public struct AgentInstance {
@@ -627,8 +649,8 @@ struct AgentStatusRow: View {
                     .foregroundColor(isHealthy ? .green : .red)
                     .font(.caption)
                 
-                if let metrics = registry.getAgentMetrics(agentId),
-                   let lastActivity = metrics["lastActivity"] as? Date {
+                let metrics = registry.getAgentMetrics(agentId)
+                if let lastActivity = metrics["lastActivity"] as? Date {
                     Text("Last: \(formatTime(lastActivity))")
                         .foregroundColor(.secondary)
                         .font(.caption2)
@@ -644,10 +666,11 @@ struct AgentStatusRow: View {
     }
     
     private func checkAgentHealth() {
-        Task {
+        Task { @MainActor in
             if let agentInstance = registry.getAgentDetails(agentId) {
                 do {
-                    isHealthy = try await agentInstance.agent.performHealthCheck()
+                    let healthResult = try await agentInstance.agent.performHealthCheck()
+                    isHealthy = healthResult
                     lastCheck = Date()
                 } catch {
                     isHealthy = false

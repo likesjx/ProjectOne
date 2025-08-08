@@ -182,22 +182,22 @@ public class WhisperKitModelPreloader: ObservableObject {
                 throw SpeechTranscriptionError.processingFailed("Model preloading timeout after \(timeoutDuration)s")
             }
             
-            for try await result in group {
-                group.cancelAll()
-                return result
+            // Wait for first result (success or timeout)
+            guard let result = try await group.next() else {
+                throw SpeechTranscriptionError.processingFailed("Model preloading failed")
             }
             
-            throw SpeechTranscriptionError.processingFailed("Model preloading failed")
+            group.cancelAll()
+            return result
         }
     }
     
     private func determineOptimalModelSize() -> WhisperKitModelSize {
-        // Always use tiny in simulator
         #if targetEnvironment(simulator)
+        // Always use tiny in simulator
         return .tiny
-        #endif
-        
-        // Get device capabilities
+        #else
+        // Get device capabilities for physical devices
         let capabilities = ModelPreloaderDeviceCapabilities.detect()
         let availableMemory = capabilities.availableMemory
         
@@ -209,6 +209,7 @@ public class WhisperKitModelPreloader: ObservableObject {
         } else {
             return .tiny
         }
+        #endif
     }
     
     private func updateStatus(_ status: String) {

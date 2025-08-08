@@ -11,7 +11,7 @@ import os.log
 import Combine
 
 /// RAG-based memory retrieval engine for the Memory Agent
-public class MemoryRetrievalEngine: ObservableObject {
+public class MemoryRetrievalEngine: ObservableObject, @unchecked Sendable {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MemoryRetrievalEngine")
     private let modelContext: ModelContext

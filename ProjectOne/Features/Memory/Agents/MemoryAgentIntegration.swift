@@ -373,12 +373,12 @@ public class MemoryAgentIntegration: ObservableObject {
         )
         
         do {
-            let result = try await memoryAgent.ingestData(ingestData)
+            try await memoryAgent.ingestData(ingestData)
             let processingTime = Date().timeIntervalSince(startTime)
             
             // Update recording with memory processing results
             if let recording = recordingItem {
-                let decision = parseMemoryDecision(from: result)
+                let decision = parseMemoryDecision(from: "processed")
                 
                 recording.updateMemoryProcessing(
                     status: .completed,

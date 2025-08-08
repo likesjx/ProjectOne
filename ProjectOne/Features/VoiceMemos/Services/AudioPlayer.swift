@@ -29,8 +29,7 @@ class AudioPlayer: NSObject, ObservableObject {
     deinit {
         // Note: Cannot call MainActor methods from deinit
         // stopPlayback() should be called manually before deallocation
-        // Cannot access non-Sendable audioPlayer from deinit - handled in cleanup
-        progressTimer?.invalidate()
+        // Timer cleanup is handled in stopPlayback() method which should be called before deallocation
     }
     
     private func setupAudioSession() {

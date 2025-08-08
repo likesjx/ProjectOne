@@ -328,7 +328,6 @@ public final class KnowledgeGraphService: ObservableObject {
         // Arrange other entities in concentric circles
         let otherEntities = filteredEntities.filter { $0.id != centerEntity.id }
         let entitiesPerRing = 8
-        let rings = (otherEntities.count + entitiesPerRing - 1) / entitiesPerRing
         
         for (index, entity) in otherEntities.enumerated() {
             let ring = index / entitiesPerRing

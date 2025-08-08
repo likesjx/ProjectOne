@@ -259,7 +259,7 @@ public class PrivacyAnalyzer {
         }
         
         // Episodic memory analysis
-        for episodic in context.episodicMemories {
+        for _ in context.episodicMemories {
             // Episodic memories are inherently personal
             score += 0.4
         }

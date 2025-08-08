@@ -396,7 +396,7 @@ public struct AIProviderSettingsView: View {
     }
     
     private func exportSettings() {
-        let settings = settings.exportSettings()
+        let _ = settings.exportSettings()
         // Implement export functionality (share sheet, etc.)
     }
 }

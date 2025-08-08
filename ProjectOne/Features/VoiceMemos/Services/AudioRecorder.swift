@@ -43,8 +43,9 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
     @Published var isTranscribing = false
     
     // Speech transcription factory
-    private var speechEngineFactory: SpeechEngineFactory
+    private var speechEngineFactory: SpeechEngineFactory?
     private let modelContext: ModelContext
+    private var speechEngineConfiguration: SpeechEngineConfiguration
     
     // Real-time transcription support
     @Published var realtimeTranscription = ""
@@ -72,7 +73,8 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         
         // Initialize transcription components
         self.modelContext = modelContext
-        self.speechEngineFactory = SpeechEngineFactory(configuration: speechEngineConfiguration)
+        self.speechEngineConfiguration = speechEngineConfiguration
+        self.speechEngineFactory = nil // Will be initialized lazily
         
         super.init()
         
@@ -89,7 +91,14 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         // Setup is done when needed in startRecording
     }
     
-    func requestPermission(completion: @escaping (Bool) -> Void) {
+    /// Ensure speech engine factory is initialized (lazy initialization)
+    private func ensureSpeechEngineFactory() async throws {
+        if speechEngineFactory == nil {
+            speechEngineFactory = await SpeechEngineFactory(configuration: speechEngineConfiguration)
+        }
+    }
+    
+    func requestPermission(completion: @escaping @Sendable (Bool) -> Void) {
         print("🔐 [Debug] Starting comprehensive permission and diagnostic check")
         
         // Run microphone diagnostics first
@@ -105,26 +114,30 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
             
-            self?.requestSpeechRecognitionPermission { speechGranted in
-                DispatchQueue.main.async {
-                    completion(speechGranted)
+            Task { @MainActor in
+                self?.requestSpeechRecognitionPermission { speechGranted in
+                    DispatchQueue.main.async {
+                        completion(speechGranted)
+                    }
                 }
             }
         }
         #else
         // macOS doesn't require explicit permission request for microphone in this context
         // but still needs speech recognition permission
-        requestSpeechRecognitionPermission { granted in
-            DispatchQueue.main.async {
-                completion(granted)
+        Task { @MainActor in
+            requestSpeechRecognitionPermission { granted in
+                DispatchQueue.main.async {
+                    completion(granted)
+                }
             }
         }
         #endif
     }
     
-    private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
+    private func requestMicrophonePermission(completion: @escaping @Sendable (Bool) -> Void) {
         #if os(iOS)
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+        AVAudioApplication.requestRecordPermission { granted in
             let status = granted ? "✅ Granted" : "❌ Denied"
             print("🎤 [AudioRecorder] Microphone permission: \(status)")
             completion(granted)
@@ -134,7 +147,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         #endif
     }
     
-    private func requestSpeechRecognitionPermission(completion: @escaping (Bool) -> Void) {
+    @MainActor private func requestSpeechRecognitionPermission(completion: @escaping @Sendable (Bool) -> Void) {
         
         SFSpeechRecognizer.requestAuthorization { authStatus in
             print("🎤 [AudioRecorder] Speech recognition permission: \(authStatus.rawValue)")
@@ -475,7 +488,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         print("🗑️ [Debug] Starting bulk delete of all recordings")
         
         let fileManager = FileManager.default
-        let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let _ = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         var deletedCount = 0
         var errorCount = 0
         
@@ -614,9 +627,8 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
             print("🔍 [Debug] Reading audio file into buffer...")
             print("🔍 [Debug] Buffer capacity: \(audioBuffer.frameCapacity) frames")
             
-            let bytesRead = try audioFile.read(into: audioBuffer)
+            try audioFile.read(into: audioBuffer)
             print("🔍 [Debug] AVAudioFile.read() completed")
-            print("🔍 [Debug] Bytes read from file: \(bytesRead)")
             print("🔍 [Debug] Buffer frame length after read: \(audioBuffer.frameLength)")
             
             if audioBuffer.frameLength == 0 {
@@ -739,8 +751,13 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
             // Add comprehensive error handling wrapper for the transcription process
             let transcriptionTask = Task {
                 do {
+                    print("🎤 [Debug] About to initialize speech engine factory if needed...")
+                    try await ensureSpeechEngineFactory()
+                    guard let factory = speechEngineFactory else {
+                        throw NSError(domain: "AudioRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "Speech engine factory not available"])
+                    }
                     print("🎤 [Debug] About to call speechEngineFactory.transcribe()...")
-                    let result = try await speechEngineFactory.transcribe(audio: audioData, configuration: configuration)
+                    let result = try await factory.transcribe(audio: audioData, configuration: configuration)
                     print("🎤 [Debug] speechEngineFactory.transcribe() completed successfully")
                     return result
                 } catch {
@@ -877,7 +894,10 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
     
     /// Get current speech engine status for diagnostics
     func getSpeechEngineStatus() -> String {
-        let status = speechEngineFactory.getEngineStatus()
+        guard let factory = speechEngineFactory else {
+            return "Speech engine factory not initialized"
+        }
+        let status = factory.getEngineStatus()
         return status.statusMessage
     }
     
@@ -887,11 +907,14 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         
         // Clean up existing factory
         Task {
-            await speechEngineFactory.cleanup()
+            if let factory = speechEngineFactory {
+                await factory.cleanup()
+            }
         }
         
-        // Create new factory with updated configuration
-        speechEngineFactory = SpeechEngineFactory(configuration: configuration)
+        // Update configuration and reset factory (will be recreated lazily)  
+        self.speechEngineConfiguration = configuration
+        speechEngineFactory = nil
         
         print("🎤 [AudioRecorder] Speech engine configuration updated successfully")
     }
@@ -953,23 +976,35 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
     /// Detailed iOS microphone permission check
     private func checkiOSMicrophonePermissionDetailed() -> (granted: Bool, message: String) {
         let audioSession = AVAudioSession.sharedInstance()
-        let recordPermission = audioSession.recordPermission
         
-        print("🔐 [iOS] Microphone permission status: \(recordPermission.rawValue)")
+        // Use the newer approach - check if we can create a test recorder
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("permission_test.wav")
+        let testSettings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatLinearPCM),
+            AVSampleRateKey: 44100.0,
+            AVNumberOfChannelsKey: 1
+        ]
         
-        switch recordPermission {
-        case .granted:
-            if audioSession.isInputAvailable {
-                return (true, "Granted and input available")
+        do {
+            let testRecorder = try AVAudioRecorder(url: tempURL, settings: testSettings)
+            if testRecorder.prepareToRecord() {
+                // Clean up test file
+                try? FileManager.default.removeItem(at: tempURL)
+                
+                if audioSession.isInputAvailable {
+                    print("🔐 [iOS] Microphone permission: Granted and input available")
+                    return (true, "Granted and input available")
+                } else {
+                    print("🔐 [iOS] Microphone permission: Granted but no input devices")
+                    return (false, "Granted but no input devices available")
+                }
             } else {
-                return (false, "Granted but no input devices available")
+                print("🔐 [iOS] Microphone permission: Cannot prepare recorder")
+                return (false, "Permission denied or recorder unavailable")
             }
-        case .denied:
-            return (false, "Denied - Enable in Settings > Privacy & Security > Microphone")
-        case .undetermined:
-            return (false, "Not requested - Call requestPermission() first")
-        @unknown default:
-            return (false, "Unknown permission state (\(recordPermission.rawValue))")
+        } catch {
+            print("🔐 [iOS] Microphone permission check failed: \(error)")
+            return (false, "Permission denied or system error: \(error.localizedDescription)")
         }
     }
     
@@ -1011,7 +1046,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         
         // Test audio unit creation for input capabilities
         do {
-            let testAudioUnit = try createTemporaryAudioUnitForPermissionCheck()
+            let _ = try createTemporaryAudioUnitForPermissionCheck()
             print("🔐 [macOS] ✅ Audio unit creation successful")
             return (true, "Recording capabilities available")
         } catch {
@@ -1164,7 +1199,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         print("📱 [iOS Diagnostics] Current audio route:")
         for input in currentRoute.inputs {
             print("📱 [iOS Diagnostics]   Input: \(input.portName) (\(input.portType.rawValue))")
-            print("📱 [iOS Diagnostics]   UID: \(input.uid ?? "Unknown")")
+            print("📱 [iOS Diagnostics]   UID: \(input.uid)")
             if let dataSources = input.dataSources {
                 for dataSource in dataSources {
                     print("📱 [iOS Diagnostics]     Data source: \(dataSource.dataSourceName)")
@@ -1188,19 +1223,13 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
             print("📱 [iOS Diagnostics] No available inputs found")
         }
         
-        // Check record permission
-        let recordPermission = audioSession.recordPermission
-        print("📱 [iOS Diagnostics] Record permission: \(recordPermission.rawValue)")
-        
-        switch recordPermission {
-        case .granted:
-            print("📱 [iOS Diagnostics] ✅ Microphone permission granted")
-        case .denied:
-            print("📱 [iOS Diagnostics] ❌ Microphone permission denied")
-        case .undetermined:
-            print("📱 [iOS Diagnostics] ⚠️ Microphone permission not yet requested")
-        @unknown default:
-            print("📱 [iOS Diagnostics] ❓ Unknown microphone permission status")
+        // Check record permission using modern approach
+        print("📱 [iOS Diagnostics] Checking microphone permission...")
+        let permissionResult = checkiOSMicrophonePermissionDetailed()
+        if permissionResult.granted {
+            print("📱 [iOS Diagnostics] ✅ Microphone permission: \(permissionResult.message)")
+        } else {
+            print("📱 [iOS Diagnostics] ❌ Microphone permission: \(permissionResult.message)")
         }
     }
     #endif
@@ -1216,7 +1245,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         // Try to get default input device information
         do {
             // Create a temporary audio unit to check device capabilities
-            let audioUnit = try self.createTemporaryAudioUnit()
+            let _ = try self.createTemporaryAudioUnit()
             print("🖥️ [macOS Diagnostics] ✅ Successfully created temporary audio unit")
             
             // Check input device properties
@@ -1340,7 +1369,8 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         guard status == noErr else { return nil }
         
         var deviceName: CFString?
-        status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &deviceName)
+        let deviceNamePtr: UnsafeMutablePointer<CFString?> = withUnsafeMutablePointer(to: &deviceName) { $0 }
+        status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, deviceNamePtr)
         guard status == noErr, let name = deviceName as String? else { return nil }
         
         // Get input stream configuration
@@ -1350,7 +1380,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         status = AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize)
         guard status == noErr else { return (name, false, 0) }
         
-        let bufferListSize = Int(dataSize)
+        let _ = Int(dataSize)
         let bufferListPointer = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 1)
         defer { bufferListPointer.deallocate() }
         
@@ -1500,9 +1530,10 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         
         #if os(iOS)
         let audioSession = AVAudioSession.sharedInstance()
+        let permissionResult = checkiOSMicrophonePermissionDetailed()
         status += "Platform: iOS\n"
         status += "Input Available: \(audioSession.isInputAvailable ? "✅" : "❌")\n"
-        status += "Record Permission: \(audioSession.recordPermission.rawValue)\n"
+        status += "Record Permission: \(permissionResult.granted ? "✅ Granted" : "❌ \(permissionResult.message)")\n"
         status += "Current Route Inputs: \(audioSession.currentRoute.inputs.count)\n"
         status += "Available Inputs: \(audioSession.availableInputs?.count ?? 0)\n"
         #else
@@ -1542,16 +1573,16 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         print("🎙️ [Monitor] Starting real-time audio level monitoring")
         
         // Start high-frequency audio level monitoring (10 times per second)
-        audioLevelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+        audioLevelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else {
-                timer.invalidate()
                 return
             }
             
             // Check if still recording - access on main actor
             Task { @MainActor in
                 guard self.isRecording else {
-                    timer.invalidate()
+                    // Timer invalidation - use stored reference
+                    self.audioLevelTimer?.invalidate()
                     return
                 }
                 

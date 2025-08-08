@@ -2,6 +2,34 @@
 
 A revolutionary SwiftUI iOS/macOS personal AI knowledge system featuring **Gemma 3n VLM** for direct voice memo processing, comprehensive audio pipeline, and intelligent memory management with iOS 26.0+ Foundation Models integration.
 
+## 🎯 Recent Refactoring (Completed)
+
+**ProjectOne has been successfully refactored based on GPT-5 feedback to improve code organization, maintainability, and performance:**
+
+### ✅ Completed Refactoring Items
+
+1. **Feature-Based Organization** - Reorganized code into feature-based modules for better discoverability and maintainability
+2. **Dependency Injection** - Implemented service factory pattern to reduce coupling and improve testability
+3. **Standardized Error Handling** - Created comprehensive error handling system with consistent patterns
+4. **Performance Optimization** - Added performance monitoring, task management, and memory optimization
+5. **Comprehensive Testing** - Implemented end-to-end integration tests and performance testing framework
+
+### 🏗️ New Architecture
+
+```
+ProjectOne/
+├── Features/
+│   ├── AI/                     # AI providers, services, models, views
+│   ├── Core/                   # App, navigation, common services
+│   ├── Memory/                 # Memory system and agents
+│   ├── KnowledgeGraph/         # Knowledge graph visualization
+│   ├── VoiceMemos/             # Voice recording and processing
+│   ├── Settings/               # App settings and configuration
+│   └── DataExport/             # Data export and import
+├── Shared/                     # Utilities, extensions, protocols
+└── Tests/                      # Comprehensive test suite
+```
+
 ## Quick Start
 
 ### Prerequisites
@@ -65,6 +93,7 @@ ProjectOne features a **unified agent-centric architecture** with intelligent AI
 - **[Architecture Overview](docs/architecture/)** - System design and component interaction
 - **[Implementation Guides](docs/guides/)** - SwiftData, troubleshooting, and fixes
 - **[API Documentation](docs/api/)** - Code-level documentation
+- **[Refactor Implementation Summary](docs/architecture/REFACTOR_IMPLEMENTATION_SUMMARY.md)** - Complete refactoring details
 
 ### 📋 For Planning
 - **[Feature Specifications](docs/specifications/)** - Detailed feature requirements and designs
@@ -82,6 +111,9 @@ ProjectOne features a **unified agent-centric architecture** with intelligent AI
 ```bash
 # Run tests
 ⌘+U in Xcode
+
+# Run specific test suite
+xcodebuild test -scheme ProjectOne -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' -only-testing:IntegrationTests
 ```
 
 ### Linting & Type Checking
@@ -139,22 +171,32 @@ let analysis = try await provider.generateResponse(to: voiceMemoAudio)
 
 ```
 ProjectOne/
-├── ProjectOne/
-│   ├── Models/          # SwiftData models (Entity, Relationship, etc.)
-│   ├── Views/           # SwiftUI views and components
-│   ├── Services/        # Business logic and AI services
-│   └── ContentView.swift
-├── docs/
-│   ├── architecture/    # System architecture documentation
-│   ├── specifications/  # Feature specs and requirements
-│   ├── guides/         # Implementation guides and troubleshooting
-│   └── api/            # Code documentation
-└── README.md
+├── Features/
+│   ├── AI/                     # AI providers, services, models, views
+│   │   ├── Providers/          # AI provider implementations
+│   │   ├── Services/           # AI-related services
+│   │   ├── Models/             # AI-specific models
+│   │   └── Views/              # AI-related UI components
+│   ├── Core/                   # App, navigation, common services
+│   │   ├── App/                # Main app and commands
+│   │   ├── Navigation/         # Navigation components
+│   │   └── Common/             # Core services and utilities
+│   ├── Memory/                 # Memory system and agents
+│   ├── KnowledgeGraph/         # Knowledge graph visualization
+│   ├── VoiceMemos/             # Voice recording and processing
+│   ├── Settings/               # App settings and configuration
+│   └── DataExport/             # Data export and import
+├── Shared/                     # Utilities, extensions, protocols
+│   ├── Extensions/             # Swift extensions
+│   ├── Utilities/              # Utility classes
+│   └── Protocols/              # Shared protocols
+├── Tests/                      # Comprehensive test suite
+└── docs/                       # Documentation
 ```
 
 ## Current Status
 
-**Phase 5 Complete**: Production AI Provider Integration  
+**Phase 5 Complete**: Production AI Provider Integration + Refactoring  
 **Next**: Enhanced memory management with structured generation
 
 ### Recent Updates (2025-07-19)
@@ -190,6 +232,13 @@ ProjectOne/
 - ✅ **iOS 26 Beta** - Updated for latest iOS 26 beta with Glass support
 - ✅ **Cross-Platform Build** - Fixed iOS/macOS compatibility with Xcode Beta 3
 
+### Refactoring Achievements (2025-07-19)
+- 🏗️ **Feature-Based Organization** - Reorganized code into feature-based modules
+- 🔧 **Dependency Injection** - Implemented service factory pattern
+- 🛠️ **Standardized Error Handling** - Comprehensive error handling system
+- ⚡ **Performance Optimization** - Task management and memory optimization
+- 🧪 **Comprehensive Testing** - End-to-end integration tests and performance testing
+
 ## Contributing
 
 1. Check [GitHub Issues](https://github.com/likesjx/ProjectOne/issues) for current bugs and features
@@ -213,6 +262,8 @@ ProjectOne/
 - **Architecture**: MVVM with dual AI provider layer and service pattern
 - **Design System**: Apple's Liquid Glass, adaptive materials, refraction effects
 - **Testing**: UnifiedAITestView for concurrent provider validation
+- **Performance**: Optimized async operations, task management, and memory caching
+- **Error Handling**: Standardized error types and comprehensive logging
 
 ## License
 

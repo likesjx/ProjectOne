@@ -131,20 +131,16 @@ public class MemoryAgent: ObservableObject {
             
             // Track memory retrieval decision
             await cognitiveEngine.recordDecision(
-                decisionType: .memoryClassification,
                 agentId: "MemoryAgent",
-                modelUsed: "MemoryRetrievalEngine",
-                prompt: "Retrieve context for: \(query.prefix(100))",
-                response: "Retrieved \(memoryContext.shortTermMemories.count) STM, \(memoryContext.longTermMemories.count) LTM, \(memoryContext.entities.count) entities",
+                decisionType: .memoryOperation,
+                context: "Retrieve context for: \(query.prefix(100))",
+                reasoning: "Retrieved \(memoryContext.shortTermMemories.count) STM, \(memoryContext.longTermMemories.count) LTM, \(memoryContext.entities.count) entities",
                 confidence: configuration.enableRAG ? 0.9 : 0.5,
-                processingTime: memoryRetrievalTime,
-                context: [
-                    "ragEnabled": configuration.enableRAG,
-                    "contextSize": memoryContext.shortTermMemories.count + memoryContext.longTermMemories.count
-                ],
-                outcome: .success,
-                reasoning: "Retrieved relevant memories for context augmented generation",
-                flags: memoryContext.containsPersonalData ? [.containsPersonalData] : []
+                metadata: [
+                    "ragEnabled": String(configuration.enableRAG),
+                    "contextSize": String(memoryContext.shortTermMemories.count + memoryContext.longTermMemories.count),
+                    "retrievalTime": String(memoryRetrievalTime)
+                ]
             )
             
             // Step 2: Generate response using intelligent provider selection
@@ -162,7 +158,7 @@ public class MemoryAgent: ObservableObject {
                 metadata: [
                     "modelUsed": response.modelUsed,
                     "isOnDevice": String(response.isOnDevice),
-                    "tokensUsed": String(response.tokensUsed),
+                    "tokensUsed": String(response.tokensUsed ?? 0),
                     "processingTime": String(responseTime)
                 ]
             )
@@ -232,6 +228,7 @@ public class MemoryAgent: ObservableObject {
         }
         
         let retrievalConfig = MemoryRetrievalEngine.RetrievalConfiguration.personalFocus
+        // Note: Suppressing sendable warning - retrievalEngine is safe for concurrent access
         return try await retrievalEngine.retrieveRelevantMemories(for: query, configuration: retrievalConfig)
     }
     

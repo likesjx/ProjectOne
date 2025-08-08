@@ -7,6 +7,12 @@ let package = Package(
         .macOS(.v26),
         .iOS(.v26)
     ],
+    products: [
+        .library(
+            name: "ProjectOneLibrary",
+            targets: ["ProjectOne"]
+        )
+    ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.2.0"),
         .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "8.53.2"),
@@ -20,7 +26,7 @@ let package = Package(
         .package(url: "https://github.com/johnmai-dev/Jinja", from: "1.2.1")
     ],
     targets: [
-        .executableTarget(
+        .target(
             name: "ProjectOne",
             dependencies: [
                 .product(name: "Collections", package: "swift-collections"),

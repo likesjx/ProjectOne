@@ -18,7 +18,7 @@ class WhisperKitTest {
         do {
             // Test 1: Initialize WhisperKit
             print("🧪 [WhisperKitTest] Test 1: Initializing WhisperKit...")
-            let whisperKit = try await WhisperKit(model: "openai_whisper-tiny", download: true)
+            let _ = try await WhisperKit(model: "openai_whisper-tiny", download: true)
             print("✅ [WhisperKitTest] WhisperKit initialized successfully")
             
             // Test 2: Check available models

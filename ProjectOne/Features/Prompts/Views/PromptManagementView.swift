@@ -144,7 +144,11 @@ struct PromptManagementView: View {
             Button("Cancel", role: .cancel) { }
             Button("Reset", role: .destructive) {
                 Task {
-                    try await promptManager.resetAllTemplatesToDefaults()
+                    do {
+                        try await promptManager.resetAllTemplatesToDefaults()
+                    } catch {
+                        print("Failed to reset templates: \(error)")
+                    }
                 }
             }
         } message: {
@@ -690,11 +694,7 @@ struct PromptDetailView: View {
     }
     
     private func testTemplate() {
-        do {
-            testResult = try template.render(with: testArguments)
-        } catch {
-            testResult = "Error: \(error.localizedDescription)"
-        }
+        testResult = template.render(with: testArguments)
     }
     
     private func testTemplateWithMLX() {
@@ -703,74 +703,64 @@ struct PromptDetailView: View {
             return
         }
         
-        do {
-            let renderedPrompt = try template.render(with: testArguments)
+        let renderedPrompt = template.render(with: testArguments)
+        
+        isTesting = true
+        mlxTestResult = ""
+        foundationsTestResult = "" // Clear other provider result for clarity
+        
+        Task {
+            let response = await gemmaCore.processText(renderedPrompt)
             
-            isTesting = true
-            mlxTestResult = ""
-            foundationsTestResult = "" // Clear other provider result for clarity
-            
-            Task {
-                let response = await gemmaCore.processText(renderedPrompt)
-                
-                await MainActor.run {
-                    isTesting = false
-                    mlxTestResult = response
-                }
+            await MainActor.run {
+                isTesting = false
+                mlxTestResult = response
             }
-        } catch {
-            isTesting = false
-            mlxTestResult = "Template rendering error: \(error.localizedDescription)"
         }
     }
     
     @available(iOS 26.0, macOS 26.0, *)
     private func testTemplateWithFoundations() {
-        do {
-            let renderedPrompt = try template.render(with: testArguments)
-            
-            isTesting = true
-            foundationsTestResult = ""
-            mlxTestResult = "" // Clear other provider result for clarity
-            
-            Task {
-                do {
-                    let provider = AppleFoundationModelsProvider()
-                    try await provider.prepare()
-                    
-                    // Create a simple memory context for testing
-                    let memoryContext = MemoryContext(
-                        userQuery: renderedPrompt,
-                        containsPersonalData: false,
-                        contextData: [
-                            "entities": [],
-                            "relationships": [],
-                            "shortTermMemories": [],
-                            "longTermMemories": [],
-                            "episodicMemories": [],
-                            "relevantNotes": []
-                        ]
-                    )
-                    
-                    let response = try await provider.generateResponse(
-                        prompt: renderedPrompt,
-                        context: memoryContext
-                    )
-                    
-                    await MainActor.run {
-                        isTesting = false
-                        foundationsTestResult = response.content
-                    }
-                } catch {
-                    await MainActor.run {
-                        isTesting = false
-                        foundationsTestResult = "Apple Foundation Models error: \(error.localizedDescription)"
-                    }
+        let renderedPrompt = template.render(with: testArguments)
+        
+        isTesting = true
+        foundationsTestResult = ""
+        mlxTestResult = "" // Clear other provider result for clarity
+        
+        Task {
+            do {
+                let provider = AppleFoundationModelsProvider()
+                try await provider.prepare()
+                
+                // Create a simple memory context for testing
+                let memoryContext = MemoryContext(
+                    userQuery: renderedPrompt,
+                    containsPersonalData: false,
+                    contextData: [
+                        "entities": "",
+                        "relationships": "",
+                        "shortTermMemories": "",
+                        "longTermMemories": "",
+                        "episodicMemories": "",
+                        "relevantNotes": ""
+                    ]
+                )
+                
+                let response = try await provider.generateResponse(
+                    prompt: renderedPrompt,
+                    context: memoryContext
+                )
+                
+                await MainActor.run {
+                    isTesting = false
+                    foundationsTestResult = response.content
+                }
+            } catch {
+                await MainActor.run {
+                    isTesting = false
+                    foundationsTestResult = "Apple Foundation Models error: \(error.localizedDescription)"
                 }
             }
-        } catch {
-            isTesting = false
-            foundationsTestResult = "Template rendering error: \(error.localizedDescription)"
         }
     }
 }

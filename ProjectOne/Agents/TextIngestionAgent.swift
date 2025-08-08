@@ -190,7 +190,8 @@ public class TextIngestionAgent: ObservableObject {
             logger.info("✅ Successfully processed note ID: \(note.id)")
             
             // Schedule embedding generation (async, don't wait)
-            Task.detached { [weak self] in
+            // Use Task instead of Task.detached to maintain actor context
+            Task { [weak self] in
                 await self?.scheduleEmbeddingGeneration(for: processedNote)
             }
             

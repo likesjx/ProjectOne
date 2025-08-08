@@ -70,6 +70,7 @@ public final class Entity {
         self.embedding = nil
         self.embeddingModelVersion = nil
         self.embeddingGeneratedAt = nil
+        // Backward compatibility initialization (deprecation warning acceptable)
         self.semanticEmbedding = nil
     }
     
@@ -286,7 +287,7 @@ extension Entity {
         self.embeddingModelVersion = modelVersion
         self.embeddingGeneratedAt = Date()
         
-        // Update deprecated property for backward compatibility
+        // Update deprecated property for backward compatibility (deprecation warning acceptable)
         self.semanticEmbedding = embeddingVector.map { Double($0) }
     }
     
