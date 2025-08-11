@@ -29,6 +29,12 @@ struct ContentView_macOS: View {
                     ContentListView()
                 case .voiceMemos:
                     VoiceMemoView(modelContext: modelContext, triggerRecording: $triggerVoiceMemoRecording)
+                case .health:
+                    #if os(iOS)
+                    HealthDashboardView()
+                    #else
+                    MacOSHealthDashboardView()
+                    #endif
                 case .memory:
                     MemoryDashboardView(modelContext: modelContext)
                 case .cognitive:
@@ -96,6 +102,7 @@ struct ContentView_macOS: View {
 enum SidebarSection: String, CaseIterable, Identifiable {
     case allContent = "All Content"
     case voiceMemos = "Voice Memos"
+    case health = "Health"
     case memory = "Memory"
     case cognitive = "Cognitive"
     case knowledge = "Knowledge"
@@ -110,6 +117,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .allContent: return "list.bullet"
         case .voiceMemos: return "mic.circle.fill"
+        case .health: return "heart.text.square"
         case .memory: return "brain.head.profile"
         case .cognitive: return "cpu.fill"
         case .knowledge: return "network"
@@ -124,6 +132,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .allContent: return .indigo
         case .voiceMemos: return .blue
+        case .health: return .red
         case .memory: return .purple
         case .cognitive: return .cyan
         case .knowledge: return .green
@@ -138,13 +147,14 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .allContent: return "1"
         case .voiceMemos: return "2"
-        case .memory: return "3"
-        case .cognitive: return "4"
-        case .knowledge: return "5"
-        case .notes: return "6"
-        case .data: return "7"
-        case .prompts: return "8"
-        case .settings: return "9"
+        case .health: return "3"
+        case .memory: return "4"
+        case .cognitive: return "5"
+        case .knowledge: return "6"
+        case .notes: return "7"
+        case .data: return "8"
+        case .prompts: return "9"
+        case .settings: return "0"
         }
     }
 }
@@ -327,6 +337,154 @@ struct PressEventsModifier: ViewModifier {
         .environmentObject(URLHandler())
         .environmentObject(systemManager)
         .modelContainer(container)
+}
+
+// MARK: - macOS Health Dashboard
+
+struct MacOSHealthDashboardView: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                HStack {
+                    Image(systemName: "heart.text.square")
+                        .font(.system(size: 40))
+                        .foregroundColor(.red)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Health Dashboard")
+                            .font(.title)
+                            .fontWeight(.bold)
+                        
+                        Text("Health data integration is currently available on iOS devices only")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
+                
+                VStack(spacing: 16) {
+                    MacOSHealthFeatureCard(
+                        icon: "iphone",
+                        title: "iOS Health Integration",
+                        description: "Access your HealthKit data, including heart rate, steps, sleep, and more when using ProjectOne on iOS devices.",
+                        color: .blue
+                    )
+                    
+                    MacOSHealthFeatureCard(
+                        icon: "brain.head.profile",
+                        title: "Voice Memo Correlations",
+                        description: "Analyze correlations between your health metrics and voice notes to gain insights into patterns.",
+                        color: .purple
+                    )
+                    
+                    MacOSHealthFeatureCard(
+                        icon: "network",
+                        title: "Knowledge Graph Integration",
+                        description: "Health data automatically integrates with your knowledge graph to create rich, interconnected insights.",
+                        color: .green
+                    )
+                }
+                .padding(.horizontal)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Getting Started")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("1.")
+                                .font(.headline)
+                                .foregroundColor(.accentColor)
+                                .frame(width: 20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Use ProjectOne on iOS")
+                                    .font(.headline)
+                                
+                                Text("Install ProjectOne on your iPhone or iPad to access HealthKit integration")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("2.")
+                                .font(.headline)
+                                .foregroundColor(.accentColor)
+                                .frame(width: 20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Grant Health Permissions")
+                                    .font(.headline)
+                                
+                                Text("Allow ProjectOne to access your health data through iOS Health app permissions")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("3.")
+                                .font(.headline)
+                                .foregroundColor(.accentColor)
+                                .frame(width: 20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Sync Across Devices")
+                                    .font(.headline)
+                                
+                                Text("Your health insights and correlations will sync to all your devices through iCloud")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(.regularMaterial)
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
+        }
+        .navigationTitle("Health Dashboard")
+    }
+}
+
+struct MacOSHealthFeatureCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(color)
+                .frame(width: 40, height: 40)
+                .background(color.opacity(0.1))
+                .cornerRadius(8)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text(description)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(.regularMaterial)
+        .cornerRadius(12)
+    }
 }
 
 #endif

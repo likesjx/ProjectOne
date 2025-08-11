@@ -28,5 +28,9 @@
     <string>This app needs Apple Events access for enhanced functionality.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>This app uses speech recognition to transcribe voice memos and provide intelligent voice-to-text functionality.</string>
+    <key>NSHealthShareUsageDescription</key>
+    <string>This app accesses your health data to provide personalized insights and correlate health metrics with your voice memos and knowledge patterns.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>This app may write health data to provide enhanced health tracking and insights integration.</string>
 </dict>
 </plist>
