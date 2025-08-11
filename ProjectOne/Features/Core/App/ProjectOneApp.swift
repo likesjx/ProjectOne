@@ -63,10 +63,12 @@ struct ProjectOneApp: App {
     var body: some Scene {
         WindowGroup {
             if let systemManager = unifiedSystemManager {
+                let enhancedCore = EnhancedGemma3nCore()
                 ContentView()
                     .environmentObject(urlHandler)
                     .environmentObject(systemManager)
-                    .environmentObject(EnhancedGemma3nCore())
+                    .environmentObject(enhancedCore)
+                    .environmentObject(enhancedCore as Gemma3nCore)
                     .onOpenURL { url in
                         Task {
                             await urlHandler.handleURL(url, with: sharedModelContainer.mainContext)

@@ -122,10 +122,15 @@ class AudioPlayer: NSObject, ObservableObject {
     
     private func startProgressTimer() {
         stopProgressTimer()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            Task { @MainActor in
-                self.updateProgress()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            // Use DispatchQueue.main.async to ensure main actor context for updateProgress()
+            DispatchQueue.main.async {
+                self?.updateProgress()
             }
+        }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = progressTimer {
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
     
@@ -164,24 +169,22 @@ class AudioPlayer: NSObject, ObservableObject {
 
 extension AudioPlayer: @preconcurrency AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        DispatchQueue.main.async {
-            self.isPlaying = false
-            self.currentTime = 0
-            self.playbackProgress = 0
-            self.stopProgressTimer()
-            
-            print("🎵 [AudioPlayer] Finished playing")
-        }
+        // Since AudioPlayer is @MainActor, delegate methods are already on main thread
+        self.isPlaying = false
+        self.currentTime = 0
+        self.playbackProgress = 0
+        self.stopProgressTimer()
+        
+        print("🎵 [AudioPlayer] Finished playing")
     }
     
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        DispatchQueue.main.async {
-            self.isPlaying = false
-            self.stopProgressTimer()
-            
-            if let error = error {
-                print("🎵 [AudioPlayer] Decode error: \(error.localizedDescription)")
-            }
+        // Since AudioPlayer is @MainActor, delegate methods are already on main thread
+        self.isPlaying = false
+        self.stopProgressTimer()
+        
+        if let error = error {
+            print("🎵 [AudioPlayer] Decode error: \(error.localizedDescription)")
         }
     }
 }

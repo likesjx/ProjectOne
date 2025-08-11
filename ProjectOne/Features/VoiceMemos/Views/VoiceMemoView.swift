@@ -15,7 +15,7 @@ struct VoiceMemoView: View {
     @StateObject private var audioRecorder: AudioRecorder
     @StateObject private var audioPlayer = AudioPlayer()
     @StateObject private var modelPreloader = WhisperKitModelPreloader.shared
-    @EnvironmentObject private var gemmaCore: Gemma3nCore
+    @EnvironmentObject private var gemmaCore: EnhancedGemma3nCore
     @State private var hasRequestedPermission = false
     @State private var showingNoteCreation = false
     
@@ -214,7 +214,7 @@ struct LiquidGlassIcon: View {
 
 struct LiquidGlassQuickActionBar: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: Gemma3nCore
+    let gemmaCore: EnhancedGemma3nCore
     @Binding var hasRequestedPermission: Bool
     @Binding var showingNoteCreation: Bool
     let onAudioRecorded: (URL) -> Void
@@ -1010,18 +1010,20 @@ struct VoiceMemoNoteCreationView: View {
             try modelContext.save()
             
             // Trigger the TextIngestionAgent in a background task
-            Task { @MainActor in
+            Task {
                 let textIngestionAgent = TextIngestionAgent(modelContext: modelContext)
                 await textIngestionAgent.process(note: note)
                 
                 // Send notification to trigger Memory Agent integration
-                NotificationCenter.default.post(
-                    name: .newNoteCreated,
-                    object: nil,
-                    userInfo: ["noteId": note.id]
-                )
-                
-                print("📝 [NoteCreation] Note saved and Memory Agent notified for note: \(note.id)")
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: .newNoteCreated,
+                        object: nil,
+                        userInfo: ["noteId": note.id]
+                    )
+                    
+                    print("📝 [NoteCreation] Note saved and Memory Agent notified for note: \(note.id)")
+                }
             }
             
             dismiss()
@@ -1223,7 +1225,7 @@ struct StatusGlassPanel: View {
 
 struct GlassQuickActionBar: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: Gemma3nCore
+    let gemmaCore: EnhancedGemma3nCore
     @Binding var hasRequestedPermission: Bool
     @Binding var showingNoteCreation: Bool
     let onAudioRecorded: (URL) -> Void

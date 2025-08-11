@@ -118,9 +118,7 @@ public class MemoryAgent: ObservableObject {
         let startTime = Date()
         
         defer {
-            Task { @MainActor in
-                processingQuery = false
-            }
+            processingQuery = false
         }
         
         do {

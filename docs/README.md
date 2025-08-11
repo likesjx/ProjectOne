@@ -34,6 +34,14 @@ Practical guides, troubleshooting, and session logs
 - [SwiftData Crash Fixes](guides/SWIFTDATA_CRASH_FIXES.md)
 - [MLX Swift Integration Session](guides/MLX_SWIFT_INTEGRATION_SESSION.md)
 
+### 📱 [Xcode Project](xcode/)
+Xcode project setup, dependency management, and troubleshooting
+- [Project Setup Complete](xcode/XCODE_PROJECT_SETUP_COMPLETE.md) ✅ *Project Created*
+- [Original Setup Guide](xcode/XCODE_SETUP_GUIDE.md) 📋 *Initial Setup*
+- [Dependency Management](xcode/DEPENDENCY_CLEANUP_ANALYSIS.md) 🔧 *Analysis Complete*
+- [Dependency Conflict Resolution](xcode/DEPENDENCY_CONFLICT_RESOLUTION.md) 🚨 *Conflict Resolved*
+- [Missing Dependencies Guide](xcode/MISSING_DEPENDENCIES_GUIDE.md) 📦 *2 Dependencies Remaining*
+
 ### 🔌 [API Documentation](api/)
 Code-level documentation and API references
 - [Enhanced AI Provider Test View API](api/EnhancedAIProviderTestView_API.md) 🧪 *Complete*

@@ -108,28 +108,24 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         // Request both microphone and speech recognition permissions
         requestMicrophonePermission { [weak self] micGranted in
             guard micGranted else {
-                DispatchQueue.main.async {
-                    completion(false)
-                }
+                completion(false)
                 return
             }
             
-            Task { @MainActor in
+            // Use DispatchQueue.main.async to call @MainActor method
+            DispatchQueue.main.async {
                 self?.requestSpeechRecognitionPermission { speechGranted in
-                    DispatchQueue.main.async {
-                        completion(speechGranted)
-                    }
+                    completion(speechGranted)
                 }
             }
         }
         #else
         // macOS doesn't require explicit permission request for microphone in this context
         // but still needs speech recognition permission
-        Task { @MainActor in
-            requestSpeechRecognitionPermission { granted in
-                DispatchQueue.main.async {
-                    completion(granted)
-                }
+        // Use DispatchQueue.main.async to call @MainActor method
+        DispatchQueue.main.async {
+            self.requestSpeechRecognitionPermission { granted in
+                completion(granted)
             }
         }
         #endif
@@ -180,10 +176,8 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         guard permissionStatus.canRecord else {
             print("🔐 [Error] Cannot start recording due to permission issues:")
             print("🔐 [Error] \(permissionStatus.detailMessage)")
-            DispatchQueue.main.async {
-                // TODO: Show user-friendly permission error message
-                // self.showPermissionError(permissionStatus.detailMessage)
-            }
+            // TODO: Show user-friendly permission error message
+            // self.showPermissionError(permissionStatus.detailMessage)
             return
         }
         
@@ -198,9 +192,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
             print("🎤 [Debug] iOS audio session configured successfully")
         } catch {
             print("🎤 [Error] Failed to set up iOS recording session: \(error.localizedDescription)")
-            DispatchQueue.main.async {
-                // TODO: Show user-friendly error message
-            }
+            // TODO: Show user-friendly error message
             return
         }
         #elseif os(macOS)
@@ -273,10 +265,8 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
             
-            DispatchQueue.main.async {
-                self.isRecording = true
-                print("🎤 [Debug] isRecording set to true on main thread")
-            }
+            self.isRecording = true
+            print("🎤 [Debug] isRecording set to true on main thread")
             
             // Start enhanced real-time audio level monitoring
             startRealTimeAudioMonitoring()
@@ -291,9 +281,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                 print("🎤 [Error] Error userInfo: \(nsError.userInfo)")
             }
             
-            DispatchQueue.main.async {
-                // TODO: Show user-friendly error message in UI
-            }
+            // TODO: Show user-friendly error message in UI
         }
     }
     
@@ -301,10 +289,8 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         print("🛑 [Debug] stopRecording() called")
         audioRecorder?.stop()
         
-        DispatchQueue.main.async {
-            self.isRecording = false
-            print("🛑 [Debug] isRecording set to false on main thread")
-        }
+        self.isRecording = false
+        print("🛑 [Debug] isRecording set to false on main thread")
         
         // Stop real-time audio monitoring
         stopRealTimeAudioMonitoring()
@@ -875,15 +861,20 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         ]
         
         var currentPhraseIndex = 0
-        transcriptionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+        transcriptionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            // Use DispatchQueue.main.async to ensure main actor context
             DispatchQueue.main.async {
                 if currentPhraseIndex < phrases.count {
-                    self.realtimeTranscription = phrases[currentPhraseIndex]
+                    self?.realtimeTranscription = phrases[currentPhraseIndex]
                     currentPhraseIndex += 1
                 } else {
-                    self.realtimeTranscription += " ..."
+                    self?.realtimeTranscription += " ..."
                 }
             }
+        }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = transcriptionTimer {
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
     
@@ -1558,14 +1549,12 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         }
         
         // Reset audio level tracking and validation state
-        DispatchQueue.main.async {
-            self.currentAudioLevel = 0.0
-            self.averageAudioLevel = 0.0
-            self.peakAudioLevel = 0.0
-            self.isAudioDetected = false
-            self.recordingValidationStatus = .unknown
-            self.recordingIssueDetected = nil
-        }
+        currentAudioLevel = 0.0
+        averageAudioLevel = 0.0
+        peakAudioLevel = 0.0
+        isAudioDetected = false
+        recordingValidationStatus = .unknown
+        recordingIssueDetected = nil
         audioLevelHistory.removeAll()
         consecutiveSilentIntervals = 0
         totalRecordingIntervals = 0
@@ -1578,8 +1567,9 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
             
-            // Check if still recording - access on main actor
-            Task { @MainActor in
+            // Use DispatchQueue.main.async to ensure main actor context
+            DispatchQueue.main.async {
+                // Check if still recording
                 guard self.isRecording else {
                     // Timer invalidation - use stored reference
                     self.audioLevelTimer?.invalidate()
@@ -1611,7 +1601,7 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                 let audioDetectionThreshold: Float = 0.003
                 let currentlyDetectingAudio = normalizedCurrent > audioDetectionThreshold
                 
-                // Update published properties (already on main actor)
+                // Update published properties
                 self.currentAudioLevel = normalizedCurrent
                 self.averageAudioLevel = runningAverage
                 self.peakAudioLevel = max(self.peakAudioLevel, normalizedPeak)
@@ -1631,6 +1621,10 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                 }
             }
         }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = audioLevelTimer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
         
         print("🎙️ [Monitor] Real-time audio monitoring started with 0.1s intervals")
     }
@@ -1643,12 +1637,10 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         audioLevelTimer = nil
         
         // Reset to neutral state
-        DispatchQueue.main.async {
-            self.currentAudioLevel = 0.0
-            self.averageAudioLevel = 0.0
-            self.peakAudioLevel = 0.0
-            self.isAudioDetected = false
-        }
+        currentAudioLevel = 0.0
+        averageAudioLevel = 0.0
+        peakAudioLevel = 0.0
+        isAudioDetected = false
         
         audioLevelHistory.removeAll()
         print("🎙️ [Monitor] Audio level monitoring stopped and state reset")
@@ -1678,16 +1670,14 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         )
         
         // Update UI if status changed
-        DispatchQueue.main.async {
-            if self.recordingValidationStatus != validationResult.status {
-                self.recordingValidationStatus = validationResult.status
-                self.recordingIssueDetected = validationResult.issue
+        if self.recordingValidationStatus != validationResult.status {
+            self.recordingValidationStatus = validationResult.status
+            self.recordingIssueDetected = validationResult.issue
                 
-                // Log status changes
-                print("📊 [Validation] Status: \(validationResult.status.description)")
-                if let issue = validationResult.issue {
-                    print("⚠️ [Validation] Issue: \(issue)")
-                }
+            // Log status changes
+            print("📊 [Validation] Status: \(validationResult.status.description)")
+            if let issue = validationResult.issue {
+                print("⚠️ [Validation] Issue: \(issue)")
             }
         }
     }

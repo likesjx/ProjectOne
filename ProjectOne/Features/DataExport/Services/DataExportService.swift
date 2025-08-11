@@ -274,12 +274,8 @@ class DataExportService: ObservableObject {
     private func createExportMetadata() -> ExportMetadata {
         #if canImport(UIKit)
         let platform = "iOS"
-        let deviceModel: String
-        if Thread.isMainThread {
-            deviceModel = UIDevice.current.model
-        } else {
-            deviceModel = DispatchQueue.main.sync { UIDevice.current.model }
-        }
+        // Since DataExportService is @MainActor, we're already on main thread
+        let deviceModel = UIDevice.current.model
         #else
         let platform = "macOS"
         let deviceModel = "Mac"

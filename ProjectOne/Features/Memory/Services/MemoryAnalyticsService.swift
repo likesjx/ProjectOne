@@ -205,9 +205,16 @@ class MemoryAnalyticsService: ObservableObject {
     private func startPeriodicCollection() {
         analyticsTimer = Timer.scheduledTimer(withTimeInterval: collectionInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            Task { @MainActor in
-                await self.collectMemorySnapshot()
+            // Use DispatchQueue.main.async instead of Task { @MainActor } to avoid dispatch queue assertion failures
+            DispatchQueue.main.async {
+                Task {
+                    await self.collectMemorySnapshot()
+                }
             }
+        }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = analyticsTimer {
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
     

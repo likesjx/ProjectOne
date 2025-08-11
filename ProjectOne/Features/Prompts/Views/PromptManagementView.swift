@@ -428,7 +428,7 @@ struct PromptDetailView: View {
     @State private var mlxTestResult = ""
     @State private var foundationsTestResult = ""
     @State private var isTesting = false
-    @EnvironmentObject private var gemmaCore: Gemma3nCore
+    @EnvironmentObject private var gemmaCore: EnhancedGemma3nCore
     
     var body: some View {
         ScrollView {

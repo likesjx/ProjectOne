@@ -104,7 +104,7 @@ extension URLHandler {
         // Create a temporary context for deep links
         let schema = Schema([ProcessedNote.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: schema, configurations: [modelConfiguration])
+        let container = try! SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
         await handleURL(url, with: container.mainContext)
     }
     
@@ -113,7 +113,7 @@ extension URLHandler {
         // Create a temporary context for universal links
         let schema = Schema([ProcessedNote.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: schema, configurations: [modelConfiguration])
+        let container = try! SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
         await handleURL(url, with: container.mainContext)
     }
 }

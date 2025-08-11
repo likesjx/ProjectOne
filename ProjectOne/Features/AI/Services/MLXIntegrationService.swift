@@ -22,14 +22,14 @@ class MLXIntegrationService: ObservableObject {
     
     private var modelCache: [String: Any] = [:]
     private let modelContext: ModelContext
-    private let gemmaCore: Gemma3nCore?
+    private let gemmaCore: EnhancedGemma3nCore?
     
     // Model configuration
     private let modelConfig = MLXIntegrationConfiguration()
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext, gemmaCore: Gemma3nCore? = nil) {
+    init(modelContext: ModelContext, gemmaCore: EnhancedGemma3nCore? = nil) {
         self.modelContext = modelContext
         self.gemmaCore = gemmaCore
         checkMLXAvailability()

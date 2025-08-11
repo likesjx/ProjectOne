@@ -43,6 +43,11 @@ ProjectOne/
 ```bash
 git clone <repository-url>
 cd ProjectOne
+
+# Automated setup (recommended)
+./scripts/setup_xcode_project.sh
+
+# Or manual setup
 open ProjectOne.xcodeproj
 ```
 
@@ -93,6 +98,8 @@ ProjectOne features a **unified agent-centric architecture** with intelligent AI
 - **[Architecture Overview](docs/architecture/)** - System design and component interaction
 - **[Implementation Guides](docs/guides/)** - SwiftData, troubleshooting, and fixes
 - **[API Documentation](docs/api/)** - Code-level documentation
+- **[Xcode Setup & Dependencies](docs/xcode/)** - Project setup and dependency management
+- **[Development Scripts](scripts/)** - Automated setup and maintenance scripts
 - **[Refactor Implementation Summary](docs/architecture/REFACTOR_IMPLEMENTATION_SUMMARY.md)** - Complete refactoring details
 
 ### 📋 For Planning

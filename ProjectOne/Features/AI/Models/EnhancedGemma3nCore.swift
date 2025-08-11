@@ -24,7 +24,7 @@ import FoundationModels
 /// Enhanced Gemma3n core with dual AI providers for iOS 26.0+ target
 @available(iOS 26.0, macOS 26.0, *)
 @MainActor
-class EnhancedGemma3nCore: ObservableObject {
+class EnhancedGemma3nCore: Gemma3nCore {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "EnhancedGemma3nCore")
     
@@ -36,9 +36,6 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - State
     
-    @Published var isReady = false
-    @Published var isLoading = false
-    @Published var errorMessage: String?
     @Published var activeProvider: AIProviderType = .automatic
     @Published var lastResponse: String?
     
@@ -60,14 +57,15 @@ class EnhancedGemma3nCore: ObservableObject {
     
     // MARK: - Initialization
     
-    public init() {
+    public override init() {
+        super.init()
         logger.info("Initializing Enhanced Gemma3n Core for iOS 26.0+")
     }
     
     public func setup() async {
         await MainActor.run {
-            isLoading = true
-            errorMessage = nil
+            super.isLoading = true
+            super.errorMessage = nil
         }
         
         logger.info("Setting up MLX three-layer and Foundation providers...")
@@ -82,13 +80,13 @@ class EnhancedGemma3nCore: ObservableObject {
         await foundationSetup
         
         await MainActor.run {
-            isReady = mlxLLMProvider.isReady || mlxVLMProvider.isReady || foundationProvider.isAvailable
-            isLoading = false
+            super.isReady = mlxLLMProvider.isReady || mlxVLMProvider.isReady || foundationProvider.isAvailable
+            super.isLoading = false
             
-            if isReady {
+            if super.isReady {
                 logger.info("✅ Enhanced Gemma3n Core ready with available providers")
             } else {
-                errorMessage = "No AI providers available"
+                super.errorMessage = "No AI providers available"
                 logger.error("❌ No AI providers available")
             }
         }
@@ -178,7 +176,7 @@ class EnhancedGemma3nCore: ObservableObject {
             logger.error("Processing failed: \(error.localizedDescription)")
             
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                super.errorMessage = error.localizedDescription
                 lastResponse = errorResponse
             }
             
@@ -363,7 +361,7 @@ class EnhancedGemma3nCore: ObservableObject {
             foundationAvailable: foundationProvider.isAvailable,
             foundationStatus: foundationProvider.statusMessage,
             activeProvider: activeProvider.displayName,
-            isReady: isReady
+            isReady: super.isReady
         )
     }
     
@@ -376,12 +374,12 @@ class EnhancedGemma3nCore: ObservableObject {
     // MARK: - Legacy Compatibility
     
     /// Check if any provider is available (legacy compatibility)
-    func isAvailable() -> Bool {
-        return isReady
+    override func isAvailable() -> Bool {
+        return super.isReady
     }
     
     /// Reload providers
-    func reloadModel() async {
+    override func reloadModel() async {
         await setup()
     }
 }

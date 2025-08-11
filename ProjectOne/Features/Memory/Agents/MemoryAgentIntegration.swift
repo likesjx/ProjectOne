@@ -122,14 +122,14 @@ public class MemoryAgentIntegration: ObservableObject {
         
         // Set up callback for when TextIngestionAgent processes new content
         textIngestionAgent.onContentProcessed = { [weak self] processedNote in
-            Task { @MainActor in
+            Task {
                 await self?.handleProcessedNote(processedNote)
             }
         }
         
         // Set up callback for entity extraction
         textIngestionAgent.onEntityExtracted = { [weak self] entity in
-            Task { @MainActor in
+            Task {
                 await self?.handleExtractedEntity(entity)
             }
         }
@@ -163,7 +163,7 @@ public class MemoryAgentIntegration: ObservableObject {
             let transcriptionResult = notification.userInfo?["result"] as? String
             let recordingId = notification.userInfo?["recordingId"] as? UUID
             
-            Task { @MainActor in
+            Task {
                 await self?.handleTranscriptionCompleted(result: transcriptionResult, recordingId: recordingId)
             }
         }
@@ -274,7 +274,7 @@ public class MemoryAgentIntegration: ObservableObject {
             // Extract data on main queue to avoid Sendable issues
             let noteId = notification.userInfo?["noteId"] as? UUID
             
-            Task { @MainActor in
+            Task {
                 await self?.handleNewNote(noteId: noteId)
             }
         }
@@ -289,7 +289,7 @@ public class MemoryAgentIntegration: ObservableObject {
             // Extract data on main queue to avoid Sendable issues
             let entityId = notification.userInfo?["entityId"] as? UUID
             
-            Task { @MainActor in
+            Task {
                 await self?.handleEntityUpdate(entityId: entityId)
             }
         }

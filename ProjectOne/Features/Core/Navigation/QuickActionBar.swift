@@ -11,7 +11,7 @@ import SwiftData
 
 struct QuickActionBar: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: Gemma3nCore
+    let gemmaCore: EnhancedGemma3nCore
     @Binding var hasRequestedPermission: Bool
     @Binding var showingNoteCreation: Bool
     let onAudioRecorded: (URL) -> Void
@@ -201,7 +201,7 @@ extension Notification.Name {
     @Previewable @State var modelContainer = try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)
     QuickActionBar(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),
-        gemmaCore: Gemma3nCore(),
+        gemmaCore: EnhancedGemma3nCore(),
         hasRequestedPermission: .constant(true),
         showingNoteCreation: .constant(false),
         onAudioRecorded: { _ in }

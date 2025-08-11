@@ -159,9 +159,9 @@ public class RealTimeMemoryService: ObservableObject {
             // Retrieve memory context with additional error handling - ensure it stays on MainActor
             let context: MemoryContext
             do {
-                // Use nonisolated context to avoid sending self across actor boundary
+                // Retrieve context directly since we're already on MainActor
                 context = try await withCheckedThrowingContinuation { continuation in
-                    Task { @MainActor [memoryRetrievalEngine, logger] in
+                    Task {
                         do {
                             let result = try await memoryRetrievalEngine.retrieveRelevantMemories(
                                 for: query,

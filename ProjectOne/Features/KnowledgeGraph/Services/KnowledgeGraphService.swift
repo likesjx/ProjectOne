@@ -171,9 +171,14 @@ public final class KnowledgeGraphService: ObservableObject {
     
     private func startForceDirectedLayout() {
         layoutTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            // Use DispatchQueue.main.async instead of Task { @MainActor } to avoid dispatch queue assertion failures
+            DispatchQueue.main.async {
                 self?.updateForceDirectedLayout()
             }
+        }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = layoutTimer {
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
     

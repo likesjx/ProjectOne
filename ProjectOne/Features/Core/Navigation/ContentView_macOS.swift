@@ -58,7 +58,7 @@ struct ContentView_macOS: View {
                 case .prompts:
                     PromptManagementView(modelContext: modelContext)
                 case .settings:
-                    SettingsView(gemmaCore: Gemma3nCore())
+                    SettingsView(gemmaCore: EnhancedGemma3nCore())
                 }
             }
             .frame(minWidth: 600, minHeight: 400)

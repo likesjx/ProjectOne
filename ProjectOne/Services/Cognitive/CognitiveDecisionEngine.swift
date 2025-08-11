@@ -275,6 +275,11 @@ public class CognitiveDecisionEngine: ObservableObject {
         let sequences = decisions.map(\.decisionType.rawValue)
         var patterns: [String] = []
         
+        // Guard against empty or single-element sequences
+        guard sequences.count > 1 else {
+            return []
+        }
+        
         // Find common decision sequences
         for i in 0..<(sequences.count - 1) {
             let pattern = "\(sequences[i]) → \(sequences[i + 1])"

@@ -13,7 +13,7 @@ import UIKit
 #endif
 
 struct SettingsView: View {
-    let gemmaCore: Gemma3nCore
+    let gemmaCore: EnhancedGemma3nCore
     
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var systemManager: UnifiedSystemManager
@@ -238,15 +238,15 @@ struct SettingsView: View {
 
 struct ModelDownloadView: View {
     @State private var models = [
-        ModelDownloadInfo(name: "Gemma 3n (2B)", size: "1.2 GB", isDownloaded: false, isDownloading: false, progress: 0.0),
-        ModelDownloadInfo(name: "all-MiniLM-L6-v2", size: "80 MB", isDownloaded: false, isDownloading: false, progress: 0.0),
-        ModelDownloadInfo(name: "Whisper Tiny", size: "39 MB", isDownloaded: false, isDownloading: false, progress: 0.0)
+        ModelDownloadInfo(id: UUID(), name: "Gemma 3n (2B)", size: "1.2 GB", isDownloaded: false, isDownloading: false, progress: 0.0),
+        ModelDownloadInfo(id: UUID(), name: "all-MiniLM-L6-v2", size: "80 MB", isDownloaded: false, isDownloading: false, progress: 0.0),
+        ModelDownloadInfo(id: UUID(), name: "Whisper Tiny", size: "39 MB", isDownloaded: false, isDownloading: false, progress: 0.0)
     ]
     
     var body: some View {
         List {
-            ForEach(models.indices, id: \.self) { index in
-                ModelDownloadRow(model: $models[index])
+            ForEach($models) { $model in
+                ModelDownloadRow(model: $model)
             }
         }
         .navigationTitle("Model Downloads")
@@ -256,7 +256,8 @@ struct ModelDownloadView: View {
     }
 }
 
-struct ModelDownloadInfo {
+struct ModelDownloadInfo: Identifiable, Equatable {
+    let id: UUID
     let name: String
     let size: String
     var isDownloaded: Bool
@@ -264,9 +265,13 @@ struct ModelDownloadInfo {
     var progress: Double
 }
 
+class TimerHolder: ObservableObject {
+    @Published var timer: Timer?
+}
+
 struct ModelDownloadRow: View {
     @Binding var model: ModelDownloadInfo
-    @State private var downloadTimer: Timer?
+    @StateObject private var timerHolder = TimerHolder()
     
     var body: some View {
         HStack {
@@ -292,8 +297,8 @@ struct ModelDownloadRow: View {
                     .font(.title2)
             } else if model.isDownloading {
                 Button("Cancel") {
-                    downloadTimer?.invalidate()
-                    downloadTimer = nil
+                    timerHolder.timer?.invalidate()
+                    timerHolder.timer = nil
                     model.isDownloading = false
                     model.progress = 0.0
                 }
@@ -312,24 +317,29 @@ struct ModelDownloadRow: View {
         model.isDownloading = true
         
         // Simulate download progress
-        downloadTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            Task { @MainActor in
+        timerHolder.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak timerHolder] _ in
+            // Use DispatchQueue.main.async to ensure main actor context
+            DispatchQueue.main.async {
                 model.progress += 0.02
                 
                 if model.progress >= 1.0 {
-                    downloadTimer?.invalidate()
-                    downloadTimer = nil
+                    timerHolder?.timer?.invalidate()
+                    timerHolder?.timer = nil
                     model.isDownloading = false
                     model.isDownloaded = true
                     model.progress = 1.0
                 }
             }
         }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = timerHolder.timer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
     }
 }
 
 struct MemoryAnalyticsView: View {
-    let gemmaCore: Gemma3nCore
+    let gemmaCore: EnhancedGemma3nCore
     
     var body: some View {
         ScrollView {
@@ -461,7 +471,7 @@ struct DebugConsoleView: View {
 }
 
 struct SystemStatusView: View {
-    let gemmaCore: Gemma3nCore
+    let gemmaCore: EnhancedGemma3nCore
     let systemManager: UnifiedSystemManager
     
     @State private var refreshTimer: Timer?
@@ -524,9 +534,14 @@ struct SystemStatusView: View {
     
     private func startRefreshTimer() {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
-            Task { @MainActor in
-                lastRefresh = Date()
+            // Use DispatchQueue.main.async to ensure main actor context
+            DispatchQueue.main.async {
+                self.lastRefresh = Date()
             }
+        }
+        // Ensure timer runs on main RunLoop to avoid dispatch queue assertion failures
+        if let timer = refreshTimer {
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
     
@@ -539,19 +554,13 @@ struct SystemStatusView: View {
     
     #if os(iOS)
     private func getSystemVersion() -> String {
-        if Thread.isMainThread {
-            return UIDevice.current.systemVersion
-        } else {
-            return DispatchQueue.main.sync { UIDevice.current.systemVersion }
-        }
+        // SettingsView functions run on main thread in SwiftUI context
+        return UIDevice.current.systemVersion
     }
     
     private func getDeviceModel() -> String {
-        if Thread.isMainThread {
-            return UIDevice.current.model
-        } else {
-            return DispatchQueue.main.sync { UIDevice.current.model }
-        }
+        // SettingsView functions run on main thread in SwiftUI context
+        return UIDevice.current.model
     }
     #endif
 }
@@ -666,14 +675,18 @@ struct AgentStatusRow: View {
     }
     
     private func checkAgentHealth() {
-        Task { @MainActor in
+        Task {
             if let agentInstance = registry.getAgentDetails(agentId) {
                 do {
                     let healthResult = try await agentInstance.agent.performHealthCheck()
-                    isHealthy = healthResult
-                    lastCheck = Date()
+                    await MainActor.run {
+                        isHealthy = healthResult
+                        lastCheck = Date()
+                    }
                 } catch {
-                    isHealthy = false
+                    await MainActor.run {
+                        isHealthy = false
+                    }
                 }
             }
         }
@@ -793,7 +806,7 @@ struct FeatureRow: View {
     let container = try! SwiftData.ModelContainer(for: UserSpeechProfile.self, configurations: config)
     
     SettingsView(
-        gemmaCore: Gemma3nCore()
+        gemmaCore: EnhancedGemma3nCore()
     )
     .modelContainer(container)
 }

@@ -173,7 +173,7 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
     /// Process real-time audio stream
     public func processAudioStream(_ audioStream: AsyncStream<Data>, prompt: String) -> AsyncThrowingStream<AudioUnderstandingResult, Error> {
         return AsyncThrowingStream { continuation in
-            Task { @MainActor in
+            Task {
                 do {
                     for try await audioChunk in audioStream {
                         let result = try await processAudioWithPrompt(audioChunk, prompt: prompt)
@@ -281,12 +281,12 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
     
     private func convertAudioFormat(_ audioData: Data, from sourceFormat: AVAudioFormat, to targetFormat: AVAudioFormat) async throws -> Data {
         return try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor in
+            Task {
                 do {
                     // Audio format conversion implementation
                     // This would use AVAudioConverter to convert between formats
                     
-                    guard let audioBuffer = self.createAudioBuffer(from: audioData, format: sourceFormat) else {
+                    guard let audioBuffer = await MainActor.run(body: { self.createAudioBuffer(from: audioData, format: sourceFormat) }) else {
                         continuation.resume(throwing: ExternalAIError.generationFailed("Failed to create audio buffer"))
                         return
                     }
@@ -299,7 +299,7 @@ public class MLXAudioProvider: BaseAIProvider, @unchecked Sendable {
                     try converter.convert(to: convertedBuffer, from: audioBuffer)
                     
                     // Convert buffer back to Data
-                    let result = self.convertBufferToData(convertedBuffer)
+                    let result = await MainActor.run(body: { self.convertBufferToData(convertedBuffer) })
                     continuation.resume(returning: result)
                 } catch {
                     continuation.resume(throwing: error)
