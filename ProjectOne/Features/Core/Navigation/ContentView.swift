@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import HealthKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -80,6 +81,14 @@ struct MainTabView: View {
                     Label("Voice Memos", systemImage: "mic.circle.fill")
                 }
                 .tag(2)
+                
+            #if canImport(HealthKit)
+            HealthDashboardView()
+                .tabItem {
+                    Label("Health", systemImage: "heart.text.square")
+                }
+                .tag(3)
+            #endif
         }
     }
 }
@@ -212,6 +221,168 @@ extension View {
 }
 
 
+
+// MARK: - Health Dashboard Implementation
+
+struct HealthDashboardView: View {
+    @State private var selectedTimeRange: HealthTimeRange = .week
+    @State private var isLoading = false
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 20) {
+                    if !HKHealthStore.isHealthDataAvailable() {
+                        HealthUnavailableCard()
+                            .padding(.horizontal)
+                    } else {
+                        TimeRangeSelector(selectedRange: $selectedTimeRange)
+                            .padding(.horizontal)
+                        
+                        if isLoading {
+                            ProgressView("Loading health data...")
+                                .frame(maxWidth: .infinity, minHeight: 100)
+                        } else {
+                            HealthMetricsPlaceholder()
+                                .padding(.horizontal)
+                            
+                            HealthInsightsSection()
+                                .padding(.horizontal)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Health Dashboard")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+}
+
+struct HealthUnavailableCard: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "heart.slash")
+                .font(.largeTitle)
+                .foregroundColor(.secondary)
+            
+            Text("Health Data Unavailable")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("Health data is not available on this device or simulator.")
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+        }
+        .padding(24)
+        .background(.regularMaterial)
+        .cornerRadius(16)
+    }
+}
+
+struct TimeRangeSelector: View {
+    @Binding var selectedRange: HealthTimeRange
+    
+    var body: some View {
+        HStack {
+            ForEach(HealthTimeRange.allCases, id: \.self) { range in
+                Button(action: { selectedRange = range }) {
+                    Text(range.displayName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(selectedRange == range ? Color.accentColor : Color.clear)
+                        .foregroundColor(selectedRange == range ? .white : .primary)
+                        .cornerRadius(8)
+                }
+            }
+        }
+        .padding(4)
+        .background(.regularMaterial)
+        .cornerRadius(12)
+    }
+}
+
+struct HealthMetricsPlaceholder: View {
+    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            HealthMetricCard(title: "Heart Rate", value: "--", unit: "bpm", icon: "heart.fill", color: .red)
+            HealthMetricCard(title: "Steps", value: "--", unit: "steps", icon: "figure.walk", color: .green)
+            HealthMetricCard(title: "Calories", value: "--", unit: "kcal", icon: "flame.fill", color: .orange)
+            HealthMetricCard(title: "Sleep", value: "--", unit: "hours", icon: "bed.double.fill", color: .blue)
+        }
+    }
+}
+
+struct HealthMetricCard: View {
+    let title: String
+    let value: String
+    let unit: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                Spacer()
+            }
+            
+            Text(value)
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Text(unit)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial)
+        .cornerRadius(12)
+    }
+}
+
+struct HealthInsightsSection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Health Insights")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("Connect with HealthKit to see personalized insights and correlations with your voice notes.")
+                .foregroundColor(.secondary)
+                .padding()
+                .background(.regularMaterial)
+                .cornerRadius(10)
+        }
+    }
+}
+
+enum HealthTimeRange: String, CaseIterable {
+    case day = "1d"
+    case week = "7d"
+    case month = "30d"
+    case quarter = "90d"
+    
+    var displayName: String {
+        switch self {
+        case .day: return "Today"
+        case .week: return "Week"
+        case .month: return "Month"
+        case .quarter: return "Quarter"
+        }
+    }
+}
 
 #Preview {
     ContentView()

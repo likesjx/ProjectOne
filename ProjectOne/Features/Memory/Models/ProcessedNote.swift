@@ -50,6 +50,14 @@ public final class ProcessedNote {
     @Relationship(deleteRule: .nullify)  
     var relationships: [Relationship] = []
     
+    // TODO: Enable when Thought model is available in Xcode project
+    // Granular thoughts extracted from the note content
+    // @Relationship(deleteRule: .cascade, inverse: \Thought.parentNote)
+    // var thoughts: [Thought] = []
+    
+    // Temporary thought storage as encoded data until Thought model is available
+    var thoughtsData: Data?
+    
     // Temporary storage for extracted data before KG integration
     var extractedEntityNames: [String] = [] // Will be processed into entities
     var extractedRelationships: [String] = [] // Will be processed into relationships
@@ -230,6 +238,163 @@ public final class ProcessedNote {
             return "Processing status unknown"
         }
     }
+    
+    // MARK: - Thought Management (Temporary Implementation)
+    
+    // TODO: Replace with proper Thought relationship when Xcode project is updated
+    
+    /// Temporary thought data structure for storage
+    private struct TempThoughtData: Codable {
+        let content: String
+        let contextBefore: String?
+        let contextAfter: String?
+        let tags: [String]
+        let primaryTag: String?
+        let thoughtType: String
+        let importance: String
+        let sequenceIndex: Int
+    }
+    
+    /// Add a thought summary to this note (temporary implementation)
+    public func addThoughtSummary(content: String, tags: [String], type: String, importance: String) {
+        var tempThoughts = getTemporaryThoughts()
+        
+        let tempThought = TempThoughtData(
+            content: content,
+            contextBefore: nil,
+            contextAfter: nil,
+            tags: tags,
+            primaryTag: tags.first,
+            thoughtType: type,
+            importance: importance,
+            sequenceIndex: tempThoughts.count
+        )
+        
+        tempThoughts.append(tempThought)
+        
+        do {
+            thoughtsData = try JSONEncoder().encode(tempThoughts)
+        } catch {
+            print("Failed to encode thoughts data: \(error)")
+        }
+    }
+    
+    /// Get temporary thoughts from storage
+    private func getTemporaryThoughts() -> [TempThoughtData] {
+        guard let data = thoughtsData else { return [] }
+        
+        do {
+            return try JSONDecoder().decode([TempThoughtData].self, from: data)
+        } catch {
+            print("Failed to decode thoughts data: \(error)")
+            return []
+        }
+    }
+    
+    /// Get all unique tags from all thoughts (temporary implementation)
+    public var allThoughtTags: [String] {
+        let tempThoughts = getTemporaryThoughts()
+        let allTags = tempThoughts.flatMap { $0.tags }
+        return Array(Set(allTags)).sorted()
+    }
+    
+    /// Check if the note has been processed into thoughts (temporary implementation)
+    public var hasThoughts: Bool {
+        let tempThoughts = getTemporaryThoughts()
+        return !tempThoughts.isEmpty
+    }
+    
+    /// Get thought count (temporary implementation)
+    public var thoughtCount: Int {
+        return getTemporaryThoughts().count
+    }
+    
+    /// Get content for embedding that includes thought summaries (temporary implementation)
+    public var contentForEmbeddingWithThoughts: String {
+        let baseContent = self.contentForEmbedding
+        let tempThoughts = getTemporaryThoughts()
+        
+        if tempThoughts.isEmpty {
+            return baseContent
+        }
+        
+        let thoughtSummary = tempThoughts.map { thought in
+            "\(thought.thoughtType): \(thought.content)"
+        }.joined(separator: " | ")
+        
+        return baseContent + " [Thoughts: " + thoughtSummary + "]"
+    }
+    
+    // MARK: - Proper Thought Relationship Methods (for when Thought model is available)
+    
+    // TODO: Enable when Thought model is available in Xcode project
+    /// Add a thought to this note
+    // public func addThought(_ thought: Thought) {
+    //     if !thoughts.contains(where: { $0.id == thought.id }) {
+    //         thoughts.append(thought)
+    //         thought.parentNote = self
+    //     }
+    // }
+    
+    // TODO: Enable when Thought model is available in Xcode project
+    /// Remove a thought from this note
+    // public func removeThought(_ thought: Thought) {
+    //     thoughts.removeAll { $0.id == thought.id }
+    //     thought.parentNote = nil
+    // }
+    
+    // TODO: Enable when Thought model is available in Xcode project
+    /// Get thoughts ordered by sequence index
+    // public var orderedThoughts: [Thought] {
+    //     return thoughts.sorted { $0.sequenceIndex < $1.sequenceIndex }
+    // }
+    
+    // TODO: Enable when Thought model is available in Xcode project
+    /// Get all unique tags from all thoughts
+    // public var allThoughtTagsFromModel: [String] {
+    //     let allTags = thoughts.flatMap { $0.tags }
+    //     return Array(Set(allTags)).sorted()
+    // }
+    
+    /// Get thought count from model
+    // public var thoughtCountFromModel: Int {
+    //     return thoughts.count
+    // }
+    
+    /// Check if note has thoughts from model
+    // public var hasThoughtsFromModel: Bool {
+    //     return !thoughts.isEmpty
+    // }
+    
+    /// Get thoughts by type
+    // public func getThoughts(ofType type: ThoughtType) -> [Thought] {
+    //     return thoughts.filter { $0.thoughtType == type }
+    // }
+    
+    /// Get thoughts by importance
+    // public func getThoughts(withImportance importance: ThoughtImportance) -> [Thought] {
+    //     return thoughts.filter { $0.importance == importance }
+    // }
+    
+    /// Get high importance thoughts
+    // public var highImportanceThoughts: [Thought] {
+    //     return thoughts.filter { $0.importance == .high || $0.importance == .critical }
+    // }
+    
+    /// Get content for embedding that includes proper thoughts
+    // public var contentForEmbeddingWithProperThoughts: String {
+    //     let baseContent = self.contentForEmbedding
+    //     
+    //     if thoughts.isEmpty {
+    //         return baseContent
+    //     }
+    //     
+    //     let thoughtSummary = thoughts.map { thought in
+    //         "\(thought.thoughtType.rawValue): \(thought.content)"
+    //     }.joined(separator: " | ")
+    //     
+    //     return baseContent + " [Thoughts: " + thoughtSummary + "]"
+    // }
 }
 
 // MARK: - Enrichment Data Structures

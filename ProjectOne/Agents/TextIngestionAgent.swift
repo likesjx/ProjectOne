@@ -14,9 +14,9 @@ import os.log
 public enum ProcessingStep: String, CaseIterable {
     case initialization = "Initializing"
     case textAnalysis = "Analyzing text"
+    case thoughtExtraction = "Extracting thoughts"
+    case tagGeneration = "Generating tags"
     case entityExtraction = "Extracting entities"
-    case summaryGeneration = "Generating summary"
-    case topicIdentification = "Identifying topics"
     case knowledgeGraphIntegration = "Integrating with knowledge graph"
     case embeddingGeneration = "Generating embeddings"
     case finalizing = "Finalizing"
@@ -29,10 +29,11 @@ public class TextIngestionAgent: ObservableObject {
     private let modelContext: ModelContext
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "TextIngestionAgent")
     
-    // AI providers
+    // AI providers and services
     private var gemmaCore: EnhancedGemma3nCore?
     private var embeddingService: EmbeddingGenerationService?
     private weak var memoryService: MemoryAgentService? // Weak reference to avoid circular dependency
+    // private lazy var thoughtExtractionService = ThoughtExtractionService(modelContext: modelContext)
     
     // Published properties for UI visibility
     @Published public var isProcessing = false
@@ -83,15 +84,32 @@ public class TextIngestionAgent: ObservableObject {
             let wordCount = processedNote.originalText.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
             logger.debug("Analyzed text: \(wordCount) words")
             
-            // Step 2: Summary Generation with AI
-            await updateProgress(step: .summaryGeneration, progress: 0.25, message: "Generating AI summary...")
-            let summary = try await generateAISummary(from: processedNote.originalText)
-            processedNote.summary = summary
+            // Step 2: Thought Extraction (replaces summary generation)
+            await updateProgress(step: .thoughtExtraction, progress: 0.25, message: "Extracting granular thoughts...")
+            let thoughtSummaries = try await extractThoughtSummaries(from: processedNote.originalText)
             
-            // Step 3: Topic Identification with AI
-            await updateProgress(step: .topicIdentification, progress: 0.375, message: "Identifying topics with AI...")
-            let topics = try await identifyTopicsWithAI(from: processedNote.originalText)
-            processedNote.topics = topics
+            // TODO: Create proper Thought objects when Thought model is available
+            // For now, use temporary storage
+            for thoughtSummary in thoughtSummaries {
+                processedNote.addThoughtSummary(
+                    content: thoughtSummary.content,
+                    tags: thoughtSummary.tags,
+                    type: thoughtSummary.type,
+                    importance: thoughtSummary.importance
+                )
+            }
+            
+            // Step 3: Tag Generation (generate from thoughts)
+            await updateProgress(step: .tagGeneration, progress: 0.375, message: "Generating tags from thoughts...")
+            
+            // Get tags from temporary storage (proper thoughts not available yet)
+            let tempThoughtTags = processedNote.allThoughtTags
+            let allTags = Array(Set(tempThoughtTags))
+            
+            processedNote.topics = Array(Set(allTags)).prefix(10).map { String($0) } // Store unique tags as topics
+            
+            // Generate a summary from thoughts for backward compatibility
+            processedNote.summary = generateSummaryFromThoughtSummaries(thoughtSummaries)
             
             // Step 4: Entity Extraction with AI
             await updateProgress(step: .entityExtraction, progress: 0.5, message: "Extracting entities with AI...")
@@ -144,31 +162,45 @@ public class TextIngestionAgent: ObservableObject {
             let wordCount = note.markdownContent.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
             logger.debug("Analyzed text: \(wordCount) words")
             
-            // Step 2: Summary Generation
-            await updateProgress(step: .summaryGeneration, progress: 0.25, message: "Generating summary...")
-            let summary = try await generateFallbackSummary(from: note.markdownContent)
-            
-            // Step 3: Topic Identification
-            await updateProgress(step: .topicIdentification, progress: 0.375, message: "Identifying topics...")
-            let topics = try await identifyFallbackTopics(from: note.markdownContent)
-            
-            // Step 4: Entity Extraction
-            await updateProgress(step: .entityExtraction, progress: 0.5, message: "Extracting entities...")
-            let entities = try await extractFallbackEntities(from: note.markdownContent)
-            
-            // Step 5: Create ProcessedNote
-            await updateProgress(step: .knowledgeGraphIntegration, progress: 0.625, message: "Creating processed note...")
+            // Step 2: Create ProcessedNote first
+            await updateProgress(step: .thoughtExtraction, progress: 0.25, message: "Creating processed note...")
             let processedNote = ProcessedNote(
                 sourceType: .text,
                 originalText: note.markdownContent,
-                summary: summary,
-                topics: topics
+                summary: "", // Will be generated from thoughts
+                topics: []   // Will be generated from thought tags
             )
             
             // Start processing tracking
             processedNote.startProcessing()
             
-            // Add extracted entity names for later KG integration
+            // Step 3: Extract thoughts with tags
+            await updateProgress(step: .thoughtExtraction, progress: 0.375, message: "Extracting thoughts and generating tags...")
+            let thoughtSummaries = try await extractThoughtSummaries(from: note.markdownContent)
+            
+            // TODO: Create proper Thought objects when Thought model is available
+            // For now, use temporary storage
+            for thoughtSummary in thoughtSummaries {
+                processedNote.addThoughtSummary(
+                    content: thoughtSummary.content,
+                    tags: thoughtSummary.tags,
+                    type: thoughtSummary.type,
+                    importance: thoughtSummary.importance
+                )
+            }
+            
+            // Step 4: Generate summary and topics from thoughts
+            await updateProgress(step: .tagGeneration, progress: 0.5, message: "Generating summary from thoughts...")
+            processedNote.summary = generateSummaryFromThoughtSummaries(thoughtSummaries)
+            
+            // Get tags from temporary storage (proper thoughts not available yet)
+            let tempThoughtTags = processedNote.allThoughtTags
+            let allTags = Array(Set(tempThoughtTags))
+            processedNote.topics = Array(Set(allTags)).prefix(10).map { String($0) }
+            
+            // Step 5: Fallback entity extraction
+            await updateProgress(step: .entityExtraction, progress: 0.625, message: "Extracting entities...")
+            let entities = try await extractFallbackEntities(from: note.markdownContent)
             processedNote.extractedEntityNames = entities
             
             // Step 6: Save to context
@@ -414,6 +446,186 @@ public class TextIngestionAgent: ObservableObject {
         // This would integrate with EmbeddingGenerationService
         // For now, just log the scheduling
     }
+    
+    // MARK: - Thought-based Processing Helpers
+    
+    /// Temporary thought summary structure
+    private struct ThoughtSummary {
+        let content: String
+        let tags: [String]
+        let type: String
+        let importance: String
+    }
+    
+    /// Extract thought summaries using AI (temporary implementation)
+    private func extractThoughtSummaries(from text: String) async throws -> [ThoughtSummary] {
+        guard let gemmaCore = gemmaCore else {
+            return try await extractFallbackThoughtSummaries(from: text)
+        }
+        
+        let prompt = """
+        Analyze the following text and break it down into distinct thoughts. For each thought, provide:
+        1. The content of the thought
+        2. Relevant tags (2-4 words each)
+        3. Type (idea, task, question, insight, memory, plan, reflection, fact, opinion, decision, goal, or general)
+        4. Importance (low, medium, high, critical)
+
+        Format your response as JSON array with objects containing: content, tags, type, importance
+
+        Text:
+        \(text)
+
+        Response:
+        """
+        
+        logger.info("Extracting thought summaries with AI for text (\(text.count) characters)")
+        let response = await gemmaCore.processText(prompt)
+        
+        return try await parseThoughtSummariesResponse(response)
+    }
+    
+    /// Parse AI response into thought summaries
+    private func parseThoughtSummariesResponse(_ response: String) async throws -> [ThoughtSummary] {
+        let cleanResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Try to parse as JSON
+        if let jsonData = cleanResponse.data(using: .utf8) {
+            do {
+                if let jsonArray = try JSONSerialization.jsonObject(with: jsonData) as? [[String: Any]] {
+                    return jsonArray.compactMap { dict in
+                        guard let content = dict["content"] as? String,
+                              let tags = dict["tags"] as? [String],
+                              let type = dict["type"] as? String,
+                              let importance = dict["importance"] as? String else {
+                            return nil
+                        }
+                        return ThoughtSummary(content: content, tags: tags, type: type, importance: importance)
+                    }
+                }
+            } catch {
+                logger.warning("Failed to parse JSON response, falling back to text parsing")
+            }
+        }
+        
+        // Fallback to simple parsing
+        return try await extractFallbackThoughtSummaries(from: response)
+    }
+    
+    /// Fallback thought summary extraction
+    private func extractFallbackThoughtSummaries(from text: String) async throws -> [ThoughtSummary] {
+        // Simple sentence-based thought extraction
+        let sentences = text.components(separatedBy: CharacterSet(charactersIn: ".!?"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0.count > 10 }
+        
+        return sentences.enumerated().map { index, sentence in
+            let words = sentence.lowercased().components(separatedBy: .whitespacesAndNewlines)
+            let tags = words.filter { $0.count > 3 }.prefix(3).map { String($0) }
+            
+            let type: String
+            if sentence.contains("?") {
+                type = "question"
+            } else if sentence.lowercased().contains("todo") || sentence.lowercased().contains("need to") {
+                type = "task"
+            } else if sentence.lowercased().contains("idea") || sentence.lowercased().contains("think") {
+                type = "idea"
+            } else {
+                type = "general"
+            }
+            
+            let importance = sentence.count > 100 ? "high" : "medium"
+            
+            return ThoughtSummary(
+                content: sentence,
+                tags: Array(tags),
+                type: type,
+                importance: importance
+            )
+        }
+    }
+    
+    /// Generate a summary from extracted thought summaries for backward compatibility
+    private func generateSummaryFromThoughtSummaries(_ thoughtSummaries: [ThoughtSummary]) -> String {
+        guard !thoughtSummaries.isEmpty else { return "Empty note" }
+        
+        if thoughtSummaries.count == 1 {
+            return thoughtSummaries[0].content
+        }
+        
+        // Group by importance and type
+        let highImportanceThoughts = thoughtSummaries.filter { $0.importance == "high" || $0.importance == "critical" }
+        let keyThoughts = thoughtSummaries.filter { 
+            $0.type == "insight" || $0.type == "decision" || $0.type == "goal" 
+        }
+        
+        var summaryParts: [String] = []
+        
+        // Add high importance thoughts first
+        if !highImportanceThoughts.isEmpty {
+            let importantContent = highImportanceThoughts.prefix(2).map { $0.content }.joined(separator: "; ")
+            summaryParts.append(importantContent)
+        }
+        
+        // Add key insights/decisions/goals
+        if !keyThoughts.isEmpty && summaryParts.count < 2 {
+            let keyContent = keyThoughts.prefix(2).map { $0.content }.joined(separator: "; ")
+            if !summaryParts.contains(keyContent) {
+                summaryParts.append(keyContent)
+            }
+        }
+        
+        // Add first few thoughts if we don't have enough content
+        if summaryParts.isEmpty || summaryParts.joined(separator: " ").count < 50 {
+            let firstThoughts = thoughtSummaries.prefix(3).map { $0.content }.joined(separator: "; ")
+            summaryParts.append(firstThoughts)
+        }
+        
+        let summary = summaryParts.joined(separator: " | ")
+        return String(summary.prefix(200)) + (summary.count > 200 ? "..." : "")
+    }
+    
+    /// Generate a summary from extracted thoughts for backward compatibility (legacy method)
+    // TODO: Restore when Thought model is available in Xcode project
+    /*
+    private func generateSummaryFromThoughts(_ thoughts: [Thought]) -> String {
+        guard !thoughts.isEmpty else { return "Empty note" }
+        
+        if thoughts.count == 1 {
+            return thoughts[0].content
+        }
+        
+        // Group by importance and type
+        let highImportanceThoughts = thoughts.filter { $0.importance == .high || $0.importance == .critical }
+        let keyThoughts = thoughts.filter { 
+            $0.thoughtType == .insight || $0.thoughtType == .decision || $0.thoughtType == .goal 
+        }
+        
+        var summaryParts: [String] = []
+        
+        // Add high importance thoughts first
+        if !highImportanceThoughts.isEmpty {
+            let importantContent = highImportanceThoughts.prefix(2).map { $0.content }.joined(separator: "; ")
+            summaryParts.append(importantContent)
+        }
+        
+        // Add key insights/decisions/goals
+        if !keyThoughts.isEmpty && summaryParts.count < 2 {
+            let keyContent = keyThoughts.prefix(2).map { $0.content }.joined(separator: "; ")
+            if !summaryParts.contains(keyContent) {
+                summaryParts.append(keyContent)
+            }
+        }
+        
+        // Add first few thoughts if we don't have enough content
+        if summaryParts.isEmpty || summaryParts.joined(separator: " ").count < 50 {
+            let firstThoughts = thoughts.prefix(3).map { $0.content }.joined(separator: "; ")
+            summaryParts.append(firstThoughts)
+        }
+        
+        let summary = summaryParts.joined(separator: " | ")
+        return String(summary.prefix(200)) + (summary.count > 200 ? "..." : "")
+    }
+    */
     
     // MARK: - Progress Tracking
     

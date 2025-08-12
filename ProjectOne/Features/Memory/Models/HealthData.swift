@@ -126,6 +126,141 @@ struct HealthCorrelation {
     }
 }
 
+@Model
+class NoteHealthCorrelation {
+    var noteId: UUID
+    var noteDate: Date
+    var enrichmentScore: Double
+    var insightsData: Data
+    var suggestionsData: Data
+    var contextData: Data
+    var createdAt: Date
+    
+    init(noteId: UUID, noteDate: Date, enrichmentScore: Double, insights: [HealthInsight], suggestions: [HealthSuggestion], healthContext: HealthContext) {
+        self.noteId = noteId
+        self.noteDate = noteDate
+        self.enrichmentScore = enrichmentScore
+        self.createdAt = Date()
+        
+        self.insightsData = (try? JSONEncoder().encode(insights)) ?? Data()
+        self.suggestionsData = (try? JSONEncoder().encode(suggestions)) ?? Data()
+        self.contextData = (try? JSONEncoder().encode(healthContext)) ?? Data()
+    }
+    
+    var insights: [HealthInsight] {
+        (try? JSONDecoder().decode([HealthInsight].self, from: insightsData)) ?? []
+    }
+    
+    var suggestions: [HealthSuggestion] {
+        (try? JSONDecoder().decode([HealthSuggestion].self, from: suggestionsData)) ?? []
+    }
+    
+    var healthContext: HealthContext {
+        (try? JSONDecoder().decode(HealthContext.self, from: contextData)) ?? HealthContext()
+    }
+}
+
+struct HealthContext: Codable {
+    let timeOfDay: TimeOfDay
+    let activityLevel: ActivityLevel
+    let wellnessState: WellnessState
+    let physiologicalState: PhysiologicalState
+    let environmentalFactors: [String]
+    
+    init(
+        timeOfDay: TimeOfDay = .unknown,
+        activityLevel: ActivityLevel = .unknown,
+        wellnessState: WellnessState = .unknown,
+        physiologicalState: PhysiologicalState = .unknown,
+        environmentalFactors: [String] = []
+    ) {
+        self.timeOfDay = timeOfDay
+        self.activityLevel = activityLevel
+        self.wellnessState = wellnessState
+        self.physiologicalState = physiologicalState
+        self.environmentalFactors = environmentalFactors
+    }
+}
+
+struct HealthInsight: Codable, Identifiable {
+    let id = UUID()
+    let type: InsightType
+    let title: String
+    let description: String
+    let confidence: Double
+    let actionable: Bool
+    let suggestions: [String]
+}
+
+struct HealthSuggestion: Codable, Identifiable {
+    let id = UUID()
+    let category: String
+    let action: String
+    let priority: SuggestionPriority
+    let estimatedImpact: Double
+}
+
+struct HealthTrend: Identifiable {
+    let id = UUID()
+    let metricName: String
+    let direction: TrendDirection
+    let strength: Double
+    let timeRange: String
+    let insight: String
+    let currentValue: Double
+    let averageValue: Double
+    let unit: String
+}
+
+enum TimeOfDay: String, Codable, CaseIterable {
+    case morning = "Morning"
+    case afternoon = "Afternoon"
+    case evening = "Evening"
+    case night = "Night"
+    case unknown = "Unknown"
+}
+
+enum ActivityLevel: String, Codable, CaseIterable {
+    case low = "Low"
+    case moderate = "Moderate"
+    case high = "High"
+    case unknown = "Unknown"
+}
+
+enum WellnessState: String, Codable, CaseIterable {
+    case poor = "Poor"
+    case neutral = "Neutral"
+    case good = "Good"
+    case unknown = "Unknown"
+}
+
+enum PhysiologicalState: String, Codable, CaseIterable {
+    case stressed = "Stressed"
+    case balanced = "Balanced"
+    case relaxed = "Relaxed"
+    case unknown = "Unknown"
+}
+
+enum InsightType: String, Codable, CaseIterable {
+    case physiological = "Physiological"
+    case activity = "Activity"
+    case sleep = "Sleep"
+    case mental = "Mental"
+    case nutrition = "Nutrition"
+}
+
+enum SuggestionPriority: String, Codable, CaseIterable {
+    case low = "Low"
+    case medium = "Medium"
+    case high = "High"
+}
+
+enum TrendDirection: String, CaseIterable {
+    case increasing = "Increasing"
+    case decreasing = "Decreasing"
+    case stable = "Stable"
+}
+
 enum HealthDataType: String, CaseIterable {
     case heartRate = "Heart Rate"
     case steps = "Steps"

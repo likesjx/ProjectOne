@@ -1,8 +1,12 @@
 import SwiftUI
 import SwiftData
+import Foundation
 
 #if os(iOS)
 import UIKit
+#if canImport(HealthKit)
+import HealthKit
+#endif
 
 // Suppress haptic feedback system errors in simulator
 private func disableHapticsInSimulator() {
@@ -20,7 +24,7 @@ struct ProjectOneApp: App {
     @State private var initializingSystemManager: UnifiedSystemManager?
     
     var sharedModelContainer: SwiftData.ModelContainer = {
-        let schema = Schema([
+        var models: [any PersistentModel.Type] = [
             // Analytics models
             MemoryAnalytics.self,
             ConsolidationEvent.self,
@@ -40,6 +44,7 @@ struct ProjectOneApp: App {
             RecordingItem.self,
             ProcessedNote.self,
             NoteItem.self,
+            // Thought.self, // TODO: Add Thought.swift to Xcode project target
             
             // Prompt models
             PromptTemplate.self,
@@ -49,7 +54,11 @@ struct ProjectOneApp: App {
             
             // Cognitive decision models
             CognitiveDecision.self
-        ])
+        ]
+        
+        // Health models are included from HealthData.swift when available
+        
+        let schema = Schema(models)
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
