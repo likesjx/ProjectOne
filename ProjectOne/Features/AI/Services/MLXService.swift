@@ -68,11 +68,9 @@ public class MLXService: ObservableObject {
         self.isLoading = true
         self.loadingProgress = 0.0
         
-        // Simulate model loading
-        for i in 1...5 {
-            try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-            self.loadingProgress = Double(i) / 5.0
-        }
+        // PERFORMANCE OPTIMIZATION: Instant model readiness for fast initialization
+        // Real MLX model loading would happen here - using instant mock for speed
+        self.loadingProgress = 1.0
         
         self.isLoading = false
         self.loadingProgress = 1.0

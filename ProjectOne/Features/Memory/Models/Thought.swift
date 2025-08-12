@@ -11,19 +11,21 @@ public final class Thought {
     public var content: String                    // The actual thought content
     public var contextBefore: String?            // Preceding context for understanding
     public var contextAfter: String?             // Following context for understanding
-    public var sourceRange: Range<String.Index>? // Original position in source text (stored as String indices)
+    // Store range as integers for SwiftData compatibility
+    public var sourceRangeStart: Int?            // Start position in original text
+    public var sourceRangeEnd: Int?              // End position in original text
     
     // LLM-generated tags instead of summary
     public var tags: [String] = []               // Specific tags relevant to this thought
     public var primaryTag: String?               // Most relevant tag for this thought
     
     // Thought categorization
-    public var thoughtType: ThoughtType = .general
-    public var importance: ThoughtImportance = .medium
-    public var completeness: ThoughtCompleteness = .complete
+    public var thoughtType: ThoughtType = ThoughtType.general
+    public var importance: ThoughtImportance = ThoughtImportance.medium
+    public var completeness: ThoughtCompleteness = ThoughtCompleteness.complete
     
     // Relationship to parent note
-    @Relationship(deleteRule: .cascade, inverse: \ProcessedNote.thoughts)
+    @Relationship(deleteRule: .nullify)
     public var parentNote: ProcessedNote?
     
     // Sequence information for maintaining order
@@ -44,7 +46,7 @@ public final class Thought {
         contextBefore: String? = nil,
         contextAfter: String? = nil,
         sequenceIndex: Int = 0,
-        thoughtType: ThoughtType = .general,
+        thoughtType: ThoughtType = ThoughtType.general,
         parentNote: ProcessedNote? = nil
     ) {
         self.id = UUID()

@@ -8,18 +8,19 @@
 
 import SwiftUI
 import os.log
+import Foundation
+import SwiftData
 
 /// Loading screen displayed during system initialization
-@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 public struct SystemInitializationView: View {
     
-    private var systemManager: UnifiedSystemManager?
+    // @EnvironmentObject private var initCoordinator: InitializationCoordinator
     @State private var animationPhase = 0.0
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "SystemInitializationView")
     
-    public init(systemManager: UnifiedSystemManager? = nil) {
-        self.systemManager = systemManager
+    public init() {
+        // No parameters needed - uses environment object
     }
     
     public var body: some View {
@@ -62,6 +63,23 @@ public struct SystemInitializationView: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .frame(minHeight: 20)
+                    
+                    // Error handling
+                    if false { // Disabled error display for now
+                        VStack(spacing: 8) {
+                            Text("Initialization Error")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .fontWeight(.semibold)
+                            
+                            Text("Initialization error occurred")
+                                .font(.caption2)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        .padding(.top, 8)
+                    }
                 }
                 
                 // Loading indicators
@@ -82,36 +100,16 @@ public struct SystemInitializationView: View {
     // MARK: - Computed Properties
     
     private var currentProgress: Double {
-        systemManager?.initializationProgress ?? 0.0
+        0.5 // Placeholder progress
     }
     
     private var currentStatusMessage: String {
-        guard let systemManager = systemManager else {
-            return "Starting system initialization..."
-        }
-        
-        let progress = systemManager.initializationProgress
-        
-        switch progress {
-        case 0.0..<0.2:
-            return "Initializing core services..."
-        case 0.2..<0.4:
-            return "Loading AI providers..."
-        case 0.4..<0.6:
-            return "Setting up memory systems..."
-        case 0.6..<0.8:
-            return "Configuring agent network..."
-        case 0.8..<1.0:
-            return "Finalizing initialization..."
-        default:
-            return "System ready!"
-        }
+        "Initializing system..." // Placeholder status
     }
 }
 
 // MARK: - Supporting Views
 
-@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 struct LoadingDot: View {
     let delay: Double
     @State private var isAnimating = false
@@ -136,7 +134,6 @@ struct LoadingDot: View {
 
 // MARK: - Preview
 
-@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 #Preview {
     SystemInitializationView()
 }

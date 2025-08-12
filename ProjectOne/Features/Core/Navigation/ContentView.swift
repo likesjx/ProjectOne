@@ -20,6 +20,9 @@ struct ContentView: View {
             MainTabView(selectedTab: $selectedTab)
                 .background(.regularMaterial)
                 .navigationTitle("ProjectOne")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
                 .toolbar {
                     ToolbarItemGroup(placement: .primaryAction) {
                         LiquidGlassToolbarGroup {
@@ -28,23 +31,20 @@ struct ContentView: View {
                             }
                             
                             QuickActionButton(icon: "mic.badge.plus", color: .red) {
-                                selectedTab = 1 // Switch to Voice Memos tab
+                                selectedTab = 2 // Switch to Voice Memos tab
                             }
                         }
                     }
                 }
                 .liquidGlassToolbar()
         }
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
         .liquidGlassContainer()
         .sheet(isPresented: $showingQuickNote) {
             EnhancedNoteCreationView(modelContext: modelContext, systemManager: systemManager)
         }
         .alert("Note Imported", isPresented: $urlHandler.showingImportedNote) {
             Button("View Notes") {
-                selectedTab = 6 // Switch to Notes tab
+                selectedTab = 0 // Switch to All Content tab which shows notes
             }
             Button("OK") { }
         } message: {
@@ -89,6 +89,27 @@ struct MainTabView: View {
                 }
                 .tag(3)
             #endif
+            
+            MemoryDashboardView()
+                .tabItem {
+                    Label("Memory", systemImage: "brain.head.profile")
+                }
+                .tag(4)
+                
+            KnowledgeGraphView()
+                .tabItem {
+                    Label("Knowledge", systemImage: "network")
+                }
+                .tag(5)
+                
+            NavigationStack {
+                SettingsView()
+                    .navigationTitle("Settings")
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
+            .tag(6)
         }
     }
 }
@@ -253,7 +274,9 @@ struct HealthDashboardView: View {
                 }
             }
             .navigationTitle("Health Dashboard")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
+            #endif
         }
     }
 }

@@ -85,7 +85,7 @@ struct ProjectOneApp: App {
                     }
             } else {
                 if let initManager = initializingSystemManager {
-                    SystemInitializationView(systemManager: initManager)
+                    SystemInitializationView() // Temporary - removed systemManager parameter
                 } else {
                     SystemInitializationView()
                         .task {

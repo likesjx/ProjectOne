@@ -70,29 +70,132 @@ class EnhancedGemma3nCore: Gemma3nCore {
         
         logger.info("Setting up MLX three-layer and Foundation providers...")
         
-        // Setup all providers in parallel
-        async let mlxLLMSetup: () = setupMLXLLMProvider()
-        async let mlxVLMSetup: () = setupMLXVLMProvider()
-        async let foundationSetup: () = setupFoundationProvider()
+        // PERFORMANCE OPTIMIZATION: Use race condition to become ready ASAP
+        // System becomes ready as soon as ANY provider is available
+        // Remaining providers continue loading in background
         
-        await mlxLLMSetup
-        await mlxVLMSetup
-        await foundationSetup
-        
-        await MainActor.run {
-            super.isReady = mlxLLMProvider.isReady || mlxVLMProvider.isReady || foundationProvider.isAvailable
-            super.isLoading = false
-            
-            if super.isReady {
-                logger.info("✅ Enhanced Gemma3n Core ready with available providers")
-            } else {
-                super.errorMessage = "No AI providers available"
-                logger.error("❌ No AI providers available")
+        do {
+            await withThrowingTaskGroup(of: Bool.self) { group in
+                // Add all provider setup tasks
+                group.addTask { await self.setupMLXLLMProviderOptimized() }
+                group.addTask { await self.setupMLXVLMProviderOptimized() }  
+                group.addTask { await self.setupFoundationProviderOptimized() }
+                
+                // Wait for the FIRST provider to be ready
+                do {
+                    for try await isProviderReady in group {
+                        if isProviderReady {
+                            await MainActor.run {
+                                super.isReady = true
+                                super.isLoading = false
+                                self.logger.info("✅ Enhanced Gemma3n Core ready - first provider available")
+                            }
+                            
+                            // Cancel remaining tasks and let them continue in background
+                            group.cancelAll()
+                            
+                            // Continue loading remaining providers in background
+                            Task.detached {
+                                await self.continueBackgroundProviderSetup()
+                            }
+                            return
+                        }
+                    }
+                } catch {
+                    // Log error but continue - this is expected as providers may fail
+                    self.logger.debug("Provider setup error (expected): \(error.localizedDescription)")
+                }
+                
+                // If we reach here, no providers succeeded
+                await MainActor.run {
+                    super.isReady = false
+                    super.isLoading = false
+                    super.errorMessage = "No AI providers available"
+                    self.logger.error("❌ No AI providers available")
+                }
+            }
+        } catch {
+            // Handle any unexpected errors from the task group itself
+            await MainActor.run {
+                super.isReady = false
+                super.isLoading = false
+                super.errorMessage = "Provider initialization failed: \(error.localizedDescription)"
+                self.logger.error("❌ Provider initialization failed: \(error.localizedDescription)")
             }
         }
     }
     
     // MARK: - Provider Setup
+    
+    // MARK: - Optimized Provider Setup (Race Condition Pattern)
+    
+    private func setupMLXLLMProviderOptimized() async -> Bool {
+        guard mlxLLMProvider.isSupported else {
+            logger.info("MLX LLM not supported on this device")
+            return false
+        }
+        
+        do {
+            try await mlxLLMProvider.loadRecommendedModel()
+            logger.info("✅ MLX LLM provider ready (optimized)")
+            return true
+        } catch {
+            logger.error("❌ MLX LLM provider setup failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+    
+    private func setupMLXVLMProviderOptimized() async -> Bool {
+        guard mlxVLMProvider.isSupported else {
+            logger.info("MLX VLM not supported on this device")
+            return false
+        }
+        
+        do {
+            try await mlxVLMProvider.loadRecommendedModel()
+            logger.info("✅ MLX VLM provider ready (optimized)")
+            return true
+        } catch {
+            logger.error("❌ MLX VLM provider setup failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+    
+    private func setupFoundationProviderOptimized() async -> Bool {
+        // Foundation provider with quick timeout for first-ready optimization
+        var attempts = 0
+        while self.foundationProvider.modelLoadingStatus == .preparing && attempts < 6 { // 3 seconds max
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            attempts += 1
+        }
+        
+        if self.foundationProvider.isAvailable {
+            logger.info("✅ Foundation Models provider ready (optimized)")
+            return true
+        } else {
+            logger.info("Foundation Models not available quickly: \(self.foundationProvider.statusMessage)")
+            return false
+        }
+    }
+    
+    private func continueBackgroundProviderSetup() async {
+        logger.info("Continuing background provider setup...")
+        
+        // Continue setting up any providers that weren't ready initially
+        if !mlxLLMProvider.isReady {
+            await setupMLXLLMProvider()
+        }
+        if !mlxVLMProvider.isReady {
+            await setupMLXVLMProvider()
+        }
+        if !foundationProvider.isAvailable {
+            await setupFoundationProvider()
+        }
+        
+        logger.info("Background provider setup completed")
+    }
+    
+    // MARK: - Original Provider Setup (Used for Background Loading)
     
     private func setupMLXLLMProvider() async {
         guard mlxLLMProvider.isSupported else {

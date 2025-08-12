@@ -94,7 +94,7 @@ public class AppleFoundationModelsProvider: AIModelProvider, ObservableObject, @
         logger.info("Initializing Apple Foundation Models Provider for iOS 26.0+")
         
         // Perform one-time availability check
-        Task { @MainActor in
+        Task {
             await performInitialAvailabilityCheck()
         }
     }

@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import Foundation
+import Combine
+import os.log
 
 #if os(iOS)
 import UIKit
@@ -13,11 +16,11 @@ private func disableHapticsInSimulator() {
 }
 #endif
 
+
 @main
 struct ProjectOneApp: App {
     @State private var urlHandler = URLHandler()
-    @State private var unifiedSystemManager: UnifiedSystemManager?
-    @State private var initializingSystemManager: UnifiedSystemManager?
+    @StateObject private var initCoordinator = InitializationCoordinator()
     
     var sharedModelContainer: SwiftData.ModelContainer = {
         let schema = Schema([
@@ -40,6 +43,7 @@ struct ProjectOneApp: App {
             RecordingItem.self,
             ProcessedNote.self,
             NoteItem.self,
+            Thought.self,
             
             // Prompt models
             PromptTemplate.self,
@@ -62,7 +66,7 @@ struct ProjectOneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if let systemManager = unifiedSystemManager {
+            if let systemManager = initCoordinator.systemManager {
                 ContentView()
                     .environmentObject(urlHandler)
                     .environmentObject(systemManager)
@@ -73,20 +77,17 @@ struct ProjectOneApp: App {
                         }
                     }
             } else {
-                if let initManager = initializingSystemManager {
-                    SystemInitializationView(systemManager: initManager)
-                } else {
-                    SystemInitializationView()
-                        .task {
-                            // Disable haptic feedback in simulator to prevent log errors
-                            #if os(iOS)
-                            disableHapticsInSimulator()
-                            #endif
-                            
-                            // Initialize the unified system
-                            await initializeUnifiedSystem()
-                        }
-                }
+                SystemInitializationView()
+                    .environmentObject(initCoordinator)
+                    .onAppear {
+                        // Disable haptic feedback in simulator to prevent log errors
+                        #if os(iOS)
+                        disableHapticsInSimulator()
+                        #endif
+                        
+                        // Start cancellation-resistant initialization
+                        initCoordinator.ensureInitialized(modelContainer: sharedModelContainer)
+                    }
             }
         }
         .modelContainer(sharedModelContainer)
@@ -98,26 +99,4 @@ struct ProjectOneApp: App {
     }
     
     @MainActor
-    private func initializeUnifiedSystem() async {
-        print("🚀 [ProjectOneApp] Starting unified system initialization...")
-        
-        // Create the unified system manager with dependency injection
-        let systemManager = UnifiedSystemManager(
-            modelContext: sharedModelContainer.mainContext,
-            configuration: .default,
-            serviceFactory: DefaultServiceFactory()
-        )
-        
-        // Store the initializing system manager so the UI can observe progress
-        initializingSystemManager = systemManager
-        
-        // Initialize the entire system
-        await systemManager.initializeSystem()
-        
-        // Store the system manager for use throughout the app
-        unifiedSystemManager = systemManager
-        initializingSystemManager = nil
-        
-        print("🎉 [ProjectOneApp] Unified system initialization completed successfully")
-    }
 }

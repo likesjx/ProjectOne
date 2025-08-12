@@ -48,12 +48,11 @@ public final class ProcessedNote {
     var entities: [Entity] = []
     
     @Relationship(deleteRule: .nullify)  
-    var relationships: [Relationship] = []
+    var knowledgeRelationships: [Relationship] = []
     
-    // TODO: Enable when Thought model is available in Xcode project
     // Granular thoughts extracted from the note content
-    // @Relationship(deleteRule: .cascade, inverse: \Thought.parentNote)
-    // var thoughts: [Thought] = []
+    @Relationship(deleteRule: .cascade, inverse: \Thought.parentNote)
+    var thoughts: [Thought] = []
     
     // Temporary thought storage as encoded data until Thought model is available
     var thoughtsData: Data?
@@ -327,74 +326,70 @@ public final class ProcessedNote {
     
     // MARK: - Proper Thought Relationship Methods (for when Thought model is available)
     
-    // TODO: Enable when Thought model is available in Xcode project
     /// Add a thought to this note
-    // public func addThought(_ thought: Thought) {
-    //     if !thoughts.contains(where: { $0.id == thought.id }) {
-    //         thoughts.append(thought)
-    //         thought.parentNote = self
-    //     }
-    // }
+    public func addThought(_ thought: Thought) {
+        if !thoughts.contains(where: { $0.id == thought.id }) {
+            thoughts.append(thought)
+            thought.parentNote = self
+        }
+    }
     
-    // TODO: Enable when Thought model is available in Xcode project
     /// Remove a thought from this note
-    // public func removeThought(_ thought: Thought) {
-    //     thoughts.removeAll { $0.id == thought.id }
-    //     thought.parentNote = nil
-    // }
+    public func removeThought(_ thought: Thought) {
+        thoughts.removeAll { $0.id == thought.id }
+        thought.parentNote = nil
+    }
     
-    // TODO: Enable when Thought model is available in Xcode project
     /// Get thoughts ordered by sequence index
-    // public var orderedThoughts: [Thought] {
-    //     return thoughts.sorted { $0.sequenceIndex < $1.sequenceIndex }
-    // }
+    public var orderedThoughts: [Thought] {
+        return thoughts.sorted { $0.sequenceIndex < $1.sequenceIndex }
+    }
     
-    // TODO: Enable when Thought model is available in Xcode project
     /// Get all unique tags from all thoughts
-    // public var allThoughtTagsFromModel: [String] {
-    //     let allTags = thoughts.flatMap { $0.tags }
-    //     return Array(Set(allTags)).sorted()
-    // }
+    public var allThoughtTagsFromModel: [String] {
+        let allTags = thoughts.flatMap { $0.tags }
+        return Array(Set(allTags)).sorted()
+    }
     
     /// Get thought count from model
-    // public var thoughtCountFromModel: Int {
-    //     return thoughts.count
-    // }
+    public var thoughtCountFromModel: Int {
+        return thoughts.count
+    }
     
     /// Check if note has thoughts from model
-    // public var hasThoughtsFromModel: Bool {
-    //     return !thoughts.isEmpty
-    // }
+    public var hasThoughtsFromModel: Bool {
+        return !thoughts.isEmpty
+    }
     
     /// Get thoughts by type
-    // public func getThoughts(ofType type: ThoughtType) -> [Thought] {
-    //     return thoughts.filter { $0.thoughtType == type }
-    // }
+    public func getThoughts(ofType type: ThoughtType) -> [Thought] {
+        return thoughts.filter { $0.thoughtType == type }
+    }
     
     /// Get thoughts by importance
-    // public func getThoughts(withImportance importance: ThoughtImportance) -> [Thought] {
-    //     return thoughts.filter { $0.importance == importance }
-    // }
+    public func getThoughts(withImportance importance: ThoughtImportance) -> [Thought] {
+        return thoughts.filter { $0.importance == importance }
+    }
     
     /// Get high importance thoughts
-    // public var highImportanceThoughts: [Thought] {
-    //     return thoughts.filter { $0.importance == .high || $0.importance == .critical }
-    // }
+    public var highImportanceThoughts: [Thought] {
+        return thoughts.filter { $0.importance == .high || $0.importance == .critical }
+    }
     
     /// Get content for embedding that includes proper thoughts
-    // public var contentForEmbeddingWithProperThoughts: String {
-    //     let baseContent = self.contentForEmbedding
-    //     
-    //     if thoughts.isEmpty {
-    //         return baseContent
-    //     }
-    //     
-    //     let thoughtSummary = thoughts.map { thought in
-    //         "\(thought.thoughtType.rawValue): \(thought.content)"
-    //     }.joined(separator: " | ")
-    //     
-    //     return baseContent + " [Thoughts: " + thoughtSummary + "]"
-    // }
+    public var contentForEmbeddingWithProperThoughts: String {
+        let baseContent = self.contentForEmbedding
+        
+        if thoughts.isEmpty {
+            return baseContent
+        }
+        
+        let thoughtSummary = thoughts.map { thought in
+            "\(thought.thoughtType.rawValue): \(thought.content)"
+        }.joined(separator: " | ")
+        
+        return baseContent + " [Thoughts: " + thoughtSummary + "]"
+    }
 }
 
 // MARK: - Enrichment Data Structures
