@@ -26,6 +26,7 @@ public final class STMEntry {
     var decayFactor: Double
     var consolidationScore: Double
     var sourceNoteId: UUID?
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var relatedEntities: [UUID]
     var emotionalWeight: Double
     var contextTags: [String]

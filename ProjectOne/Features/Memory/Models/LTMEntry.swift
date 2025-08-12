@@ -20,12 +20,15 @@ public final class LTMEntry {
     var accessCount: Int
     var lastAccessed: Date
     var consolidationDate: Date
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var sourceSTMIds: [UUID]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var relatedEntities: [UUID]
     var relatedConcepts: [String]
     var emotionalWeight: Double
     var strengthScore: Double
     var retrievalCues: [String]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var crossReferences: [UUID]
     var memoryCluster: String?
     var consolidationScore: Double

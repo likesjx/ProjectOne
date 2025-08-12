@@ -22,6 +22,7 @@ public final class Entity {
     // Knowledge graph connections
     public var mentions: Int // Number of times mentioned across all notes
     public var lastMentioned: Date
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     public var relationships: [UUID] // IDs of relationships this entity participates in
     
     // Entity attributes

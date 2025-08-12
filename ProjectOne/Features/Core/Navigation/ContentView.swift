@@ -90,20 +90,20 @@ struct MainTabView: View {
                 .tag(3)
             #endif
             
-            MemoryDashboardView()
+            MemoryDashboardView(modelContext: modelContext)
                 .tabItem {
                     Label("Memory", systemImage: "brain.head.profile")
                 }
                 .tag(4)
                 
-            KnowledgeGraphView()
+            KnowledgeGraphView(modelContext: modelContext)
                 .tabItem {
                     Label("Knowledge", systemImage: "network")
                 }
                 .tag(5)
                 
             NavigationStack {
-                SettingsView()
+                SettingsView(gemmaCore: EnhancedGemma3nCore())
                     .navigationTitle("Settings")
             }
             .tabItem {

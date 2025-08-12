@@ -16,7 +16,9 @@ final class WorkingMemoryEntry {
     var timestamp: Date
     var priority: WorkingMemoryPriority
     var contextId: UUID?
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var relatedSTMIds: [UUID]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var relatedLTMIds: [UUID]
     var activeTask: String?
     var processingStage: ProcessingStage

@@ -18,7 +18,7 @@ public class WorkingMLXProvider: ObservableObject, AIModelProvider {
     // MARK: - AIModelProvider Protocol Properties
     
     public var identifier: String { "working-mlx-provider" }
-    public var displayName: String { "Working MLX Provider (Placeholder)" }
+    public var displayName: String { "Working MLX Provider" }
     public var isAvailable: Bool { 
         #if arch(arm64) && !targetEnvironment(simulator)
         return true // Apple Silicon required for MLX
@@ -73,7 +73,7 @@ public class WorkingMLXProvider: ObservableObject, AIModelProvider {
     // MARK: - Initialization
     
     public init() {
-        logger.info("WorkingMLXProvider initialized (placeholder implementation)")
+        logger.info("Working MLX Provider initialized for Apple Silicon")
     }
     
     // MARK: - AIModelProvider Protocol
@@ -128,40 +128,45 @@ public class WorkingMLXProvider: ObservableObject, AIModelProvider {
             throw AIModelError.modelNotReady
         }
         
-        logger.info("Generating response for prompt: \(prompt.prefix(50))...")
+        logger.info("Generating response with MLX model: \(self.currentModelId ?? "unknown")")
         
-        // Simulate text generation
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        // Use MLX service for actual inference
+        let mlxService = MLXService()
         
-        let response = """
-        [MLX Placeholder Response]
+        guard mlxService.isMLXSupported else {
+            throw AIModelError.generationFailed("MLX not supported on this device")
+        }
         
-        Input: \(prompt.prefix(100))...
-        
-        This is a placeholder response from WorkingMLXProvider. The actual MLX Swift framework is designed for training custom neural networks, not serving pre-trained language models.
-        
-        For real LLM inference, consider integrating:
-        - Ollama for local model serving
-        - llama.cpp for efficient inference
-        - OpenAI API for cloud-based models
-        
-        Model: \(currentDisplayName ?? "Unknown")
-        """
-        
-        logger.info("✅ Generated response: \(response.prefix(100))...")
-        return response
+        do {
+            // Generate using actual MLX service
+            let response = try await mlxService.generate(with: container, prompt: prompt)
+            logger.info("✅ Generated response via MLX: \(response.prefix(100))...")
+            return response
+        } catch {
+            logger.error("❌ MLX generation failed: \(error.localizedDescription)")
+            throw AIModelError.generationFailed("MLX generation error: \(error.localizedDescription)")
+        }
     }
     
     public func streamGenerate(prompt: String) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    let fullResponse = try await generate(prompt: prompt)
-                    let words = fullResponse.components(separatedBy: " ")
+                    guard let container = modelContainer, container.isReady else {
+                        continuation.finish(throwing: AIModelError.modelNotReady)
+                        return
+                    }
                     
-                    for word in words {
-                        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
-                        continuation.yield(word + " ")
+                    let mlxService = MLXService()
+                    
+                    guard mlxService.isMLXSupported else {
+                        continuation.finish(throwing: AIModelError.generationFailed("MLX not supported on this device"))
+                        return
+                    }
+                    
+                    // Use MLX service streaming
+                    for try await chunk in mlxService.streamGenerate(with: container, prompt: prompt) {
+                        continuation.yield(chunk)
                     }
                     
                     continuation.finish()

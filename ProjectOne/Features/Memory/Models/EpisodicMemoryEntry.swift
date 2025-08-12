@@ -24,7 +24,9 @@ public final class EpisodicMemoryEntry {
     var emotionalTone: EpisodicMemoryEntry.EmotionalTone
     var importance: Double
     var contextualCues: [String]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var relatedEntities: [UUID]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var relatedEvents: [UUID]
     var duration: TimeInterval?
     var outcome: String?

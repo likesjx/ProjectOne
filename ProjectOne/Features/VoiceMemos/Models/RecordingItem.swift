@@ -48,7 +48,9 @@ final class RecordingItem {
     var isArchived: Bool
     
     // Knowledge graph connections
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var extractedEntityIds: [UUID] // IDs of entities extracted from transcription
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
     var extractedRelationshipIds: [UUID] // IDs of relationships extracted
     var memoryScore: Double // Importance score for memory system
     

@@ -18,8 +18,11 @@ final class ConceptNode {
     var abstraction: AbstractionLevel
     var importance: Double
     var confidence: Double
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromDataTransformer"))
     var relatedConcepts: [UUID]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromDataTransformer"))
     var relatedEntities: [UUID]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromDataTransformer"))
     var relatedNotes: [UUID]
     var properties: [String: String]
     var examples: [String]

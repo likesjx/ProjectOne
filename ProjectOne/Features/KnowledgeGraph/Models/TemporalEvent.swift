@@ -18,9 +18,12 @@ final class TemporalEvent {
     var endTime: Date?
     var eventType: EventType
     var importance: Double
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromDataTransformer"))
     var participants: [UUID] // Entity IDs
     var location: String?
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromDataTransformer"))
     var relatedNotes: [UUID]
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromDataTransformer"))
     var relatedEvents: [UUID]
     var outcomes: [String]
     var preconditions: [String]
