@@ -15,7 +15,7 @@ struct VoiceMemoView: View {
     @StateObject private var audioRecorder: AudioRecorder
     @StateObject private var audioPlayer = AudioPlayer()
     @StateObject private var modelPreloader = WhisperKitModelPreloader.shared
-    @EnvironmentObject private var gemmaCore: EnhancedGemma3nCore
+    @EnvironmentObject private var providerFactory: ExternalProviderFactory
     @State private var hasRequestedPermission = false
     @State private var showingNoteCreation = false
     
@@ -68,7 +68,7 @@ struct VoiceMemoView: View {
                     // Enhanced Quick Action Bar
                     LiquidGlassQuickActionBar(
                         audioRecorder: audioRecorder,
-                        gemmaCore: gemmaCore,
+                        providerFactory: providerFactory,
                         hasRequestedPermission: $hasRequestedPermission,
                         showingNoteCreation: $showingNoteCreation,
                         onAudioRecorded: { audioURL in
@@ -214,7 +214,7 @@ struct LiquidGlassIcon: View {
 
 struct LiquidGlassQuickActionBar: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: EnhancedGemma3nCore
+    let providerFactory: ExternalProviderFactory
     @Binding var hasRequestedPermission: Bool
     @Binding var showingNoteCreation: Bool
     let onAudioRecorded: (URL) -> Void
@@ -277,7 +277,7 @@ struct LiquidGlassQuickActionBar: View {
         .fullScreenCover(isPresented: $showingTranscriptionView) {
             TranscriptionDisplayView(
                 audioRecorder: audioRecorder,
-                gemmaCore: gemmaCore,
+                providerFactory: providerFactory,
                 isPresented: $showingTranscriptionView
             )
         }
@@ -285,7 +285,7 @@ struct LiquidGlassQuickActionBar: View {
         .sheet(isPresented: $showingTranscriptionView) {
             TranscriptionDisplayView(
                 audioRecorder: audioRecorder,
-                gemmaCore: gemmaCore,
+                providerFactory: providerFactory,
                 isPresented: $showingTranscriptionView
             )
         }
@@ -1225,7 +1225,7 @@ struct StatusGlassPanel: View {
 
 struct GlassQuickActionBar: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: EnhancedGemma3nCore
+    let providerFactory: ExternalProviderFactory
     @Binding var hasRequestedPermission: Bool
     @Binding var showingNoteCreation: Bool
     let onAudioRecorded: (URL) -> Void
@@ -1285,7 +1285,7 @@ struct GlassQuickActionBar: View {
         .fullScreenCover(isPresented: $showingTranscriptionView) {
             TranscriptionDisplayView(
                 audioRecorder: audioRecorder,
-                gemmaCore: gemmaCore,
+                providerFactory: providerFactory,
                 isPresented: $showingTranscriptionView
             )
         }
@@ -1293,7 +1293,7 @@ struct GlassQuickActionBar: View {
         .sheet(isPresented: $showingTranscriptionView) {
             TranscriptionDisplayView(
                 audioRecorder: audioRecorder,
-                gemmaCore: gemmaCore,
+                providerFactory: providerFactory,
                 isPresented: $showingTranscriptionView
             )
         }

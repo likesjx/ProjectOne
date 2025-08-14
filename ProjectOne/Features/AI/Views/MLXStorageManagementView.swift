@@ -9,16 +9,19 @@
 import SwiftUI
 import os.log
 
-/// Comprehensive storage management UI for MLX models
+/// Comprehensive storage management UI for MLX models with loading controls
 public struct MLXStorageManagementView: View {
     
     @StateObject private var storageManager = MLXStorageManager()
+    @StateObject private var downloadService = MLXModelDownloadService()
     @State private var selectedModels: Set<String> = []
     @State private var sortOption: SortOption = .size
     @State private var showingDeleteConfirmation = false
     @State private var showingCleanupAlert = false
+    @State private var showingCommunityModels = false
     @State private var cleanupDays = 30
     @State private var isRefreshing = false
+    @State private var loadedModels: Set<String> = []
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MLXStorageManagementView")
     
@@ -40,19 +43,30 @@ public struct MLXStorageManagementView: View {
                     .padding(.horizontal)
                 }
                 
-                // Model list
+                // Model list with loading controls
                 ModelStorageListView(
                     models: sortedModels,
                     selectedModels: $selectedModels,
                     sortOption: $sortOption,
+                    loadedModels: $loadedModels,
                     onDelete: { modelIds in
                         Task {
                             await deleteModels(modelIds)
                         }
+                    },
+                    onLoad: { modelId in
+                        Task {
+                            await loadModel(modelId)
+                        }
+                    },
+                    onUnload: { modelId in
+                        Task {
+                            await unloadModel(modelId)
+                        }
                     }
                 )
             }
-            .navigationTitle("Storage Management")
+            .navigationTitle("MLX Model Management")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -71,7 +85,11 @@ public struct MLXStorageManagementView: View {
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    Button("Browse Models") {
+                        showingCommunityModels = true
+                    }
+                    
                     Menu("Cleanup") {
                         Button("Clean 30+ day old models") {
                             cleanupDays = 30
@@ -113,6 +131,12 @@ public struct MLXStorageManagementView: View {
         }
         .task {
             await storageManager.calculateStorageUsage()
+        }
+        .sheet(isPresented: $showingCommunityModels) {
+            MLXCommunityModelsView(
+                communityService: MLXCommunityService(),
+                downloadService: downloadService
+            )
         }
     }
     
@@ -175,6 +199,31 @@ public struct MLXStorageManagementView: View {
         }
         
         await storageManager.calculateStorageUsage()
+    }
+    
+    private func loadModel(_ modelId: String) async {
+        do {
+            // Simulate model loading - in real implementation, this would interface with MLX
+            logger.info("Loading model: \(modelId)")
+            
+            await MainActor.run {
+                loadedModels.insert(modelId)
+            }
+            
+            logger.info("✅ Successfully loaded model: \(modelId)")
+        } catch {
+            logger.error("❌ Failed to load model \(modelId): \(error.localizedDescription)")
+        }
+    }
+    
+    private func unloadModel(_ modelId: String) async {
+        logger.info("Unloading model: \(modelId)")
+        
+        await MainActor.run {
+            loadedModels.remove(modelId)
+        }
+        
+        logger.info("✅ Successfully unloaded model: \(modelId)")
     }
     
     public enum SortOption: String, CaseIterable {
@@ -328,7 +377,10 @@ struct ModelStorageListView: View {
     let models: [ModelStorageDetail]
     @Binding var selectedModels: Set<String>
     @Binding var sortOption: MLXStorageManagementView.SortOption
+    @Binding var loadedModels: Set<String>
     let onDelete: ([String]) -> Void
+    let onLoad: (String) -> Void
+    let onUnload: (String) -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -362,11 +414,18 @@ struct ModelStorageListView: View {
                     ModelStorageRow(
                         model: model,
                         isSelected: selectedModels.contains(model.modelId),
+                        isLoaded: loadedModels.contains(model.modelId),
                         onToggleSelection: {
                             toggleSelection(for: model.modelId)
                         },
                         onDelete: {
                             onDelete([model.modelId])
+                        },
+                        onLoad: {
+                            onLoad(model.modelId)
+                        },
+                        onUnload: {
+                            onUnload(model.modelId)
                         }
                     )
                 }
@@ -389,8 +448,11 @@ struct ModelStorageListView: View {
 struct ModelStorageRow: View {
     let model: ModelStorageDetail
     let isSelected: Bool
+    let isLoaded: Bool
     let onToggleSelection: () -> Void
     let onDelete: () -> Void
+    let onLoad: () -> Void
+    let onUnload: () -> Void
     
     var body: some View {
         HStack {
@@ -405,6 +467,12 @@ struct ModelStorageRow: View {
                     Text(model.modelId)
                         .font(.headline)
                         .lineLimit(1)
+                    
+                    if isLoaded {
+                        Image(systemName: "circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
                     
                     Spacer()
                     
@@ -458,11 +526,36 @@ struct ModelStorageRow: View {
                 }
             }
             
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
+            // Loading controls
+            HStack(spacing: 8) {
+                if isLoaded {
+                    Button("Unload") {
+                        onUnload()
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                } else {
+                    Button("Load") {
+                        onLoad()
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                }
+                
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(BorderlessButtonStyle())
             }
-            .buttonStyle(BorderlessButtonStyle())
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())

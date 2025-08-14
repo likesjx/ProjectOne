@@ -11,7 +11,7 @@ import SwiftData
 
 struct QuickActionBar: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: EnhancedGemma3nCore
+    let providerFactory: ExternalProviderFactory
     @Binding var hasRequestedPermission: Bool
     @Binding var showingNoteCreation: Bool
     let onAudioRecorded: (URL) -> Void
@@ -109,7 +109,7 @@ struct QuickActionBar: View {
         .fullScreenCover(isPresented: $showingTranscriptionView) {
             TranscriptionDisplayView(
                 audioRecorder: audioRecorder,
-                gemmaCore: gemmaCore,
+                providerFactory: providerFactory,
                 isPresented: $showingTranscriptionView
             )
         }
@@ -117,7 +117,7 @@ struct QuickActionBar: View {
         .sheet(isPresented: $showingTranscriptionView) {
             TranscriptionDisplayView(
                 audioRecorder: audioRecorder,
-                gemmaCore: gemmaCore,
+                providerFactory: providerFactory,
                 isPresented: $showingTranscriptionView
             )
         }
@@ -201,7 +201,7 @@ extension Notification.Name {
     @Previewable @State var modelContainer = try! SwiftData.ModelContainer(for: Entity.self, Relationship.self)
     QuickActionBar(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),
-        gemmaCore: EnhancedGemma3nCore(),
+        providerFactory: ExternalProviderFactory(settings: AIProviderSettings()),
         hasRequestedPermission: .constant(true),
         showingNoteCreation: .constant(false),
         onAudioRecorded: { _ in }

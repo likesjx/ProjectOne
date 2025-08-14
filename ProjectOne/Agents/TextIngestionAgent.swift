@@ -30,7 +30,7 @@ public class TextIngestionAgent: ObservableObject {
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "TextIngestionAgent")
     
     // AI providers and services
-    private var gemmaCore: EnhancedGemma3nCore?
+    private var providerFactory: ExternalProviderFactory?
     private var embeddingService: EmbeddingGenerationService?
     private weak var memoryService: MemoryAgentService? // Weak reference to avoid circular dependency
     // private lazy var thoughtExtractionService = ThoughtExtractionService(modelContext: modelContext)
@@ -53,9 +53,9 @@ public class TextIngestionAgent: ObservableObject {
     
     private func setupAIProviders() {
         if #available(iOS 26.0, macOS 26.0, *) {
-            gemmaCore = EnhancedGemma3nCore()
+            providerFactory = ExternalProviderFactory(settings: AIProviderSettings())
             Task {
-                await gemmaCore?.setup()
+                await providerFactory?.configureFromSettings()
             }
         }
         
@@ -243,7 +243,7 @@ public class TextIngestionAgent: ObservableObject {
     // MARK: - AI-Powered Processing Methods
     
     private func generateAISummary(from text: String) async throws -> String {
-        guard let gemmaCore = gemmaCore else {
+        guard let providerFactory = providerFactory else {
             return try await generateFallbackSummary(from: text)
         }
         
@@ -256,7 +256,7 @@ public class TextIngestionAgent: ObservableObject {
         """
         
         logger.info("Generating AI summary for text (\(text.count) characters)")
-        let response = await gemmaCore.processText(prompt)
+        let response = try await providerFactory.generateResponse(prompt: prompt)
         
         // Clean up the response
         let summary = response.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -264,7 +264,7 @@ public class TextIngestionAgent: ObservableObject {
     }
     
     private func identifyTopicsWithAI(from text: String) async throws -> [String] {
-        guard let gemmaCore = gemmaCore else {
+        guard let providerFactory = providerFactory else {
             return try await identifyFallbackTopics(from: text)
         }
         
@@ -277,7 +277,7 @@ public class TextIngestionAgent: ObservableObject {
         """
         
         logger.info("Identifying topics with AI for text (\(text.count) characters)")
-        let response = await gemmaCore.processText(prompt)
+        let response = try await providerFactory.generateResponse(prompt: prompt)
         
         // Parse the response into topics
         let topics = response
@@ -291,7 +291,7 @@ public class TextIngestionAgent: ObservableObject {
     }
     
     private func extractEntitiesWithAI(from text: String) async throws -> [String] {
-        guard let gemmaCore = gemmaCore else {
+        guard let providerFactory = providerFactory else {
             return try await extractFallbackEntities(from: text)
         }
         
@@ -304,7 +304,7 @@ public class TextIngestionAgent: ObservableObject {
         """
         
         logger.info("Extracting entities with AI for text (\(text.count) characters)")
-        let response = await gemmaCore.processText(prompt)
+        let response = try await providerFactory.generateResponse(prompt: prompt)
         
         // Parse the response into entities
         let entities = response
@@ -372,7 +372,7 @@ public class TextIngestionAgent: ObservableObject {
     }
     
     private func extractRelationshipsWithAI(from text: String) async throws -> [String] {
-        guard let gemmaCore = gemmaCore else {
+        guard let providerFactory = providerFactory else {
             return []
         }
         
@@ -385,7 +385,7 @@ public class TextIngestionAgent: ObservableObject {
         """
         
         logger.info("Extracting relationships with AI")
-        let response = await gemmaCore.processText(prompt)
+        let response = try await providerFactory.generateResponse(prompt: prompt)
         
         // Parse the response into relationships
         let relationships = response
@@ -459,7 +459,7 @@ public class TextIngestionAgent: ObservableObject {
     
     /// Extract thought summaries using AI (temporary implementation)
     private func extractThoughtSummaries(from text: String) async throws -> [ThoughtSummary] {
-        guard let gemmaCore = gemmaCore else {
+        guard let providerFactory = providerFactory else {
             return try await extractFallbackThoughtSummaries(from: text)
         }
         
@@ -479,7 +479,7 @@ public class TextIngestionAgent: ObservableObject {
         """
         
         logger.info("Extracting thought summaries with AI for text (\(text.count) characters)")
-        let response = await gemmaCore.processText(prompt)
+        let response = try await providerFactory.generateResponse(prompt: prompt)
         
         return try await parseThoughtSummariesResponse(response)
     }

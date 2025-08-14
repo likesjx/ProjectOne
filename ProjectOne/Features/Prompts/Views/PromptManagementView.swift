@@ -428,7 +428,7 @@ struct PromptDetailView: View {
     @State private var mlxTestResult = ""
     @State private var foundationsTestResult = ""
     @State private var isTesting = false
-    @EnvironmentObject private var gemmaCore: EnhancedGemma3nCore
+    @EnvironmentObject private var providerFactory: ExternalProviderFactory
     
     var body: some View {
         ScrollView {
@@ -540,7 +540,7 @@ struct PromptDetailView: View {
                                     testTemplateWithMLX()
                                 }
                                 .buttonStyle(.borderedProminent)
-                                .disabled(isTesting || !gemmaCore.isReady)
+                                .disabled(isTesting || (providerFactory.getProvider("mlx") == nil))
                             }
                             
                             if #available(iOS 26.0, macOS 26.0, *) {
@@ -617,21 +617,21 @@ struct PromptDetailView: View {
                 }
                 
                 // MLX Status
-                if !gemmaCore.isReady {
+                if providerFactory.getProvider("mlx") == nil {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("MLX Status")
                             .font(.headline)
                         
-                        if gemmaCore.isLoading {
+                        if false { // MLX loading status not directly available
                             HStack {
                                 ProgressView()
                                     .scaleEffect(0.8)
-                                Text("Loading MLX Gemma3n model...")
+                                Text("Loading MLX provider...")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                        } else if let error = gemmaCore.errorMessage {
-                            Text("MLX Error: \(error)")
+                        } else if false { // Error status not directly available
+                            Text("MLX Error: Unable to check status")
                                 .font(.caption)
                                 .foregroundColor(.red)
                         } else {
@@ -698,7 +698,7 @@ struct PromptDetailView: View {
     }
     
     private func testTemplateWithMLX() {
-        guard gemmaCore.isReady else {
+        guard providerFactory.getProvider("mlx") != nil else {
             mlxTestResult = "MLX is not ready"
             return
         }
@@ -710,11 +710,18 @@ struct PromptDetailView: View {
         foundationsTestResult = "" // Clear other provider result for clarity
         
         Task {
-            let response = await gemmaCore.processText(renderedPrompt)
-            
-            await MainActor.run {
-                isTesting = false
-                mlxTestResult = response
+            do {
+                let response = try await providerFactory.generateResponse(prompt: renderedPrompt)
+                
+                await MainActor.run {
+                    isTesting = false
+                    mlxTestResult = response
+                }
+            } catch {
+                await MainActor.run {
+                    isTesting = false
+                    mlxTestResult = "Error: \(error.localizedDescription)"
+                }
             }
         }
     }

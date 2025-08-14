@@ -26,7 +26,7 @@ public class EmbeddingGenerationService: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "EmbeddingGenerationService")
     private let modelContext: ModelContext
-    private let embeddingProvider: MLXEmbeddingProvider
+    private let embeddingProvider: MLXProvider
     private let currentModelVersion: String
     
     /// Get the current model version for external access
@@ -49,10 +49,10 @@ public class EmbeddingGenerationService: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(modelContext: ModelContext, embeddingProvider: MLXEmbeddingProvider) {
+    public init(modelContext: ModelContext, embeddingProvider: MLXProvider) {
         self.modelContext = modelContext
         self.embeddingProvider = embeddingProvider
-        self.currentModelVersion = embeddingProvider.config.modelName
+        self.currentModelVersion = embeddingProvider.configuration.model
         
         logger.info("EmbeddingGenerationService initialized with model: \(self.currentModelVersion)")
         
@@ -80,9 +80,9 @@ public class EmbeddingGenerationService: ObservableObject {
     
     /// Generate embedding for a single piece of content
     public func generateEmbedding<T>(for item: T) async throws -> [Float] where T: EmbeddingCapable {
-        if !embeddingProvider.isModelLoaded {
+        if !embeddingProvider.isAvailable {
             logger.info("Loading embedding model...")
-            try await embeddingProvider.loadModel()
+            try await embeddingProvider.prepareModel()
         }
         
         let text = item.embeddingText
@@ -91,7 +91,7 @@ public class EmbeddingGenerationService: ObservableObject {
         }
         
         do {
-            let embedding = try await embeddingProvider.generateEmbedding(for: text)
+            let embedding = try await embeddingProvider.generateEmbedding(text: text, modelId: currentModelVersion)
             
             // Validate embedding quality
             let qualityReport = EmbeddingUtils.analyzeEmbeddingQuality(embedding)
@@ -173,9 +173,9 @@ public class EmbeddingGenerationService: ObservableObject {
         
         do {
             // Ensure model is loaded
-            if !embeddingProvider.isModelLoaded {
+            if !embeddingProvider.isAvailable {
                 currentOperation = "Loading embedding model..."
-                try await embeddingProvider.loadModel()
+                try await embeddingProvider.prepareModel()
             }
             
             // Count total items needing embeddings
@@ -217,8 +217,8 @@ public class EmbeddingGenerationService: ObservableObject {
         
         do {
             // Ensure model is loaded
-            if !embeddingProvider.isModelLoaded {
-                try await embeddingProvider.loadModel()
+            if !embeddingProvider.isAvailable {
+                try await embeddingProvider.prepareModel()
             }
             
             // Count items with the specified model version

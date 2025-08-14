@@ -48,7 +48,7 @@ public class AIProviderSettings: ObservableObject {
     
     // MLX Audio Settings
     @Published public var mlxAudioModelPath: String = "~/mlx-models/audio"
-    @Published public var mlxAudioModelName: String = "gemma3n-vlm"
+    @Published public var mlxAudioModelName: String = "whisper-large-v3"
     @Published public var enableDirectAudioProcessing: Bool = true
     @Published public var audioQualityThreshold: Double = 0.7
     @Published public var maxAudioDuration: Double = 60.0
@@ -314,7 +314,7 @@ public class AIProviderSettings: ObservableObject {
         mlxQuantization = userDefaults.object(forKey: "mlxQuantization") as? Bool ?? true
         
         mlxAudioModelPath = userDefaults.string(forKey: "mlxAudioModelPath") ?? "~/mlx-models/audio"
-        mlxAudioModelName = userDefaults.string(forKey: "mlxAudioModelName") ?? "gemma3n-vlm"
+        mlxAudioModelName = userDefaults.string(forKey: "mlxAudioModelName") ?? "whisper-large-v3"
         enableDirectAudioProcessing = userDefaults.object(forKey: "enableDirectAudioProcessing") as? Bool ?? true
         audioQualityThreshold = userDefaults.object(forKey: "audioQualityThreshold") as? Double ?? 0.7
         maxAudioDuration = userDefaults.object(forKey: "maxAudioDuration") as? Double ?? 60.0
@@ -373,7 +373,7 @@ public class AIProviderSettings: ObservableObject {
         mlxQuantization = true
         
         mlxAudioModelPath = "~/mlx-models/audio"
-        mlxAudioModelName = "gemma3n-vlm"
+        mlxAudioModelName = "whisper-large-v3"
         enableDirectAudioProcessing = true
         audioQualityThreshold = 0.7
         maxAudioDuration = 60.0

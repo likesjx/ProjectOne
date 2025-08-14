@@ -24,7 +24,7 @@ public class AudioMemoryAgent: ObservableObject {
     private let modelContext: ModelContext
     private let retrievalEngine: MemoryRetrievalEngine
     private let knowledgeGraphService: KnowledgeGraphService
-    private let mlxAudioProvider: MLXAudioProvider
+    private let mlxProvider: MLXProvider
     private let fallbackMemoryAgent: MemoryAgent
     
     // MARK: - State
@@ -61,13 +61,13 @@ public class AudioMemoryAgent: ObservableObject {
     public init(
         modelContext: ModelContext,
         knowledgeGraphService: KnowledgeGraphService,
-        mlxAudioProvider: MLXAudioProvider,
+        mlxProvider: MLXProvider,
         fallbackMemoryAgent: MemoryAgent,
         configuration: AudioConfiguration = .default
     ) {
         self.modelContext = modelContext
         self.knowledgeGraphService = knowledgeGraphService
-        self.mlxAudioProvider = mlxAudioProvider
+        self.mlxProvider = mlxProvider
         self.fallbackMemoryAgent = fallbackMemoryAgent
         self.retrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
         self.configuration = configuration
@@ -80,9 +80,9 @@ public class AudioMemoryAgent: ObservableObject {
     public func initialize() async throws {
         logger.info("Starting Audio Memory Agent initialization")
         
-        // Initialize MLX Audio provider
+        // Initialize MLX provider
         if configuration.enableDirectAudioProcessing {
-            try await mlxAudioProvider.prepare()
+            try await mlxProvider.prepareModel()
         }
         
         // Initialize fallback memory agent
@@ -95,7 +95,7 @@ public class AudioMemoryAgent: ObservableObject {
     public func shutdown() async {
         logger.info("Shutting down Audio Memory Agent")
         
-        await mlxAudioProvider.cleanup()
+        await mlxProvider.cleanupModel()
         await fallbackMemoryAgent.shutdown()
         
         isInitialized = false
@@ -176,7 +176,7 @@ public class AudioMemoryAgent: ObservableObject {
         var audioContext: AudioUnderstandingResult?
         if let audioData = relatedAudio {
             // Analyze the query audio for additional context
-            audioContext = try await mlxAudioProvider.processAudioWithPrompt(audioData, prompt: query)
+            audioContext = try await mlxProvider.processAudioWithPrompt(audioData, prompt: query)
         }
         
         // Generate response considering audio context
@@ -198,12 +198,12 @@ public class AudioMemoryAgent: ObservableObject {
         let prompt = createAudioAnalysisPrompt(context: context)
         
         // Process with MLX Audio VLM
-        let understandingResult = try await mlxAudioProvider.processAudioWithPrompt(audioData, prompt: prompt)
+        let understandingResult = try await mlxProvider.processAudioWithPrompt(audioData, prompt: prompt)
         
         // Analyze audio characteristics if enabled
         var analysisResult: AudioAnalysisResult?
         if configuration.enableEmotionalAnalysis || configuration.enableSpeakerAnalysis {
-            analysisResult = try await mlxAudioProvider.analyzeAudioContent(audioData)
+            analysisResult = try await mlxProvider.analyzeAudioContent(audioData)
         }
         
         // Extract entities and concepts from the understanding
@@ -236,17 +236,15 @@ public class AudioMemoryAgent: ObservableObject {
         let textResponse = try await fallbackMemoryAgent.processQuery("Process this audio content: \(context)")
         
         // Convert to audio memory result format
+        let audioMetadata = AudioMetadata(
+            duration: estimateAudioDuration(audioData),
+            format: "transcription",
+            qualityScore: 0.8
+        )
         let understandingResult = AudioUnderstandingResult(
             content: textResponse.content,
             confidence: textResponse.confidence,
-            audioMetadata: AudioMetadata(
-                duration: estimateAudioDuration(audioData),
-                sampleRate: 44100,
-                channels: 1,
-                format: "transcription",
-                qualityScore: 0.8
-            ),
-            processingTime: 0.5
+            audioMetadata: audioMetadata
         )
         
         return AudioMemoryResult(
@@ -268,7 +266,7 @@ public class AudioMemoryAgent: ObservableObject {
         let shouldUseDirect = 
             qualityMetrics.qualityScore >= configuration.audioQualityThreshold &&
             qualityMetrics.duration <= configuration.maxAudioDuration &&
-            mlxAudioProvider.isAvailable
+            mlxProvider.isAvailable
         
         logger.info("Audio quality analysis: score=\(qualityMetrics.qualityScore), duration=\(qualityMetrics.duration), use_direct=\(shouldUseDirect)")
         
@@ -300,12 +298,12 @@ public class AudioMemoryAgent: ObservableObject {
         
         // Create STM entry with audio context in tags and metadata
         let audioSTM = STMEntry(
-            content: result.understandingResult.content,
+            content: result.understandingResult.transcription,
             memoryType: .episodic,
             importance: result.confidence,
             sourceNoteId: nil,
             relatedEntities: result.extractedEntities.map { $0.id },
-            emotionalWeight: result.analysisResult?.emotionalTone != nil ? Double(result.analysisResult!.emotionalTone.rawValue.count) / 10.0 : 0.0,
+            emotionalWeight: result.analysisResult?.duration != nil ? min(1.0, result.analysisResult!.duration / 60.0) : 0.0,
             contextTags: generateContextTags(from: result) + ["audio_processed", result.processingMethod.rawValue]
         )
         
@@ -322,8 +320,8 @@ public class AudioMemoryAgent: ObservableObject {
         var tags = ["audio_memory", result.processingMethod.rawValue]
         
         if let analysis = result.analysisResult {
-            tags.append("emotional_\(analysis.emotionalTone.rawValue)")
-            tags.append(contentsOf: analysis.contentCategories)
+            tags.append("duration_\(Int(analysis.duration))")
+            tags.append("format_\(analysis.format)")
         }
         
         tags.append(contentsOf: result.extractedConcepts)
@@ -345,7 +343,7 @@ public class AudioMemoryAgent: ObservableObject {
         // Extract concepts and themes from audio understanding
         
         // Simple keyword extraction from understanding content
-        let words = understanding.content.lowercased()
+        let words = understanding.transcription.lowercased()
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { $0.count > 4 }
             .filter { !["the", "and", "but", "for", "with", "from"].contains($0) }
@@ -389,7 +387,7 @@ public class AudioMemoryAgent: ObservableObject {
         let response: String
         if audioContext != nil {
             // Use audio-aware generation if we have audio context
-            response = try await mlxAudioProvider.processAudioWithPrompt(Data(), prompt: contextualPrompt).content
+            response = try await mlxProvider.processAudioWithPrompt(Data(), prompt: contextualPrompt).transcription
         } else {
             // Fall back to text generation
             response = try await fallbackMemoryAgent.processQuery(contextualPrompt).content
@@ -430,7 +428,7 @@ public class AudioMemoryAgent: ObservableObject {
         }
         
         if let audioCtx = audioContext {
-            prompt += "\nCurrent Audio Context:\n\(audioCtx.content)\n"
+            prompt += "\nCurrent Audio Context:\n\(audioCtx.transcription)\n"
         }
         
         prompt += "\nProvide a comprehensive response considering all audio context and memories."

@@ -21,7 +21,7 @@ public final class KnowledgeGraphService: ObservableObject {
     private var nodePositions: [UUID: CGPoint] = [:]
     private var canvasSize: CGSize = CGSize(width: 400, height: 400)
     private var currentLayout: GraphLayout = .force
-    private var layoutTimer: Timer?
+    private nonisolated(unsafe) var layoutTimer: Timer?
     
     // Force-directed layout parameters
     private let springConstant: Double = 0.01
@@ -39,6 +39,7 @@ public final class KnowledgeGraphService: ObservableObject {
     deinit {
         // Note: Cannot call MainActor methods from deinit
         // layoutTimer should be invalidated manually before deallocation
+        layoutTimer?.invalidate()
     }
     
     // MARK: - Data Loading
@@ -66,6 +67,33 @@ public final class KnowledgeGraphService: ObservableObject {
         } catch {
             print("Failed to load knowledge graph data: \(error)")
         }
+    }
+    
+    func updateWithNewData(entities: [Entity], relationships: [Relationship]) {
+        self.entities = entities
+        self.relationships = relationships
+        
+        // Update filtered collections
+        filteredEntities = entities
+        filteredRelationships = relationships
+        
+        // Preserve existing node positions where possible
+        let existingPositions = nodePositions
+        initializeNodePositions()
+        
+        // Restore positions for entities that still exist
+        for entity in filteredEntities {
+            if let existingPosition = existingPositions[entity.id] {
+                nodePositions[entity.id] = existingPosition
+            }
+        }
+        
+        // If using force layout, restart the animation
+        if currentLayout == .force {
+            updateLayout()
+        }
+        
+        print("🔄 [KnowledgeGraphService] Updated with \(entities.count) entities and \(relationships.count) relationships")
     }
     
     // MARK: - Filtering
@@ -123,6 +151,11 @@ public final class KnowledgeGraphService: ObservableObject {
         updateLayout()
     }
     
+    func stopLayout() {
+        layoutTimer?.invalidate()
+        layoutTimer = nil
+    }
+    
     private func initializeNodePositions() {
         nodePositions.removeAll()
         nodeVelocities.removeAll()
@@ -140,7 +173,7 @@ public final class KnowledgeGraphService: ObservableObject {
     }
     
     private func updateLayout() {
-        layoutTimer?.invalidate()
+        stopLayout() // Clean up any existing timer first
         
         switch currentLayout {
         case .force:
@@ -266,7 +299,7 @@ public final class KnowledgeGraphService: ObservableObject {
         }
         
         if totalEnergy < 0.1 {
-            layoutTimer?.invalidate()
+            stopLayout()
         }
     }
     

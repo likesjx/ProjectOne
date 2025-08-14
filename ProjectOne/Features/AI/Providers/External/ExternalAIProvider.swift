@@ -202,6 +202,8 @@ public enum ExternalAIError: Error, LocalizedError {
     case authenticationFailed
     case quotaExceeded
     case rateLimited(retryAfter: TimeInterval?)
+    case noProvidersAvailable(String)
+    case providerNotFound(String)
     
     public var errorDescription: String? {
         switch self {
@@ -225,6 +227,10 @@ public enum ExternalAIError: Error, LocalizedError {
             } else {
                 return "Rate limited"
             }
+        case .noProvidersAvailable(let message):
+            return "No providers available: \(message)"
+        case .providerNotFound(let message):
+            return "Provider not found: \(message)"
         }
     }
 }

@@ -8,7 +8,7 @@ public class ThoughtExtractionService: ObservableObject {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "ThoughtExtractionService")
     private let modelContext: ModelContext
-    private var gemmaCore: EnhancedGemma3nCore?
+    private var providerFactory: ExternalProviderFactory?
     
     // Configuration
     private let minThoughtLength = 10
@@ -22,9 +22,9 @@ public class ThoughtExtractionService: ObservableObject {
     
     private func setupAIProviders() {
         if #available(iOS 26.0, macOS 26.0, *) {
-            gemmaCore = EnhancedGemma3nCore()
+            providerFactory = ExternalProviderFactory(settings: AIProviderSettings())
             Task {
-                await gemmaCore?.setup()
+                await providerFactory?.configureFromSettings()
             }
         }
     }
@@ -71,7 +71,7 @@ public class ThoughtExtractionService: ObservableObject {
     
     /// AI-powered text segmentation into logical thoughts
     private func aiBasedSegmentation(_ text: String) async -> [TextSegment]? {
-        guard let gemmaCore = gemmaCore else { return nil }
+        guard let providerFactory = providerFactory else { return nil }
         
         let prompt = """
         Analyze the following text and break it down into discrete, meaningful thoughts or ideas. Each thought should be self-contained but preserve important context. 
@@ -89,10 +89,14 @@ public class ThoughtExtractionService: ObservableObject {
         """
         
         logger.debug("Requesting AI-based text segmentation")
-        let response = await gemmaCore.processText(prompt)
-        
-        // Parse JSON response
-        return parseSegmentationResponse(response, originalText: text)
+        do {
+            let response = try await providerFactory.generateResponse(prompt: prompt)
+            // Parse JSON response
+            return parseSegmentationResponse(response, originalText: text)
+        } catch {
+            logger.error("AI segmentation failed: \(error.localizedDescription)")
+            return nil
+        }
     }
     
     /// Parse AI response into text segments
@@ -293,7 +297,7 @@ public class ThoughtExtractionService: ObservableObject {
         thought.importance = await determineImportance(for: thought)
         thought.completeness = await determineCompleteness(for: thought)
         
-        thought.extractionMethod = gemmaCore != nil ? "ai_segmentation" : "rule_based"
+        thought.extractionMethod = providerFactory != nil ? "ai_segmentation" : "rule_based"
         
         return thought
     }
@@ -334,7 +338,7 @@ public class ThoughtExtractionService: ObservableObject {
     
     /// Generate appropriate tags for a thought using AI
     private func generateTagsForThought(_ thought: Thought) async throws -> [String] {
-        guard let gemmaCore = gemmaCore else {
+        guard let providerFactory = providerFactory else {
             return generateFallbackTags(for: thought)
         }
         
@@ -355,23 +359,29 @@ public class ThoughtExtractionService: ObservableObject {
         """
         
         logger.debug("Generating AI tags for thought: \(thought.content.prefix(50))...")
-        let response = await gemmaCore.processText(prompt)
         
-        // Parse tags from response
-        let tags = response
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            .filter { !$0.isEmpty && $0.count > 1 && $0.count < 25 }
-            .prefix(5)
-        
-        if tags.isEmpty {
-            logger.warning("AI generated no valid tags, falling back to rule-based tags")
+        do {
+            let response = try await providerFactory.generateResponse(prompt: prompt)
+            
+            // Parse tags from response
+            let tags = response
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .filter { !$0.isEmpty && $0.count > 1 && $0.count < 25 }
+                .prefix(5)
+            
+            if tags.isEmpty {
+                logger.warning("AI generated no valid tags, falling back to rule-based tags")
+                return generateFallbackTags(for: thought)
+            }
+            
+            logger.debug("Generated \(tags.count) AI tags: \(Array(tags).joined(separator: ", "))")
+            return Array(tags)
+        } catch {
+            logger.error("AI tag generation failed: \(error.localizedDescription)")
             return generateFallbackTags(for: thought)
         }
-        
-        logger.debug("Generated \(tags.count) AI tags: \(Array(tags).joined(separator: ", "))")
-        return Array(tags)
     }
     
     /// Generate tags using rule-based approach as fallback
@@ -420,7 +430,7 @@ public class ThoughtExtractionService: ObservableObject {
         guard !tags.isEmpty else { return nil }
         
         // Use AI to select the most relevant tag
-        if let gemmaCore = gemmaCore {
+        if let providerFactory = providerFactory {
             let prompt = """
             From these tags: \(tags.joined(separator: ", "))
             
@@ -430,11 +440,15 @@ public class ThoughtExtractionService: ObservableObject {
             Return only the tag name:
             """
             
-            let response = await gemmaCore.processText(prompt)
-            let selectedTag = response.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            
-            if tags.contains(selectedTag) {
-                return selectedTag
+            do {
+                let response = try await providerFactory.generateResponse(prompt: prompt)
+                let selectedTag = response.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                
+                if tags.contains(selectedTag) {
+                    return selectedTag
+                }
+            } catch {
+                logger.error("Primary tag selection failed: \(error.localizedDescription)")
             }
         }
         

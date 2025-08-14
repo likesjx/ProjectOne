@@ -2,14 +2,15 @@
 //  iOS26TestView.swift
 //  ProjectOne
 //
-//  Direct test for iOS 26.0+ with real MLX and Foundation Models
+//  Direct test for iOS 26.0+ with ExternalProviderFactory
 //
 
 import SwiftUI
+import SwiftData
 
 @available(iOS 26.0, macOS 26.0, *)
 struct iOS26TestView: View {
-    @StateObject private var enhancedCore = EnhancedGemma3nCore()
+    @StateObject private var providerFactory = ExternalProviderFactory(settings: AIProviderSettings())
     @State private var testPrompt = "Explain quantum computing in simple terms"
     @State private var response = ""
     @State private var isProcessing = false
@@ -22,21 +23,23 @@ struct iOS26TestView: View {
                     Text("AI Provider Status")
                         .font(.headline)
                     
-                    let status = enhancedCore.getProviderStatus()
+                    let mlxProvider = providerFactory.getProvider("mlx")
+                    let openAIProvider = providerFactory.getProvider("openai")
+                    let mlxStatus = providerFactory.providerStatus["mlx"] ?? .notConfigured
                     
                     HStack {
-                        Image(systemName: status.mlxLLMAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(status.mlxLLMAvailable ? .green : .red)
-                        Text("MLX Swift: \(status.mlxLLMModel ?? "Not loaded")")
+                        Image(systemName: mlxProvider != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(mlxProvider != nil ? .green : .red)
+                        Text("MLX Provider: \(mlxProvider?.configuration.model ?? "Not loaded")")
                     }
                     
                     HStack {
-                        Image(systemName: status.foundationAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(status.foundationAvailable ? .green : .red)
-                        Text("Foundation Models: \(status.foundationStatus)")
+                        Image(systemName: openAIProvider != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(openAIProvider != nil ? .green : .red)
+                        Text("OpenAI Provider: \(openAIProvider?.configuration.model ?? "Not configured")")
                     }
                     
-                    Text("Active: \(status.activeProvider)")
+                    Text("MLX Status: \(statusDescription(mlxStatus))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -58,20 +61,20 @@ struct iOS26TestView: View {
                 
                 // Action Buttons
                 HStack(spacing: 16) {
-                    Button("Test MLX LLM") {
-                        testWithProvider(.mlxLLM)
+                    Button("Test MLX") {
+                        testWithProvider("mlx")
                     }
-                    .disabled(!enhancedCore.getProviderStatus().mlxLLMAvailable || isProcessing)
+                    .disabled(providerFactory.getProvider("mlx") == nil || isProcessing)
                     
-                    Button("Test Foundation") {
-                        testWithProvider(.foundation)
+                    Button("Test OpenAI") {
+                        testWithProvider("openai")
                     }
-                    .disabled(!enhancedCore.getProviderStatus().foundationAvailable || isProcessing)
+                    .disabled(providerFactory.getProvider("openai") == nil || isProcessing)
                     
-                    Button("Test Auto") {
-                        testWithProvider(.automatic)
+                    Button("Test Best Available") {
+                        testWithBestProvider()
                     }
-                    .disabled(!enhancedCore.isReady || isProcessing)
+                    .disabled(providerFactory.getAllActiveProviders().isEmpty || isProcessing)
                 }
                 .padding()
                 
@@ -98,7 +101,7 @@ struct iOS26TestView: View {
             .navigationTitle("iOS 26.0+ AI Test")
         }
         .task {
-            await enhancedCore.setup()
+            await providerFactory.configureFromSettings()
         }
         .overlay {
             if isProcessing {
@@ -110,17 +113,78 @@ struct iOS26TestView: View {
         }
     }
     
-    private func testWithProvider(_ provider: EnhancedGemma3nCore.AIProviderType) {
+    private func testWithProvider(_ providerId: String) {
         Task {
-            isProcessing = true
-            response = ""
+            await MainActor.run {
+                isProcessing = true
+                response = ""
+            }
             
-            let result = await enhancedCore.processText(testPrompt, forceProvider: provider)
+            do {
+                if let provider = await providerFactory.getProvider(providerId) {
+                    let result = try await provider.generateModelResponse(testPrompt)
+                    await MainActor.run {
+                        response = result
+                    }
+                } else {
+                    await MainActor.run {
+                        response = "Provider '\(providerId)' not available"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    response = "Error: \(error.localizedDescription)"
+                }
+            }
             
             await MainActor.run {
-                response = result
                 isProcessing = false
             }
+        }
+    }
+    
+    private func testWithBestProvider() {
+        Task {
+            await MainActor.run {
+                isProcessing = true
+                response = ""
+            }
+            
+            do {
+                if let provider = await providerFactory.getBestProviderFor(.quality) {
+                    let result = try await provider.generateModelResponse(testPrompt)
+                    await MainActor.run {
+                        response = result
+                    }
+                } else {
+                    await MainActor.run {
+                        response = "No providers available"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    response = "Error: \(error.localizedDescription)"
+                }
+            }
+            
+            await MainActor.run {
+                isProcessing = false
+            }
+        }
+    }
+    
+    private func statusDescription(_ status: ExternalProviderFactory.ProviderStatus) -> String {
+        switch status {
+        case .notConfigured:
+            return "Not configured"
+        case .configuring:
+            return "Configuring..."
+        case .ready:
+            return "Ready"
+        case .error(let message):
+            return "Error: \(message)"
+        case .unavailable(let message):
+            return "Unavailable: \(message)"
         }
     }
 }

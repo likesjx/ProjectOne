@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftData
 import Combine
 import os.log
 
@@ -350,7 +351,13 @@ public class ExternalProviderFactory: ObservableObject, @unchecked Sendable {
             enableQuantization: config.quantization
         )
         
-        return MLXProvider(configuration: providerConfig, mlxConfig: mlxConfig)
+        // Create temporary SwiftData ModelContext for MLX provider
+        let schema = Schema([])
+        let modelConfiguration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let swiftDataContainer = try! SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
+        let modelContext = ModelContext(swiftDataContainer)
+        
+        return MLXProvider(configuration: providerConfig, mlxConfig: mlxConfig, modelContext: modelContext)
     }
     
     private func createAnthropicProvider(_ config: AnthropicConfig) -> ExternalAIProvider {
@@ -485,6 +492,31 @@ public class ExternalProviderFactory: ObservableObject, @unchecked Sendable {
         settings.resetToDefaults()
         
         logger.info("All providers cleaned up")
+    }
+    
+    // MARK: - Generation Methods
+    
+    /// Generate response using the best available provider
+    @MainActor
+    public func generateResponse(prompt: String) async throws -> String {
+        // Get the best available provider for general use
+        guard let provider = getBestProviderFor(.quality) else {
+            throw ExternalAIError.noProvidersAvailable("No providers available for generation")
+        }
+        
+        logger.info("Generating response using provider: \(provider.configuration.model)")
+        return try await provider.generateModelResponse(prompt)
+    }
+    
+    /// Generate response using a specific provider
+    @MainActor
+    public func generateResponse(prompt: String, providerId: String) async throws -> String {
+        guard let provider = getProvider(providerId) else {
+            throw ExternalAIError.providerNotFound("Provider \(providerId) not found or not configured")
+        }
+        
+        logger.info("Generating response using specific provider: \(providerId)")
+        return try await provider.generateModelResponse(prompt)
     }
 }
 

@@ -6,21 +6,42 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct AIProviderTestView: View {
-    @StateObject private var mlxProvider = WorkingMLXProvider()
+    @StateObject private var mlxProvider: MLXProvider
     @StateObject private var appleProvider: AppleFoundationModelsProvider
     
     @State private var testPrompt = "Hello! Can you tell me about the capabilities of this AI model?"
     @State private var mlxResponse = ""
-    @State private var selectedModel: WorkingMLXProvider.MLXModel = .gemma2_2B
+    @State private var selectedModel: String = "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
     @State private var showingError = false
     @State private var errorMessage = ""
     
     init() {
         // Initialize the StateObject properly in the init method to avoid lifecycle issues
-        let provider = AppleFoundationModelsProvider()
-        _appleProvider = StateObject(wrappedValue: provider)
+        let appleProvider = AppleFoundationModelsProvider()
+        _appleProvider = StateObject(wrappedValue: appleProvider)
+        
+        // Initialize MLXProvider with default configuration
+        let config = ExternalAIProvider.Configuration(
+            apiKey: nil,
+            baseURL: "local://mlx",
+            model: "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
+            maxTokens: 2048,
+            temperature: 0.7
+        )
+        let mlxConfig = MLXProvider.MLXConfiguration(
+            modelPath: "",
+            maxSequenceLength: 2048
+        )
+        // Note: This would need a ModelContext - for testing, create a temporary one
+        let schema = Schema([])
+        let modelConfiguration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let swiftDataContainer = try! SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
+        let modelContext = ModelContext(swiftDataContainer)
+        let provider = MLXProvider(configuration: config, mlxConfig: mlxConfig, modelContext: modelContext)
+        _mlxProvider = StateObject(wrappedValue: provider)
     }
     
     var body: some View {
@@ -51,10 +72,10 @@ struct AIProviderTestView: View {
     private var mlxProviderSection: some View {
         Section(header: Text("MLX Swift Provider")) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Status: \(mlxProvider.isMLXSupported ? "✅ Supported" : "❌ Not Supported")")
-                    .foregroundColor(mlxProvider.isMLXSupported ? .green : .red)
+                Text("Status: \(MLXProvider.isMLXSupported ? "✅ Supported" : "❌ Not Supported")")
+                    .foregroundColor(MLXProvider.isMLXSupported ? .green : .red)
                 
-                if mlxProvider.isMLXSupported {
+                if MLXProvider.isMLXSupported {
                     mlxModelPicker
                     mlxLoadingStatus
                     mlxActionButtons
@@ -65,27 +86,24 @@ struct AIProviderTestView: View {
     
     private var mlxModelPicker: some View {
         Picker("Model", selection: $selectedModel) {
-            ForEach(WorkingMLXProvider.MLXModel.allCases, id: \.self) { (model: WorkingMLXProvider.MLXModel) in
+            ForEach(MLXModelRepository.popularModels, id: \.repo) { model in
                 VStack(alignment: .leading) {
-                    Text(model.displayName)
-                    Text(model.rawValue).font(.caption).foregroundColor(.secondary)
+                    Text(model.name)
+                    Text(model.repo).font(.caption).foregroundColor(.secondary)
                 }
-                .tag(model)
+                .tag(model.repo)
             }
         }
     }
     
     @ViewBuilder
     private var mlxLoadingStatus: some View {
-        if mlxProvider.isLoading {
-            VStack {
-                ProgressView(value: mlxProvider.loadingProgress)
-                Text("Loading model... \(Int(mlxProvider.loadingProgress * 100))%")
-                    .font(.caption)
-            }
-        } else if mlxProvider.isReady {
-            Text("✅ Model ready: \(selectedModel.displayName)")
+        if mlxProvider.isAvailable {
+            Text("✅ Model ready: \(selectedModel)")
                 .foregroundColor(.green)
+        } else {
+            Text("❌ Model not loaded")
+                .foregroundColor(.orange)
         }
     }
     
@@ -96,9 +114,9 @@ struct AIProviderTestView: View {
                     await loadMLXModel()
                 }
             }
-            .disabled(mlxProvider.isLoading)
+            .disabled(!MLXProvider.isMLXSupported)
             
-            if mlxProvider.isReady {
+            if mlxProvider.isAvailable {
                 Button("Unload") {
                     Task {
                         await mlxProvider.cleanup()
@@ -164,7 +182,7 @@ struct AIProviderTestView: View {
                 
                 Text("**Current Status:**")
                     .font(.subheadline)
-                Text("MLX Ready: \(mlxProvider.isReady ? "✅" : "❌")")
+                Text("MLX Ready: \(mlxProvider.isAvailable ? "✅" : "❌")")
                 Text("Apple Available: \(appleProvider.isAvailable ? "✅" : "❌")")
             }
             .font(.caption)
@@ -174,13 +192,13 @@ struct AIProviderTestView: View {
     
     @ViewBuilder
     private var testInterfaceSection: some View {
-        if mlxProvider.isReady || appleProvider.isAvailable {
+        if mlxProvider.isAvailable || appleProvider.isAvailable {
             Section(header: Text("AI Inference Testing")) {
                 TextEditor(text: $testPrompt)
                     .frame(minHeight: 60)
                 
                 HStack {
-                    if mlxProvider.isReady {
+                    if mlxProvider.isAvailable {
                         Button("Test MLX") {
                             Task {
                                 await generateMLXResponse()
@@ -215,9 +233,9 @@ struct AIProviderTestView: View {
     
     @ViewBuilder
     private var errorSection: some View {
-        if let errorMsg = mlxProvider.errorMessage {
+        if showingError && !errorMessage.isEmpty {
             Section(header: Text("Errors")) {
-                Text(errorMsg)
+                Text(errorMessage)
                     .foregroundColor(.red)
                     .font(.caption)
             }
@@ -234,7 +252,7 @@ struct AIProviderTestView: View {
     
     private func loadMLXModel() async {
         do {
-            try await mlxProvider.loadModel(selectedModel.rawValue)
+            try await mlxProvider.prepareModel()
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription

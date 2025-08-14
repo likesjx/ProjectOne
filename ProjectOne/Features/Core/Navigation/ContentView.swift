@@ -103,13 +103,37 @@ struct MainTabView: View {
                 .tag(5)
                 
             NavigationStack {
-                SettingsView(gemmaCore: EnhancedGemma3nCore())
+                // Temporary placeholder view until LLMManagementView build issues are resolved
+                VStack(spacing: 20) {
+                    Image(systemName: "cpu")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    
+                    Text("AI Models Management")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text("Model management interface is being set up.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle("AI Models")
+            }
+            .tabItem {
+                Label("AI Models", systemImage: "cpu")
+            }
+            .tag(6)
+                
+            NavigationStack {
+                SettingsView()
                     .navigationTitle("Settings")
             }
             .tabItem {
                 Label("Settings", systemImage: "gear")
             }
-            .tag(6)
+            .tag(7)
         }
     }
 }
@@ -144,8 +168,8 @@ struct LiquidGlassBackgroundExtension: View {
         case 3: return .purple
         case 4: return .cyan
         case 5: return .green
-        case 6: return .mint
-        case 7: return .orange
+        case 6: return .orange  // AI Models tab
+        case 7: return .mint    // Settings tab
         case 8: return .gray
         default: return .indigo
         }

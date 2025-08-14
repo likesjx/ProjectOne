@@ -8,6 +8,11 @@ import AppKit
 struct KnowledgeGraphView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var graphService: KnowledgeGraphService
+    
+    // Real-time data monitoring with @Query
+    @Query(sort: \Entity.importance, order: .reverse) private var allEntities: [Entity]
+    @Query(sort: \Relationship.importance, order: .reverse) private var allRelationships: [Relationship]
+    
     @State private var selectedEntity: Entity?
     @State private var selectedRelationship: Relationship?
     @State private var searchText = ""
@@ -16,9 +21,12 @@ struct KnowledgeGraphView: View {
     @State private var selectedEntityTypes: Set<EntityType> = Set(EntityType.allCases)
     @State private var selectedRelationshipCategories: Set<RelationshipCategory> = Set(RelationshipCategory.allCases)
     @State private var showingFilters = false
+    @State private var showingCreateEntity = false
+    @State private var showingCreateRelationship = false
     @State private var graphLayout: GraphLayout = .force
     @State private var zoomScale: CGFloat = 1.0
     @State private var viewOffset: CGSize = .zero
+    @State private var lastDataUpdate = Date()
     
     init(modelContext: ModelContext) {
         self._graphService = StateObject(wrappedValue: KnowledgeGraphService(modelContext: modelContext))
@@ -40,6 +48,22 @@ struct KnowledgeGraphView: View {
             }
             .onChange(of: graphLayout) { _, _ in
                 graphService.setLayout(graphLayout)
+            }
+            .onChange(of: allEntities) { _, _ in
+                Task {
+                    await refreshGraphData()
+                }
+            }
+            .onChange(of: allRelationships) { _, _ in
+                Task {
+                    await refreshGraphData()
+                }
+            }
+            .onAppear {
+                setupDataObservation()
+            }
+            .onDisappear {
+                cleanupTimers()
             }
     }
     
@@ -68,6 +92,12 @@ struct KnowledgeGraphView: View {
                 }
                 .sheet(isPresented: $showingRelationshipDetails) {
                     relationshipDetailsSheet
+                }
+                .sheet(isPresented: $showingCreateEntity) {
+                    CreateEntityView(modelContext: modelContext)
+                }
+                .sheet(isPresented: $showingCreateRelationship) {
+                    CreateRelationshipView(modelContext: modelContext, entities: allEntities)
                 }
         }
 #if os(iOS)
@@ -113,6 +143,26 @@ struct KnowledgeGraphView: View {
         Group {
             Button(action: { showingFilters = true }) {
                 Image(systemName: "line.3.horizontal.decrease.circle")
+            }
+            
+            Menu {
+                Button("Add Entity") {
+                    showingCreateEntity = true
+                }
+                
+                Button("Add Relationship") {
+                    showingCreateRelationship = true
+                }
+                
+                Divider()
+                
+                Button("Refresh Data") {
+                    Task {
+                        await refreshGraphData()
+                    }
+                }
+            } label: {
+                Image(systemName: "plus.circle")
             }
             
             layoutMenu
@@ -278,13 +328,19 @@ struct KnowledgeGraphView: View {
             
             // Graph stats
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(graphService.filteredEntities.count) entities")
+                Text("\(graphService.filteredEntities.count)/\(allEntities.count) entities")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Text("\(graphService.filteredRelationships.count) relationships")
+                Text("\(graphService.filteredRelationships.count)/\(allRelationships.count) relationships")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                if lastDataUpdate != Date(timeIntervalSince1970: 0) {
+                    Text("Updated \(lastDataUpdate.formatted(.relative(presentation: .named)))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
             .padding(.trailing)
         }
@@ -480,6 +536,14 @@ struct KnowledgeGraphView: View {
     private func loadGraphData() async {
         await graphService.loadData()
         updateGraph()
+        lastDataUpdate = Date()
+    }
+    
+    private func refreshGraphData() async {
+        // Use the real-time data from @Query with improved synchronization
+        graphService.updateWithNewData(entities: allEntities, relationships: allRelationships)
+        updateGraph()
+        lastDataUpdate = Date()
     }
     
     private func updateGraph() {
@@ -488,6 +552,17 @@ struct KnowledgeGraphView: View {
             relationshipCategories: selectedRelationshipCategories,
             searchQuery: searchText.isEmpty ? nil : searchText
         )
+    }
+    
+    private func setupDataObservation() {
+        // Additional setup for data observation if needed
+        print("🔍 [KnowledgeGraphView] Setting up data observation")
+    }
+    
+    private func cleanupTimers() {
+        // Clean up any running timers when view disappears
+        graphService.stopLayout()
+        print("🧹 [KnowledgeGraphView] Cleaned up timers")
     }
     
     private func resetView() {
@@ -541,6 +616,198 @@ enum GraphLayout: String, CaseIterable {
 }
 
 // MARK: - Preview
+
+// MARK: - Create Entity View
+
+struct CreateEntityView: View {
+    let modelContext: ModelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var name = ""
+    @State private var type: EntityType = .person
+    @State private var description = ""
+    @State private var tags = ""
+    @State private var isCreating = false
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Basic Information") {
+                    TextField("Entity Name", text: $name)
+                    
+                    Picker("Type", selection: $type) {
+                        ForEach(EntityType.allCases, id: \.self) { entityType in
+                            Label(entityType.rawValue, systemImage: entityType.iconName)
+                                .tag(entityType)
+                        }
+                    }
+                    
+                    TextField("Description", text: $description, axis: .vertical)
+                        .lineLimit(2...4)
+                }
+                
+                Section("Tags") {
+                    TextField("Tags (comma-separated)", text: $tags)
+                }
+            }
+            .navigationTitle("New Entity")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        createEntity()
+                    }
+                    .disabled(name.isEmpty || isCreating)
+                }
+            }
+        }
+    }
+    
+    private func createEntity() {
+        isCreating = true
+        
+        let entity = Entity(name: name, type: type)
+        entity.entityDescription = description.isEmpty ? nil : description
+        entity.tags = tags.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        entity.confidence = 1.0 // User-created entities have high confidence
+        entity.isValidated = true
+        
+        modelContext.insert(entity)
+        
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            print("❌ Failed to create entity: \(error)")
+            isCreating = false
+        }
+    }
+}
+
+// MARK: - Create Relationship View
+
+struct CreateRelationshipView: View {
+    let modelContext: ModelContext
+    let entities: [Entity]
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var selectedSubjectEntity: Entity?
+    @State private var selectedObjectEntity: Entity?
+    @State private var predicateType: PredicateType = .relatedTo
+    @State private var context = ""
+    @State private var strength: Double = 0.5
+    @State private var confidence: Double = 0.8
+    @State private var isCreating = false
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Relationship Structure") {
+                    Picker("Subject Entity", selection: $selectedSubjectEntity) {
+                        Text("Select entity...").tag(nil as Entity?)
+                        ForEach(entities, id: \.id) { entity in
+                            Text(entity.name).tag(entity as Entity?)
+                        }
+                    }
+                    
+                    Picker("Predicate", selection: $predicateType) {
+                        ForEach(PredicateType.allCases, id: \.self) { predicate in
+                            Text(predicate.description).tag(predicate)
+                        }
+                    }
+                    
+                    Picker("Object Entity", selection: $selectedObjectEntity) {
+                        Text("Select entity...").tag(nil as Entity?)
+                        ForEach(entities, id: \.id) { entity in
+                            Text(entity.name).tag(entity as Entity?)
+                        }
+                    }
+                }
+                
+                Section("Relationship Details") {
+                    TextField("Context", text: $context, axis: .vertical)
+                        .lineLimit(2...4)
+                    
+                    VStack(alignment: .leading) {
+                        Text("Strength: \(strength, specifier: "%.1f")")
+                        Slider(value: $strength, in: 0...1)
+                    }
+                    
+                    VStack(alignment: .leading) {
+                        Text("Confidence: \(confidence, specifier: "%.1f")")
+                        Slider(value: $confidence, in: 0...1)
+                    }
+                }
+            }
+            .navigationTitle("New Relationship")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        createRelationship()
+                    }
+                    .disabled(!canCreateRelationship || isCreating)
+                }
+            }
+        }
+    }
+    
+    private var canCreateRelationship: Bool {
+        guard let subject = selectedSubjectEntity,
+              let object = selectedObjectEntity else { return false }
+        return subject.id != object.id
+    }
+    
+    private func createRelationship() {
+        guard let subject = selectedSubjectEntity,
+              let object = selectedObjectEntity else { return }
+        
+        isCreating = true
+        
+        let relationship = Relationship(
+            subjectEntityId: subject.id,
+            predicateType: predicateType,
+            objectEntityId: object.id
+        )
+        
+        relationship.subjectName = subject.name
+        relationship.objectName = object.name
+        relationship.context = context.isEmpty ? nil : context
+        relationship.strength = strength
+        relationship.confidence = confidence
+        relationship.isValidated = true
+        relationship.mentions = 1
+        relationship.importance = (strength + confidence) / 2.0
+        
+        // Update entity relationships
+        subject.addRelationship(relationship.id)
+        object.addRelationship(relationship.id)
+        subject.recordMention()
+        object.recordMention()
+        
+        modelContext.insert(relationship)
+        
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            print("❌ Failed to create relationship: \(error)")
+            isCreating = false
+        }
+    }
+}
 
 #Preview {
     NavigationView {

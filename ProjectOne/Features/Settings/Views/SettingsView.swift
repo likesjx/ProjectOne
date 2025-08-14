@@ -13,8 +13,6 @@ import UIKit
 #endif
 
 struct SettingsView: View {
-    let gemmaCore: EnhancedGemma3nCore
-    
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var systemManager: UnifiedSystemManager
     @Query private var userProfiles: [UserSpeechProfile]
@@ -107,7 +105,7 @@ struct SettingsView: View {
                     .padding(.vertical, 4)
                     
                     NavigationLink("Memory Analytics") {
-                        MemoryAnalyticsView(gemmaCore: gemmaCore)
+                        MemoryAnalyticsView()
                     }
                     
                     NavigationLink("User Speech Profile") {
@@ -195,7 +193,7 @@ struct SettingsView: View {
                     }
                     
                     NavigationLink("System Status") {
-                        SystemStatusView(gemmaCore: gemmaCore, systemManager: systemManager)
+                        SystemStatusView(systemManager: systemManager)
                     }
                     
                     NavigationLink("Startup Dashboard") {
@@ -339,8 +337,6 @@ struct ModelDownloadRow: View {
 }
 
 struct MemoryAnalyticsView: View {
-    let gemmaCore: EnhancedGemma3nCore
-    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -420,7 +416,7 @@ struct ModelPerformanceView: View {
 
 struct DebugConsoleView: View {
     @State private var logs: [String] = [
-        "[INFO] Gemma3nCore initialized",
+        "[INFO] MLXProvider initialized",
         "[DEBUG] Working memory size: 15 items",
         "[INFO] Model inference completed in 234ms",
         "[DEBUG] Entity extraction found 3 entities",
@@ -471,7 +467,6 @@ struct DebugConsoleView: View {
 }
 
 struct SystemStatusView: View {
-    let gemmaCore: EnhancedGemma3nCore
     let systemManager: UnifiedSystemManager
     
     @State private var refreshTimer: Timer?
@@ -495,10 +490,7 @@ struct SystemStatusView: View {
                 StatusRow(title: "System Health", value: systemManager.systemHealth.displayName)
                 StatusRow(title: "Initialization", value: "\(Int(systemManager.initializationProgress * 100))%")
                 StatusRow(title: "Current Operation", value: systemManager.currentOperation.isEmpty ? "Idle" : systemManager.currentOperation)
-                StatusRow(title: "Gemma Core", value: gemmaCore.isAvailable() ? "Ready" : "Not Ready")
-                if let modelInfo = gemmaCore.getActualLoadedModel() {
-                    StatusRow(title: "Loaded Model", value: modelInfo.displayName)
-                }
+                StatusRow(title: "MLX Service", value: systemManager.mlxService != nil ? "Ready" : "Not Ready")
             }
             
             Section("Agent System") {
@@ -805,8 +797,6 @@ struct FeatureRow: View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! SwiftData.ModelContainer(for: UserSpeechProfile.self, configurations: config)
     
-    SettingsView(
-        gemmaCore: EnhancedGemma3nCore()
-    )
+    SettingsView()
     .modelContainer(container)
 }

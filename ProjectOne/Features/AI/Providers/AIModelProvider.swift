@@ -7,26 +7,56 @@
 
 import Foundation
 
-// MARK: - Memory Context (Simplified for compatibility)
+// MARK: - Memory Context (Enhanced with proper model support)
 
-/// Simplified context information for AI model interactions
-/// Note: Advanced memory types removed for iOS compatibility
+/// Enhanced memory context that can store actual model object references
+/// Uses IDs for Sendable compliance with lazy loading capabilities
 public struct MemoryContext: Sendable {
     let timestamp: Date
     let userQuery: String
     let containsPersonalData: Bool
-    let contextData: [String: String] // Generic container for future memory context
+    let contextData: [String: String] // Generic container for string-based context
+    
+    // Model object ID collections for lazy loading
+    let shortTermMemoryIDs: [UUID]
+    let longTermMemoryIDs: [UUID] 
+    let episodicMemoryIDs: [UUID]
+    let entityIDs: [UUID]
+    let relationshipIDs: [UUID]
+    let noteIDs: [UUID]
     
     public init(
         timestamp: Date = Date(),
         userQuery: String,
         containsPersonalData: Bool = false,
-        contextData: [String: String] = [:]
+        contextData: [String: String] = [:],
+        shortTermMemoryIDs: [UUID] = [],
+        longTermMemoryIDs: [UUID] = [],
+        episodicMemoryIDs: [UUID] = [],
+        entityIDs: [UUID] = [],
+        relationshipIDs: [UUID] = [],
+        noteIDs: [UUID] = []
     ) {
         self.timestamp = timestamp
         self.userQuery = userQuery
         self.containsPersonalData = containsPersonalData
         self.contextData = contextData
+        self.shortTermMemoryIDs = shortTermMemoryIDs
+        self.longTermMemoryIDs = longTermMemoryIDs
+        self.episodicMemoryIDs = episodicMemoryIDs
+        self.entityIDs = entityIDs
+        self.relationshipIDs = relationshipIDs
+        self.noteIDs = noteIDs
+    }
+    
+    /// Check if context has any relevant memories
+    public var isEmpty: Bool {
+        return shortTermMemoryIDs.isEmpty && 
+               longTermMemoryIDs.isEmpty && 
+               episodicMemoryIDs.isEmpty && 
+               entityIDs.isEmpty && 
+               relationshipIDs.isEmpty && 
+               noteIDs.isEmpty
     }
     
     // Compatibility properties for BaseAIProvider - simplified for Sendable compatibility

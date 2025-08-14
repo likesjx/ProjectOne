@@ -44,7 +44,7 @@ public class RealTimeMemoryService: ObservableObject {
     
     public init(
         modelContext: ModelContext,
-        embeddingProvider: MLXEmbeddingProvider? = nil,
+        embeddingProvider: MLXProvider? = nil,
         embeddingGenerationService: EmbeddingGenerationService? = nil
     ) {
         self.memoryRetrievalEngine = MemoryRetrievalEngine(
@@ -54,6 +54,10 @@ public class RealTimeMemoryService: ObservableObject {
         )
         self.embeddingGenerationService = embeddingGenerationService
         setupDebouncedSearch()
+        
+        // Set cached ModelContext for MemoryContext extensions
+        MemoryContext.setCachedModelContext(modelContext)
+        
         logger.info("RealTimeMemoryService initialized with semantic search: \(embeddingProvider != nil)")
     }
     
@@ -504,48 +508,116 @@ public struct MemoryDisplayItem: Identifiable {
     }
 }
 
-// MARK: - Memory Context Extension
+// MARK: - Memory Context Extension with ModelContext Access
 
 extension MemoryContext {
-    // Convenience accessors - since contextData is [String: String], we can't store actual model objects
-    // These return empty arrays until the MemoryContext structure is updated to support complex types
+    
+    /// Load actual STMEntry objects from the ModelContext using stored IDs
+    public func loadShortTermMemories(from modelContext: ModelContext) -> [STMEntry] {
+        guard #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) else {
+            return []
+        }
+        
+        return shortTermMemoryIDs.compactMap { id in
+            let predicate = #Predicate<STMEntry> { $0.id == id }
+            var descriptor = FetchDescriptor<STMEntry>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            return try? modelContext.fetch(descriptor).first
+        }
+    }
+    
+    /// Load actual LTMEntry objects from the ModelContext using stored IDs
+    public func loadLongTermMemories(from modelContext: ModelContext) -> [LTMEntry] {
+        guard #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) else {
+            return []
+        }
+        
+        return longTermMemoryIDs.compactMap { id in
+            let predicate = #Predicate<LTMEntry> { $0.id == id }
+            var descriptor = FetchDescriptor<LTMEntry>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            return try? modelContext.fetch(descriptor).first
+        }
+    }
+    
+    /// Load actual EpisodicMemoryEntry objects from the ModelContext using stored IDs
+    public func loadEpisodicMemories(from modelContext: ModelContext) -> [EpisodicMemoryEntry] {
+        guard #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) else {
+            return []
+        }
+        
+        return episodicMemoryIDs.compactMap { id in
+            let predicate = #Predicate<EpisodicMemoryEntry> { $0.id == id }
+            var descriptor = FetchDescriptor<EpisodicMemoryEntry>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            return try? modelContext.fetch(descriptor).first
+        }
+    }
+    
+    /// Load actual Entity objects from the ModelContext using stored IDs
+    public func loadEntities(from modelContext: ModelContext) -> [Entity] {
+        return entityIDs.compactMap { id in
+            let predicate = #Predicate<Entity> { $0.id == id }
+            var descriptor = FetchDescriptor<Entity>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            return try? modelContext.fetch(descriptor).first
+        }
+    }
+    
+    /// Load actual Relationship objects from the ModelContext using stored IDs
+    public func loadRelationships(from modelContext: ModelContext) -> [Relationship] {
+        return relationshipIDs.compactMap { id in
+            let predicate = #Predicate<Relationship> { $0.id == id }
+            var descriptor = FetchDescriptor<Relationship>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            return try? modelContext.fetch(descriptor).first
+        }
+    }
+    
+    /// Load actual ProcessedNote objects from the ModelContext using stored IDs
+    public func loadNotes(from modelContext: ModelContext) -> [ProcessedNote] {
+        return noteIDs.compactMap { id in
+            let predicate = #Predicate<ProcessedNote> { $0.id == id }
+            var descriptor = FetchDescriptor<ProcessedNote>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            return try? modelContext.fetch(descriptor).first
+        }
+    }
+    
+    // Legacy property accessors for backward compatibility - now use cached ModelContext
+    private static nonisolated(unsafe) var cachedModelContext: ModelContext?
+    
+    public static func setCachedModelContext(_ modelContext: ModelContext) {
+        cachedModelContext = modelContext
+    }
+    
     public var typedShortTermMemories: [STMEntry] {
-        // TODO: contextData is [String: String] so can't cast to [STMEntry]
-        // This needs architectural fix to store actual model objects
-        return []
+        guard let modelContext = Self.cachedModelContext else { return [] }
+        return loadShortTermMemories(from: modelContext)
     }
     
     public var typedLongTermMemories: [LTMEntry] {
-        // TODO: contextData is [String: String] so can't cast to [LTMEntry]
-        return []
+        guard let modelContext = Self.cachedModelContext else { return [] }
+        return loadLongTermMemories(from: modelContext)
     }
     
     public var typedEpisodicMemories: [EpisodicMemoryEntry] {
-        // TODO: contextData is [String: String] so can't cast to [EpisodicMemoryEntry]
-        return []
+        guard let modelContext = Self.cachedModelContext else { return [] }
+        return loadEpisodicMemories(from: modelContext)
     }
     
     public var typedEntities: [Entity] {
-        // TODO: contextData is [String: String] so can't cast to [Entity]
-        return []
+        guard let modelContext = Self.cachedModelContext else { return [] }
+        return loadEntities(from: modelContext)
     }
     
     public var typedRelationships: [Relationship] {
-        // TODO: contextData is [String: String] so can't cast to [Relationship]
-        return []
+        guard let modelContext = Self.cachedModelContext else { return [] }
+        return loadRelationships(from: modelContext)
     }
     
     public var typedNotes: [ProcessedNote] {
-        // TODO: contextData is [String: String] so can't cast to [ProcessedNote]
-        return []
-    }
-    
-    public var isEmpty: Bool {
-        return typedShortTermMemories.isEmpty && 
-               typedLongTermMemories.isEmpty && 
-               typedEpisodicMemories.isEmpty && 
-               typedEntities.isEmpty && 
-               typedRelationships.isEmpty && 
-               typedNotes.isEmpty
+        guard let modelContext = Self.cachedModelContext else { return [] }
+        return loadNotes(from: modelContext)
     }
 }

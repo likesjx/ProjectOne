@@ -15,7 +15,7 @@ public class MemoryRetrievalEngine: ObservableObject, @unchecked Sendable {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MemoryRetrievalEngine")
     private let modelContext: ModelContext
-    private let embeddingProvider: MLXEmbeddingProvider?
+    private let embeddingProvider: MLXProvider?
     private let embeddingService: EmbeddingGenerationService?
     
     // MARK: - Configuration
@@ -121,7 +121,7 @@ public class MemoryRetrievalEngine: ObservableObject, @unchecked Sendable {
     
     public init(
         modelContext: ModelContext,
-        embeddingProvider: MLXEmbeddingProvider? = nil,
+        embeddingProvider: MLXProvider? = nil,
         embeddingService: EmbeddingGenerationService? = nil
     ) {
         self.modelContext = modelContext
@@ -686,12 +686,18 @@ public class MemoryRetrievalEngine: ObservableObject, @unchecked Sendable {
         
         do {
             // Ensure model is loaded
-            let isLoaded = await MainActor.run { embeddingProvider.isModelLoaded }
+            let isLoaded = await MainActor.run { 
+                if case .ready = embeddingProvider.modelLoadingStatus {
+                    return true
+                } else {
+                    return false
+                }
+            }
             if !isLoaded {
-                try await embeddingProvider.loadModel()
+                try await embeddingProvider.prepareModel()
             }
             
-            let embedding = try await embeddingProvider.generateEmbedding(for: query)
+            let embedding = try await embeddingProvider.generateEmbedding(text: query, modelId: "default")
             logger.debug("Generated query embedding with \(embedding.count) dimensions")
             
             return embedding

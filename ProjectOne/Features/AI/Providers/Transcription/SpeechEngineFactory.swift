@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AVFoundation
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -13,6 +14,14 @@ import UIKit
 import AppKit
 #endif
 import os.log
+// TODO: Re-enable SwiftWhisperKitMLX when MLX version conflicts are resolved
+// import SwiftWhisperKitMLX
+
+actor CancelToken {
+    private var cancelled = false
+    func cancel() { cancelled = true }
+    func isCancelled() -> Bool { cancelled }
+}
 
 // MARK: - Device Capabilities
 
@@ -140,27 +149,84 @@ public enum EngineStatusChange {
 
 /// Configuration for the speech engine factory
 public struct SpeechEngineConfiguration: Sendable {
+    // Core
     let strategy: EngineSelectionStrategy
     let enableFallback: Bool
     let maxMemoryUsage: UInt64?
     let preferredLanguage: String?
     let logLevel: OSLogType
+    // Quality & retry tuning
+    let tuning: SpeechEngineTuning
+    // Circuit breaker / health scoring
+    let failureThreshold: Int          // consecutive failures before opening circuit
+    let circuitOpenSeconds: TimeInterval
+    let healthPenaltyPerFailure: Int   // score penalty per recorded failure
+    let reopenPenalty: Int             // flat penalty when circuit just re-opened
+    // Feature flags (NEW)
+    let enableWhisperKit: Bool
+    let enableMLX: Bool
+    // Real-time behavior
+    let allowMidStreamFallback: Bool
     
     public init(
         strategy: EngineSelectionStrategy = .appleOnly,
         enableFallback: Bool = false,
         maxMemoryUsage: UInt64? = nil,
         preferredLanguage: String? = nil,
-        logLevel: OSLogType = .default
+        logLevel: OSLogType = .default,
+        tuning: SpeechEngineTuning = SpeechEngineTuning(),
+        failureThreshold: Int = 3,
+        circuitOpenSeconds: TimeInterval = 60,
+        healthPenaltyPerFailure: Int = 5,
+    reopenPenalty: Int = 15,
+    enableWhisperKit: Bool = false,
+    enableMLX: Bool = false,
+    allowMidStreamFallback: Bool = true
     ) {
         self.strategy = strategy
         self.enableFallback = enableFallback
         self.maxMemoryUsage = maxMemoryUsage
         self.preferredLanguage = preferredLanguage
         self.logLevel = logLevel
+        self.tuning = tuning
+        self.failureThreshold = max(1, failureThreshold)
+        self.circuitOpenSeconds = max(5, circuitOpenSeconds)
+        self.healthPenaltyPerFailure = max(0, healthPenaltyPerFailure)
+        self.reopenPenalty = max(0, reopenPenalty)
+    self.enableWhisperKit = enableWhisperKit
+    self.enableMLX = enableMLX
+    self.allowMidStreamFallback = allowMidStreamFallback
     }
     
     @MainActor public static let `default` = SpeechEngineConfiguration(strategy: .appleOnly, enableFallback: false)
+}
+
+// MARK: - Tuning
+
+/// Fine-grained tuning parameters for transcription quality & retry behavior
+public struct SpeechEngineTuning: Sendable, Equatable {
+    public let maxRetries: Int                 // primary retries (attempts including first)
+    public let backoffBaseMillis: Int          // linear backoff base (attempt * base)
+    public let minConfidence: Float            // minimum acceptable confidence
+    public let minTextLength: Int              // minimum non-whitespace characters
+    public let minUniqueChars: Int             // diversity threshold for longer strings
+    public let maxDominantCharRatio: Double    // reject if one char dominates beyond ratio
+    
+    public init(
+        maxRetries: Int = 3,
+        backoffBaseMillis: Int = 500,
+        minConfidence: Float = 0.30,
+        minTextLength: Int = 3,
+        minUniqueChars: Int = 3,
+        maxDominantCharRatio: Double = 0.85
+    ) {
+        self.maxRetries = max(0, maxRetries)
+        self.backoffBaseMillis = max(50, backoffBaseMillis)
+        self.minConfidence = max(0, min(minConfidence, 1))
+        self.minTextLength = max(1, minTextLength)
+        self.minUniqueChars = max(1, minUniqueChars)
+        self.maxDominantCharRatio = max(0.0, min(maxDominantCharRatio, 1.0))
+    }
 }
 
 // MARK: - Factory
@@ -178,6 +244,15 @@ public class SpeechEngineFactory {
     private var currentEngine: SpeechTranscriptionProtocol?
     private var fallbackEngine: SpeechTranscriptionProtocol?
     private var lastError: Error?
+    
+    // Engine health tracking (dynamic scoring / circuit breaker)
+    private struct EngineHealth {
+        var failures: Int = 0
+        var lastFailure: Date?
+        var openUntil: Date?            // if in future → circuit open
+        var hasRecovered: Bool = true
+    }
+    private var engineHealth: [TranscriptionMethod: EngineHealth] = [:]
     private var statusChangeHandler: ((EngineStatusChange) -> Void)?
     
     // MARK: - Initialization
@@ -188,6 +263,10 @@ public class SpeechEngineFactory {
         
         logger.info("SpeechEngineFactory initialized with strategy: \(configuration.strategy.description)")
         logger.info("Device capabilities: Memory: \(self.deviceCapabilities.totalMemory / 1024 / 1024)MB, Apple Silicon: \(self.deviceCapabilities.hasAppleSilicon), MLX Support: \(self.deviceCapabilities.supportsMLX)")
+        // Opportunistic background preload of preferred engine(s)
+        Task { [weak self] in
+            await self?.preloadInitialEngines()
+        }
     }
     
     /// Internal designated initializer for sync creation
@@ -245,11 +324,12 @@ public class SpeechEngineFactory {
         logger.info("🎤 [SpeechEngineFactory] Audio duration: \(audio.duration)s, format: \(audio.format)")
         logger.info("🎤 [SpeechEngineFactory] Configuration: language=\(capturedConfiguration.language ?? "default"), onDevice=\(capturedConfiguration.requiresOnDeviceRecognition)")
         
-        var lastError: Error?
-        let maxRetries = 3
+    var lastError: Error?
+    let maxRetries = self.configuration.tuning.maxRetries
+    if maxRetries == 0 { logger.info("Retries disabled (maxRetries=0)") }
         
         // Try primary engine with retries
-        for attempt in 1...maxRetries {
+        for attempt in 1...max(1, maxRetries) {
             do {
                 logger.info("🎤 [SpeechEngineFactory] === ATTEMPT \(attempt)/\(maxRetries) ===")
                 
@@ -273,12 +353,16 @@ public class SpeechEngineFactory {
                         if lastError != nil {
                             notifyStatusChange(.engineRecovered(method: engine.method))
                             lastError = nil
+                            recordEngineSuccess(engine.method)
+                        } else {
+                            recordEngineSuccess(engine.method)
                         }
                         
                         return result
                     } else {
                         logger.warning("🎤 [SpeechEngineFactory] ❌ Low quality result from \(engine.method.displayName), retrying...")
                         lastError = SpeechTranscriptionError.lowQualityResult
+                        recordEngineFailure(engine.method)
                         continue
                     }
                 } catch {
@@ -287,6 +371,7 @@ public class SpeechEngineFactory {
                     if let nsError = error as NSError? {
                         logger.error("🎤 [SpeechEngineFactory] NSError domain: \(nsError.domain), code: \(nsError.code)")
                     }
+                    recordEngineFailure(engine.method)
                     throw error // Re-throw to be caught by outer catch
                 }
                 
@@ -301,7 +386,9 @@ public class SpeechEngineFactory {
                 
                 // Wait before retry
                 if attempt < maxRetries {
-                    try await Task.sleep(nanoseconds: UInt64(attempt * 500_000_000)) // 0.5s, 1s, 1.5s delays
+                    let delayMs = self.configuration.tuning.backoffBaseMillis * attempt
+                    logger.info("Backoff for \(delayMs)ms before next attempt")
+                    try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
                 }
             }
         }
@@ -317,19 +404,18 @@ public class SpeechEngineFactory {
             
             do {
                 let result = try await fallback.transcribe(audio: audio, configuration: capturedConfiguration)
-                
                 if isResultValid(result) {
+                    recordEngineSuccess(fallback.method)
                     logger.info("Fallback transcription successful with \(fallback.method.displayName)")
                     return result
                 } else {
+                    recordEngineFailure(fallback.method)
                     logger.warning("Low quality result from fallback \(fallback.method.displayName)")
                 }
-                
             } catch {
+                recordEngineFailure(fallback.method)
                 logger.error("Fallback transcription also failed: \(error.localizedDescription)")
                 lastError = error
-                
-                // Notify that all engines failed
                 notifyStatusChange(.allEnginesFailed(lastError: error))
             }
         }
@@ -435,47 +521,127 @@ public class SpeechEngineFactory {
     }
     
     private func selectOptimalEngine() async throws -> SpeechTranscriptionProtocol {
-        // Score different engines based on device capabilities
-        var scores: [(engine: () async throws -> SpeechTranscriptionProtocol, score: Int, name: String)] = []
-        
-        // Apple Speech (SpeechAnalyzer) gets highest priority for iOS 26.0+ and macOS 26.0+
-        if #available(iOS 26.0, macOS 26.0, *) {
-            scores.append((createSpeechAnalyzerEngine, 100, "Apple SpeechAnalyzer"))
-            logger.info("SpeechAnalyzer available on iOS/macOS 26.0+ - only option")
-        } else {
-            // Fall back to traditional Apple Speech for older versions
-            scores.append((createAppleEngine, 90, "Apple Speech"))
-            logger.info("Apple Speech - only option for older OS versions")
-        }
-        
-        // WhisperKit DISABLED due to MLMultiArray buffer overflow crashes
-        logger.warning("WhisperKit disabled due to MLMultiArray buffer overflow issues - using Apple Speech only")
-        
-        
-        // Sort by score and try engines in order
-        scores.sort { $0.score > $1.score }
-        
-        logger.info("Engine selection order (by score):")
-        for (_, score, name) in scores {
-            logger.info("  - \(name): \(score)")
-        }
-        
-        for (engineFactory, score, name) in scores {
+        let candidates = rankCandidateEngines()
+        logger.info("Dynamic engine scoring:")
+        for c in candidates { logger.info("  • \(c.name) score=\(c.effectiveScore) base=\(c.baseScore) penalty=\(c.baseScore - c.effectiveScore)") }
+        for candidate in candidates {
+            guard candidate.effectiveScore > 0 else { continue }
+            if candidate.skipReason != nil { continue }
             do {
-                logger.info("Attempting to create \(name) (score: \(score))")
-                let engine = try await engineFactory()
-                if engine.isAvailable {
-                    logger.info("✅ Selected \(name) with score \(score)")
-                    return engine
-                } else {
-                    logger.warning("⚠️ \(name) created but not available")
-                }
+                logger.info("Attempting \(candidate.name)")
+                let engine = try await candidate.builder()
+                if engine.isAvailable { logger.info("✅ Using \(candidate.name)"); return engine } else { logger.warning("⚠️ \(candidate.name) built but not available"); if let m = candidate.methodHint { recordEngineFailure(m) } }
             } catch {
-                logger.warning("❌ Failed to create \(name): \(error.localizedDescription)")
+                logger.warning("❌ Failed creating \(candidate.name): \(error.localizedDescription)")
+                if let method = candidate.methodHint { recordEngineFailure(method) }
             }
         }
-        
         throw SpeechTranscriptionError.modelUnavailable
+    }
+
+    // Candidate representation for dynamic scoring
+    private struct EngineCandidate {
+        let name: String
+        let methodHint: TranscriptionMethod?
+        let baseScore: Int
+        let effectiveScore: Int
+        let builder: () async throws -> SpeechTranscriptionProtocol
+        let skipReason: String?
+    }
+
+    private func rankCandidateEngines() -> [EngineCandidate] {
+        var list: [EngineCandidate] = []
+        // Build base candidates
+        if #available(iOS 26.0, macOS 26.0, *) {
+            list.append(makeCandidate(name: "SpeechAnalyzer", method: .speechAnalyzer, base: baseScore(for: .speechAnalyzer), builder: { try await self.createSpeechAnalyzerEngine() }))
+        } else {
+            list.append(makeCandidate(name: "Apple Speech", method: .appleSpeech, base: baseScore(for: .appleSpeech), builder: { try await self.createAppleEngine() }))
+        }
+        // MLX (on-device Whisper style) engine option
+        if configuration.enableMLX && deviceCapabilities.supportsMLX {
+            list.append(makeCandidate(name: "MLX Whisper", method: .mlx, base: baseScore(for: .mlx), builder: { try await self.createMLXEngine() }))
+        }
+        // WhisperKit engine option (guarded by flag)
+        if configuration.enableWhisperKit {
+            list.append(makeCandidate(name: "WhisperKit", method: .whisperKit, base: baseScore(for: .whisperKit), builder: { try await self.createWhisperKitEngine() }))
+        }
+        // Strategy filtering (whisperKit disabled currently)
+        switch configuration.strategy {
+        case .appleOnly:
+            list = list.filter { $0.methodHint == .appleSpeech || $0.methodHint == .speechAnalyzer }
+        case .whisperKitOnly:
+            list = list.filter { $0.methodHint == .whisperKit }
+        case .preferApple, .preferWhisperKit, .automatic:
+            break
+        }
+        // Apply health penalties & circuit state
+        let now = Date()
+        var scored: [EngineCandidate] = []
+        for c in list {
+            guard let method = c.methodHint else { scored.append(c); continue }
+            let health = engineHealth[method]
+            var skipReason: String?
+            var effective = c.baseScore
+            if let h = health {
+                if let openUntil = h.openUntil, openUntil > now { skipReason = "circuit open until \(openUntil)"; effective = 0 }
+                else {
+                    if let openUntil = h.openUntil, openUntil <= now, h.failures >= configuration.failureThreshold { effective -= configuration.reopenPenalty }
+                    effective -= (h.failures * configuration.healthPenaltyPerFailure)
+                }
+            }
+            effective = max(0, effective)
+            scored.append(EngineCandidate(name: c.name, methodHint: c.methodHint, baseScore: c.baseScore, effectiveScore: effective, builder: c.builder, skipReason: skipReason))
+        }
+        return scored.sorted { $0.effectiveScore > $1.effectiveScore }
+    }
+
+    private func makeCandidate(name: String, method: TranscriptionMethod, base: Int, builder: @escaping () async throws -> SpeechTranscriptionProtocol) -> EngineCandidate {
+        EngineCandidate(name: name, methodHint: method, baseScore: base, effectiveScore: base, builder: builder, skipReason: nil)
+    }
+
+    private func baseScore(for method: TranscriptionMethod) -> Int {
+        var score: Int
+        switch method {
+        case .speechAnalyzer: score = 100
+        case .appleSpeech: score = 80
+    case .whisperKit: score = 70 // raise relative when enabled
+    case .mlx: score = 65
+        case .hybrid: score = 50
+        }
+        // Device bonuses
+        let memGB = Double(deviceCapabilities.totalMemory) / 1024.0 / 1024.0 / 1024.0
+        if memGB >= 8 { score += 10 } else if memGB >= 6 { score += 5 }
+        if deviceCapabilities.hasAppleSilicon { score += 5 }
+        // Strategy bias
+        switch configuration.strategy {
+        case .preferApple, .appleOnly: if method == .appleSpeech || method == .speechAnalyzer { score += 10 }
+    case .preferWhisperKit: if method == .whisperKit { score += 20 }
+        case .automatic, .whisperKitOnly: break
+        }
+        return score
+    }
+
+    // MARK: - Health Recording
+    private func recordEngineFailure(_ method: TranscriptionMethod) {
+        var h = engineHealth[method] ?? EngineHealth()
+        h.failures += 1
+        h.lastFailure = Date()
+        h.hasRecovered = false
+        if h.failures >= configuration.failureThreshold { h.openUntil = Date().addingTimeInterval(configuration.circuitOpenSeconds); logger.warning("🚫 Circuit opened for \(method.displayName) until \(h.openUntil!) (failures=\(h.failures))") }
+        engineHealth[method] = h
+    }
+    private func recordEngineSuccess(_ method: TranscriptionMethod) {
+        var h = engineHealth[method] ?? EngineHealth()
+        if h.failures > 0 { logger.info("✅ Engine \(method.displayName) recovered (previous failures=\(h.failures))") }
+        h.failures = 0
+        h.openUntil = nil
+        h.hasRecovered = true
+        engineHealth[method] = h
+    }
+    public func getHealthDiagnostics() -> [String: Any] {
+        var dict: [String: Any] = [:]
+        for (method, h) in engineHealth { dict[method.displayName] = ["failures": h.failures, "lastFailure": h.lastFailure?.timeIntervalSince1970 as Any, "openUntil": h.openUntil?.timeIntervalSince1970 as Any, "hasRecovered": h.hasRecovered] }
+        return dict
     }
     
     private func selectPreferredEngine(preference: TranscriptionMethod) async throws -> SpeechTranscriptionProtocol {
@@ -545,7 +711,7 @@ public class SpeechEngineFactory {
         }
         
         // Create and prepare Apple Speech transcriber
-        let transcriber = try AppleSpeechTranscriber(locale: locale)
+        let transcriber = AppleSpeechTranscriber()
         try await transcriber.prepare()
         
         logger.info("Apple Speech transcriber created successfully")
@@ -557,23 +723,19 @@ public class SpeechEngineFactory {
     
     /// Validate transcription result quality
     private func isResultValid(_ result: SpeechTranscriptionResult) -> Bool {
-        // Check minimum confidence threshold
-        if result.confidence < 0.3 {
-            return false
+        let t = configuration.tuning
+        guard result.confidence >= t.minConfidence else { return false }
+        let trimmed = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= t.minTextLength else { return false }
+        if trimmed.count >= t.minTextLength * 2 {
+            let uniqueCount = Set(trimmed).count
+            if uniqueCount < t.minUniqueChars { return false }
+            let freq = trimmed.reduce(into: [:]) { $0[$1, default: 0] += 1 }
+            if let maxCount = freq.values.max(), trimmed.count > 5 {
+                let ratio = Double(maxCount) / Double(trimmed.count)
+                if ratio > t.maxDominantCharRatio { return false }
+            }
         }
-        
-        // Check for empty or very short results
-        if result.text.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 {
-            return false
-        }
-        
-        // Check for too many repetitive characters (indicates poor quality)
-        let cleanText = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let uniqueCharacters = Set(cleanText)
-        if cleanText.count > 10 && uniqueCharacters.count < 3 {
-            return false
-        }
-        
         return true
     }
     
@@ -652,7 +814,7 @@ public class SpeechEngineFactory {
                     // Fall back to traditional Apple Speech with error handling
                     do {
                         logger.info("🔧 Creating AppleSpeechTranscriber for fallback...")
-                        let fallbackTranscriber = try AppleSpeechTranscriber(locale: standardLocale)
+                        let fallbackTranscriber = AppleSpeechTranscriber()
                         logger.info("✅ AppleSpeechTranscriber created, preparing...")
                         try await fallbackTranscriber.prepare()
                         logger.info("✅ Fallback to Apple Speech Recognition successful")
@@ -661,7 +823,7 @@ public class SpeechEngineFactory {
                         logger.error("❌ Fallback to Apple Speech also failed: \(error.localizedDescription)")
                         // Try one more time with absolute fallback to en-US
                         logger.info("🔄 Last resort: trying absolute fallback to en-US")
-                        let absoluteFallback = try AppleSpeechTranscriber(locale: Locale(identifier: "en-US"))
+                        let absoluteFallback = AppleSpeechTranscriber()
                         try await absoluteFallback.prepare()
                         logger.info("✅ Absolute fallback to en-US successful")
                         return absoluteFallback
@@ -682,7 +844,7 @@ public class SpeechEngineFactory {
                     logger.info("🎤 [SpeechEngineFactory] 🔧 === FALLBACK TO APPLE SPEECH ===")
                     logger.info("🎤 [SpeechEngineFactory] Creating AppleSpeechTranscriber for fallback with locale: \(standardLocale.identifier)")
                     
-                    let fallbackTranscriber = try AppleSpeechTranscriber(locale: standardLocale)
+                    let fallbackTranscriber = AppleSpeechTranscriber()
                     logger.info("🎤 [SpeechEngineFactory] ✅ AppleSpeechTranscriber created, now preparing...")
                     
                     try await fallbackTranscriber.prepare()
@@ -696,7 +858,7 @@ public class SpeechEngineFactory {
                     logger.info("🎤 [SpeechEngineFactory] 🔄 Last resort: trying absolute fallback to en-US")
                     
                     do {
-                        let absoluteFallback = try AppleSpeechTranscriber(locale: Locale(identifier: "en-US"))
+                        let absoluteFallback = AppleSpeechTranscriber()
                         logger.info("🎤 [SpeechEngineFactory] ✅ Absolute fallback transcriber created, preparing...")
                         try await absoluteFallback.prepare()
                         logger.info("🎤 [SpeechEngineFactory] ✅ Absolute fallback to en-US successful")
@@ -716,79 +878,206 @@ public class SpeechEngineFactory {
     }
 }
 
-// MARK: - Singleton Access
+// MARK: - Async Singleton Access
 
-extension SpeechEngineFactory {
+@MainActor
+public enum SpeechEngineFactoryShared {
+    private static var cachedTask: Task<SpeechEngineFactory, Never>?
+    private static var lastConfig: SpeechEngineConfiguration = .default
     
-    /// Shared instance with default configuration (lazy async initialization)
-    @MainActor public static let shared: SpeechEngineFactory = {
-        // Since we can't use async in static let, we'll initialize with default capability values
-        // and update them when first accessed
-        let factory = SpeechEngineFactory.__syncInit()
-        return factory
-    }()
-    
-    /// Internal synchronous initializer for shared instance
-    private static func __syncInit() -> SpeechEngineFactory {
-        let factory = SpeechEngineFactory.__empty()
-        Task {
-            await factory.__asyncInit()
-        }
-        return factory
-    }
-    
-    /// Internal empty initializer
-    private convenience init() {
-        self.init(__empty: DeviceCapabilities(
-            totalMemory: ProcessInfo.processInfo.physicalMemory,
-            availableMemory: ProcessInfo.processInfo.physicalMemory / 2,
-            hasAppleSilicon: false,
-            supportsMLX: false,
-            deviceModel: "Unknown",
-            osVersion: "Unknown"
-        ))
-    }
-    
-    /// Internal convenience initializer for sync creation
-    private convenience init(__empty capabilities: DeviceCapabilities) {
-        self.init(__emptySync: capabilities)
-    }
-    
-    /// Internal factory method for empty init
-    private static func __empty() -> SpeechEngineFactory {
-        return SpeechEngineFactory()
-    }
-    
-    /// Internal async initialization
-    private func __asyncInit() async {
-        self.deviceCapabilities = await DeviceCapabilities.detect()
-        logger.info("SpeechEngineFactory shared instance initialized asynchronously")
-        logger.info("Device capabilities: Memory: \(self.deviceCapabilities.totalMemory / 1024 / 1024)MB, Apple Silicon: \(self.deviceCapabilities.hasAppleSilicon), MLX Support: \(self.deviceCapabilities.supportsMLX)")
-    }
-    
-    /// Configure the shared instance
-    public static func configure(with configuration: SpeechEngineConfiguration) {
-        // Reset shared instance with new configuration
-        shared.reconfigure(with: configuration)
-    }
-    
-    /// Reconfigure this factory instance with new settings
-    public func reconfigure(with newConfiguration: SpeechEngineConfiguration) {
-        Task {
-            logger.info("Reconfiguring SpeechEngineFactory from \(self.configuration.strategy.description) to \(newConfiguration.strategy.description)")
-            
-            // Clean up existing engines
-            await cleanup()
-            
-            // Update configuration
-            self.configuration = newConfiguration
-            
-            // Notify of configuration change
-            if let statusChangeHandler = self.statusChangeHandler {
-                statusChangeHandler(.primaryEngineChanged(from: self.currentEngine?.method, to: nil))
+    public static func instance(configuration: SpeechEngineConfiguration = .default) async -> SpeechEngineFactory {
+        if let task = cachedTask {
+            let factory = await task.value
+            if configChanged(from: lastConfig, to: configuration) {
+                await factory.reconfigure(with: configuration)
+                lastConfig = configuration
             }
-            
-            logger.info("SpeechEngineFactory reconfiguration completed")
+            return factory
         }
+        lastConfig = configuration
+        let task = Task { @MainActor () -> SpeechEngineFactory in
+            return await SpeechEngineFactory(configuration: configuration)
+        }
+        cachedTask = task
+        return await task.value
+    }
+    
+    public static func reconfigure(_ configuration: SpeechEngineConfiguration) async {
+        let factory = await instance() // ensure creation
+        if configChanged(from: lastConfig, to: configuration) {
+            await factory.reconfigure(with: configuration)
+            lastConfig = configuration
+        }
+    }
+    
+    public static func resetForTests() {
+        cachedTask?.cancel()
+        cachedTask = nil
+    }
+    
+    private static func configChanged(from old: SpeechEngineConfiguration, to new: SpeechEngineConfiguration) -> Bool {
+        return old.strategy != new.strategy ||
+        old.enableFallback != new.enableFallback ||
+        old.maxMemoryUsage != new.maxMemoryUsage ||
+        old.preferredLanguage != new.preferredLanguage ||
+        old.logLevel != new.logLevel ||
+        old.tuning != new.tuning ||
+        old.failureThreshold != new.failureThreshold ||
+        old.circuitOpenSeconds != new.circuitOpenSeconds ||
+        old.healthPenaltyPerFailure != new.healthPenaltyPerFailure ||
+        old.reopenPenalty != new.reopenPenalty
     }
 }
+
+// Async reconfiguration
+extension SpeechEngineFactory {
+    public func reconfigure(with newConfiguration: SpeechEngineConfiguration) async {
+        logger.info("Reconfiguring SpeechEngineFactory from \(self.configuration.strategy.description) to \(newConfiguration.strategy.description)")
+        await cleanup()
+        self.configuration = newConfiguration
+        statusChangeHandler?(.primaryEngineChanged(from: self.currentEngine?.method, to: nil))
+        logger.info("SpeechEngineFactory reconfiguration completed")
+    }
+}
+
+// MARK: - Real-Time Unified API
+
+extension SpeechEngineFactory {
+    public struct RealTimeTranscriptionHandle: Sendable {
+        public let results: AsyncStream<SpeechTranscriptionResult>
+        private let cancelToken: CancelToken
+        
+        internal init(results: AsyncStream<SpeechTranscriptionResult>, cancelToken: CancelToken) {
+            self.results = results
+            self.cancelToken = cancelToken
+        }
+        public func cancel() {
+            Task {
+                await cancelToken.cancel()
+            }
+        }
+    }
+    
+    /// Start a unified real-time transcription session. Automatically selects best engine and can optionally fall back mid-stream.
+    public func startRealTimeTranscription(audioStream: AsyncStream<AudioData>, configuration: TranscriptionConfiguration) async throws -> RealTimeTranscriptionHandle {
+        // Acquire (or build) engine
+        let engine = try await getTranscriptionEngine()
+        let allowFallback = configuration.requiresOnDeviceRecognition ? false : self.configuration.allowMidStreamFallback
+        let tuning = self.configuration.tuning
+        let cancelToken = CancelToken()
+        
+        // Wrap underlying stream with quality monitoring & optional fallback
+        let stream = AsyncStream<SpeechTranscriptionResult> { continuation in
+            // Start primary engine stream in a Task
+            let task = Task { [weak self] in
+                guard let self else { continuation.finish(); return }
+                var activeEngine: SpeechTranscriptionProtocol = engine
+                var primaryFailed = false
+                outerLoop: while true {
+                    let partialStream = activeEngine.transcribeRealTime(audioStream: audioStream, configuration: configuration)
+                    for await partial in partialStream {
+                        if await cancelToken.isCancelled() { break outerLoop }
+                        continuation.yield(partial)
+                        // Lightweight validation for partials: only apply high-level spam / repetition filters on longer partials
+                        if partial.text.count > tuning.minTextLength * 4 {
+                            if !self.isResultValid(partial) {
+                                // Treat as quality degradation; attempt engine switch if allowed
+                                if allowFallback, let switched = await self.tryMidStreamFallback(current: activeEngine) {
+                                    activeEngine = switched
+                                    continue outerLoop
+                                }
+                            }
+                        }
+                    }
+                    // If stream ended normally, break
+                    break outerLoop
+                }
+                if primaryFailed && allowFallback == false {
+                    continuation.finish()
+                } else if await cancelToken.isCancelled() {
+                    continuation.finish()
+                } else {
+                    continuation.finish()
+                }
+            }
+            continuation.onTermination = { _ in
+                Task {
+                    await cancelToken.cancel()
+                }
+                task.cancel()
+            }
+        }
+        return RealTimeTranscriptionHandle(results: stream, cancelToken: cancelToken)
+    }
+    
+    private func tryMidStreamFallback(current: SpeechTranscriptionProtocol) async -> SpeechTranscriptionProtocol? {
+        guard configuration.allowMidStreamFallback else { return nil }
+        do {
+            if let fb = try await getFallbackEngine() { return fb }
+            // If no predefined fallback, attempt next candidate manually
+            let ranked = rankCandidateEngines().filter { $0.methodHint != current.method }
+            for cand in ranked {
+                do {
+                    let eng = try await cand.builder()
+                    if eng.isAvailable { return eng }
+                } catch { continue }
+            }
+        } catch { return nil }
+        return nil
+    }
+}
+
+// MARK: - Optional Engine Implementations (Placeholders)
+
+extension SpeechEngineFactory {
+    /// Placeholder MLX engine creation. Replace with concrete implementation when MLX transcription integrated.
+    fileprivate func createMLXEngine() async throws -> SpeechTranscriptionProtocol {
+        guard deviceCapabilities.supportsMLX else { throw SpeechTranscriptionError.modelUnavailable }
+        let locale = Locale(identifier: configuration.preferredLanguage ?? Locale.current.identifier)
+        let adapter = MLXWhisperTranscriberAdapter(locale: locale, loadOptions: WhisperLoadOptions())
+        try await adapter.prepare()
+        return adapter
+    }
+    fileprivate func createWhisperKitEngine() async throws -> SpeechTranscriptionProtocol {
+        #if targetEnvironment(simulator)
+        throw SpeechTranscriptionError.insufficientResources("WhisperKit not supported in simulator")
+        #else
+        let locale = Locale(identifier: configuration.preferredLanguage ?? Locale.current.identifier)
+        let transcriber = try WhisperKitTranscriber(locale: locale, modelSize: .tiny)
+        try await transcriber.prepare()
+        return transcriber
+        #endif
+    }
+}
+
+// MARK: - Preloading
+extension SpeechEngineFactory {
+    private func preloadInitialEngines() async {
+        // Determine a small set of probable engines to warm
+        var attempted: [TranscriptionMethod] = []
+        func warm(_ builder: () async throws -> SpeechTranscriptionProtocol, method: TranscriptionMethod) async {
+            do {
+                let engine = try await builder()
+                attempted.append(method)
+                logger.info("Preloaded engine: \(engine.method.displayName)")
+            } catch {
+                logger.debug("Skip preload \(method.displayName): \(error.localizedDescription)")
+            }
+        }
+        switch configuration.strategy {
+        case .appleOnly, .preferApple, .automatic:
+            if #available(iOS 26.0, macOS 26.0, *) {
+                await warm({ try await self.createSpeechAnalyzerEngine() }, method: .speechAnalyzer)
+            } else {
+                await warm({ try await self.createAppleEngine() }, method: .appleSpeech)
+            }
+        case .preferWhisperKit, .whisperKitOnly:
+            if configuration.enableWhisperKit { await warm({ try await self.createWhisperKitEngine() }, method: .whisperKit) }
+        }
+        if configuration.enableMLX { await warm({ try await self.createMLXEngine() }, method: .mlx) }
+        logger.info("Engine preload attempted: \(attempted.map{ $0.displayName }.joined(separator: ", "))")
+    }
+}
+
+// MARK: - MLXWhisperTranscriberAdapter Stub
+// Note: Real implementation is now in MLXWhisperTranscriberAdapter.swift

@@ -3,7 +3,7 @@ import SwiftData
 
 struct TranscriptionDisplayView: View {
     let audioRecorder: AudioRecorder
-    let gemmaCore: EnhancedGemma3nCore
+    let providerFactory: ExternalProviderFactory
     @Binding var isPresented: Bool
     
     @State private var showingCorrection = false
@@ -145,7 +145,7 @@ struct TranscriptionDisplayView: View {
     
     TranscriptionDisplayView(
         audioRecorder: AudioRecorder(modelContext: modelContainer.mainContext),
-        gemmaCore: EnhancedGemma3nCore(),
+        providerFactory: ExternalProviderFactory(settings: AIProviderSettings()),
         isPresented: $isPresented
     )
 }

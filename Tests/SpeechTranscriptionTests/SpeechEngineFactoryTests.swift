@@ -64,8 +64,8 @@ class MockSpeechTranscriber: SpeechTranscriptionProtocol {
 
 class SpeechEngineFactoryTests: XCTestCase {
     
-    func testDeviceCapabilitiesDetection() {
-        let capabilities = DeviceCapabilities.detect()
+    func testDeviceCapabilitiesDetection() async {
+        let capabilities = await DeviceCapabilities.detect()
         
         // Basic sanity checks
         XCTAssertGreaterThan(capabilities.totalMemory, 0)
@@ -80,60 +80,52 @@ class SpeechEngineFactoryTests: XCTestCase {
         #endif
     }
     
-    func testSpeechEngineConfigurationDefaults() {
+    func testSpeechEngineConfigurationDefaults() async {
         let config = SpeechEngineConfiguration.default
-        
-        XCTAssertEqual(config.strategy, .automatic)
-        XCTAssertTrue(config.enableFallback)
+        XCTAssertEqual(config.strategy, .appleOnly)
+        XCTAssertFalse(config.enableFallback)
         XCTAssertNil(config.maxMemoryUsage)
         XCTAssertNil(config.preferredLanguage)
     }
     
-    func testSpeechEngineConfigurationCustom() {
+    func testSpeechEngineConfigurationCustom() async {
         let config = SpeechEngineConfiguration(
-            strategy: .preferMLX,
-            enableFallback: false,
+            strategy: .preferApple,
+            enableFallback: true,
             maxMemoryUsage: 1024 * 1024 * 1024, // 1GB
             preferredLanguage: "en-US"
         )
-        
-        XCTAssertEqual(config.strategy, .preferMLX)
-        XCTAssertFalse(config.enableFallback)
+        XCTAssertEqual(config.strategy, .preferApple)
+        XCTAssertTrue(config.enableFallback)
         XCTAssertEqual(config.maxMemoryUsage, 1024 * 1024 * 1024)
         XCTAssertEqual(config.preferredLanguage, "en-US")
     }
     
-    func testEngineSelectionStrategyDescriptions() {
+    func testEngineSelectionStrategyDescriptions() async {
         XCTAssertEqual(EngineSelectionStrategy.automatic.description, "Automatic (best available)")
         XCTAssertEqual(EngineSelectionStrategy.preferApple.description, "Prefer Apple Speech")
-        XCTAssertEqual(EngineSelectionStrategy.preferAppleFoundation.description, "Prefer Apple Foundation Models")
-        XCTAssertEqual(EngineSelectionStrategy.preferMLX.description, "Prefer MLX")
+        XCTAssertEqual(EngineSelectionStrategy.preferWhisperKit.description, "Prefer WhisperKit")
         XCTAssertEqual(EngineSelectionStrategy.appleOnly.description, "Apple Speech only")
-        XCTAssertEqual(EngineSelectionStrategy.appleFoundationOnly.description, "Apple Foundation Models only")
-        XCTAssertEqual(EngineSelectionStrategy.mlxOnly.description, "MLX only")
+        XCTAssertEqual(EngineSelectionStrategy.whisperKitOnly.description, "WhisperKit only")
     }
     
-    func testFactoryInitialization() {
+    func testFactoryInitialization() async {
         let config = SpeechEngineConfiguration(strategy: .preferApple)
-        let factory = SpeechEngineFactory(configuration: config)
-        
+        let factory = await SpeechEngineFactory(configuration: config)
         let status = factory.getEngineStatus()
-        XCTAssertNil(status.primary) // No engine selected yet
-        XCTAssertNil(status.fallback) // No fallback set yet
+        XCTAssertNil(status.primary)
+        XCTAssertNil(status.fallback)
         XCTAssertGreaterThan(status.capabilities.totalMemory, 0)
     }
     
-    func testSharedInstance() {
-        let factory1 = SpeechEngineFactory.shared
-        let factory2 = SpeechEngineFactory.shared
-        
-        // Should be the same instance
+    func testAsyncSingletonInstance() async {
+        let factory1 = await SpeechEngineFactoryShared.instance()
+        let factory2 = await SpeechEngineFactoryShared.instance()
         XCTAssertTrue(factory1 === factory2)
     }
     
     func testTranscriptionWithMockEngine() async throws {
-        // Use the test factory with mock implementations
-        let factory = SpeechEngineFactory.createTestFactory()
+        let factory = await SpeechEngineFactory.createTestFactory()
         
         // Create test audio data
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
@@ -234,24 +226,10 @@ class SpeechEngineFactoryTests: XCTestCase {
 // MARK: - Factory Extension for Testing
 
 extension SpeechEngineFactory {
-    
-    /// Test helper to create mock engines for testing without real hardware dependencies
-    static func createTestFactory(configuration: SpeechEngineConfiguration = .default) -> SpeechEngineFactory {
+    static func createTestFactory(configuration: SpeechEngineConfiguration = .default) async -> SpeechEngineFactory {
         class TestSpeechEngineFactory: SpeechEngineFactory {
-            override func createAppleEngine() async throws -> SpeechTranscriptionProtocol {
-                return MockSpeechTranscriber(method: .appleSpeech)
-            }
-            
-            override func createMLXEngine() async throws -> SpeechTranscriptionProtocol {
-                return MockSpeechTranscriber(method: .mlx)
-            }
-            
-            override func createAppleFoundationEngine() async throws -> SpeechTranscriptionProtocol {
-                // Return mock for testing - will only be called if Apple Foundation Models are supported
-                return MockSpeechTranscriber(method: .appleFoundation)
-            }
+            override func createAppleEngine() async throws -> SpeechTranscriptionProtocol { MockSpeechTranscriber(method: .appleSpeech) }
         }
-        
-        return TestSpeechEngineFactory(configuration: configuration)
+        return await TestSpeechEngineFactory(configuration: configuration)
     }
 }

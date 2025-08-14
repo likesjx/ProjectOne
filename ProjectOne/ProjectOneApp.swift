@@ -21,6 +21,7 @@ private func disableHapticsInSimulator() {
 struct ProjectOneApp: App {
     @State private var urlHandler = URLHandler()
     @StateObject private var initCoordinator = InitializationCoordinator()
+    @StateObject private var providerFactory = ExternalProviderFactory(settings: AIProviderSettings())
     
     var sharedModelContainer: SwiftData.ModelContainer = {
         let schema = Schema([
@@ -70,7 +71,7 @@ struct ProjectOneApp: App {
                 ContentView()
                     .environmentObject(urlHandler)
                     .environmentObject(systemManager)
-                    .environmentObject(EnhancedGemma3nCore())
+                    .environmentObject(providerFactory)
                     .onOpenURL { url in
                         Task {
                             await urlHandler.handleURL(url, with: sharedModelContainer.mainContext)

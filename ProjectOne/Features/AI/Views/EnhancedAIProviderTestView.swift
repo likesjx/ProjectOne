@@ -8,6 +8,7 @@
 
 import SwiftUI
 import Combine
+import SwiftData
 
 @available(iOS 26.0, macOS 26.0, *)
 struct EnhancedAIProviderTestView: View {
@@ -15,16 +16,35 @@ struct EnhancedAIProviderTestView: View {
     // MARK: - State Management
     
     @State private var testPrompt = "Hello! Can you tell me about yourself and your capabilities?"
-    @State private var selectedProviders: Set<AIProviderType> = [.workingMLX, .appleFoundation]
+    @State private var selectedProviders: Set<AIProviderType> = [.mlx, .appleFoundation]
     @State private var testResults: [AITestResult] = []
     @State private var isLoading = false
     @State private var loadingProviders: Set<AIProviderType> = []
     // Provider instances
-    @StateObject private var workingMLXProvider = WorkingMLXProvider()
+    @StateObject private var mlxProvider: MLXProvider
     @StateObject private var appleFoundationProvider = AppleFoundationModelsProvider()
     @StateObject private var ollamaProvider = OllamaProvider(model: "llama3:8b")
     @StateObject private var openAIProvider = OpenAIProvider.gpt4o(apiKey: "")
     @StateObject private var openRouterProvider = OpenRouterProvider.claude3Sonnet(apiKey: "")
+    
+    init() {
+        // Initialize MLXProvider with proper configuration
+        let config = ExternalAIProvider.Configuration(
+            apiKey: nil,
+            baseURL: "local://mlx",
+            model: "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+        )
+        let mlxConfig = MLXProvider.MLXConfiguration(
+            modelPath: "",
+            maxSequenceLength: 2048
+        )
+        let schema = Schema([])
+        let modelConfiguration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let swiftDataContainer = try! SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
+        let modelContext = ModelContext(swiftDataContainer)
+        let provider = MLXProvider(configuration: config, mlxConfig: mlxConfig, modelContext: modelContext)
+        _mlxProvider = StateObject(wrappedValue: provider)
+    }
     
     // API Key Manager
     @StateObject private var apiKeyManager = APIKeyManager.shared
@@ -138,7 +158,13 @@ struct EnhancedAIProviderTestView: View {
                             .font(.headline)
                         
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                            StatusCard(name: "Working MLX", isReady: workingMLXProvider.isReady, color: .blue)
+                            StatusCard(name: "MLX Provider", isReady: {
+                                if case .ready = mlxProvider.modelLoadingStatus {
+                                    return true
+                                } else {
+                                    return false
+                                }
+                            }(), color: .blue)
                             StatusCard(name: "Apple Foundation", isReady: appleFoundationProvider.isAvailable, color: .green)
                             StatusCard(name: "Ollama", isReady: isOllamaConfigured, color: .orange)
                             StatusCard(name: "OpenAI", isReady: isOpenAIConfigured, color: .purple)
@@ -215,8 +241,8 @@ struct EnhancedAIProviderTestView: View {
     
     private func isProviderAvailable(_ providerType: AIProviderType) -> Bool {
         switch providerType {
-        case .workingMLX:
-            return workingMLXProvider.isMLXSupported
+        case .mlx:
+            return MLXProvider.isMLXSupported
         case .appleFoundation:
             return appleFoundationProvider.isAvailable
         case .ollama:
@@ -241,9 +267,9 @@ struct EnhancedAIProviderTestView: View {
             // Setup Apple Foundation Models
             try? await appleFoundationProvider.prepareModel()
             
-            // Setup Working MLX Provider if supported
-            if workingMLXProvider.isMLXSupported {
-                try? await workingMLXProvider.loadModel(WorkingMLXProvider.MLXModel.gemma2_2B.rawValue)
+            // Setup MLX Provider if supported
+            if MLXProvider.isMLXSupported {
+                try? await mlxProvider.prepareModel()
             }
         }
     }
@@ -317,9 +343,9 @@ struct EnhancedAIProviderTestView: View {
     
     private func generateResponse(for providerType: AIProviderType, prompt: String) async throws -> String {
         switch providerType {
-        case .workingMLX:
+        case .mlx:
             let context = MemoryContext(userQuery: prompt)
-            let response = try await workingMLXProvider.generateResponse(prompt: prompt, context: context)
+            let response = try await mlxProvider.generateResponse(prompt: prompt, context: context)
             return response.content
             
         case .appleFoundation:
@@ -367,7 +393,7 @@ struct EnhancedAIProviderTestView: View {
 // MARK: - Data Models
 
 enum AIProviderType: String, CaseIterable {
-    case workingMLX = "Working MLX"
+    case mlx = "MLX Provider"
     case appleFoundation = "Apple Foundation Models"
     case ollama = "Ollama"
     case openAI = "OpenAI"
@@ -375,7 +401,7 @@ enum AIProviderType: String, CaseIterable {
     
     var icon: String {
         switch self {
-        case .workingMLX: return "cpu.fill"
+        case .mlx: return "cpu.fill"
         case .appleFoundation: return "apple.logo"
         case .ollama: return "server.rack"
         case .openAI: return "cloud.fill"
@@ -385,7 +411,7 @@ enum AIProviderType: String, CaseIterable {
     
     var color: Color {
         switch self {
-        case .workingMLX: return .blue
+        case .mlx: return .blue
         case .appleFoundation: return .green
         case .ollama: return .orange
         case .openAI: return .purple
@@ -395,7 +421,7 @@ enum AIProviderType: String, CaseIterable {
     
     var description: String {
         switch self {
-        case .workingMLX: return "Local MLX models on Apple Silicon"
+        case .mlx: return "Unified MLX models on Apple Silicon"
         case .appleFoundation: return "Apple's on-device Foundation Models"
         case .ollama: return "Local Ollama server models"
         case .openAI: return "OpenAI GPT models via API"

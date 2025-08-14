@@ -22,16 +22,16 @@ class MLXIntegrationService: ObservableObject {
     
     private var modelCache: [String: Any] = [:]
     private let modelContext: ModelContext
-    private let gemmaCore: EnhancedGemma3nCore?
+    private let providerFactory: ExternalProviderFactory?
     
     // Model configuration
     private let modelConfig = MLXIntegrationConfiguration()
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext, gemmaCore: EnhancedGemma3nCore? = nil) {
+    init(modelContext: ModelContext, providerFactory: ExternalProviderFactory? = nil) {
         self.modelContext = modelContext
-        self.gemmaCore = gemmaCore
+        self.providerFactory = providerFactory
         checkMLXAvailability()
     }
     
@@ -66,9 +66,9 @@ class MLXIntegrationService: ObservableObject {
             print("🧠 Loading MLX Gemma3n model for Memory Agent...")
             
             // The actual MLX model loading is handled by WorkingMLXProvider
-            // This service now coordinates with the Gemma3nCore
-            guard let gemmaCore = self.gemmaCore else {
-                print("⚠️ No Gemma3nCore instance provided, skipping MLX model coordination")
+            // This service now coordinates with the ExternalProviderFactory
+            guard let providerFactory = self.providerFactory else {
+                print("⚠️ No ExternalProviderFactory instance provided, skipping MLX model coordination")
                 loadingProgress = 1.0
                 modelsLoaded = true
                 return
@@ -76,17 +76,17 @@ class MLXIntegrationService: ObservableObject {
             
             loadingProgress = 0.7
             
-            // Wait for Gemma3n to be ready (it initializes asynchronously)
+            // Wait for provider factory to be ready (it initializes asynchronously)
             var attempts = 0
-            while !gemmaCore.isAvailable() && attempts < 30 {
+            while (providerFactory.getProvider("mlx") == nil) && attempts < 30 {
                 try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                 attempts += 1
             }
             
-            if gemmaCore.isAvailable() {
-                print("✅ MLX Gemma3n model ready for Memory Agent")
+            if providerFactory.getProvider("mlx") != nil {
+                print("✅ MLX provider ready for Memory Agent")
             } else {
-                print("⚠️ MLX Gemma3n model not ready, will use fallback")
+                print("⚠️ MLX provider not ready, will use fallback")
             }
             
             loadingProgress = 1.0

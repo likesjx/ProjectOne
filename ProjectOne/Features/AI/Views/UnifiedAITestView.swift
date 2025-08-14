@@ -16,6 +16,7 @@
 //
 
 import SwiftUI
+import SwiftData
 // 🎓 SWIFT LEARNING: Conditional compilation for cross-platform development
 #if os(iOS)
 import UIKit
@@ -63,19 +64,17 @@ struct ProviderTestResult {
 /// • **Switch Statements**: Pattern matching for case-specific behavior
 /// • **Protocol Conformance**: Hashable for Set<TestProviderType> usage
 enum TestProviderType: String, CaseIterable {
-    case mlxLLM = "MLX LLM (Text-Only)"                // 🎓 Raw value for display
-    case mlxVLM = "MLX VLM (Multimodal)"
+    case mlx = "MLX Unified Provider"                   // 🎓 Raw value for display
     case appleFoundationModels = "Apple Foundation Models"
-    case enhancedGemma3nCore = "Enhanced Gemma3n Core"
+    // case enhancedGemma3nCore = "Enhanced Gemma3n Core"  // Removed - functionality in ExternalProviderFactory
     
     // 🎓 SWIFT LEARNING: Computed property using switch statement
     // Each provider type gets a different SF Symbol icon
     var icon: String {
         switch self {
-        case .mlxLLM: return "textformat"           // 🎓 Text-only icon
-        case .mlxVLM: return "photo.on.rectangle"   // 🎓 Multimodal icon
+        case .mlx: return "cpu"                     // 🎓 Unified MLX icon
         case .appleFoundationModels: return "apple.logo"  // 🎓 Apple icon
-        case .enhancedGemma3nCore: return "cpu"     // 🎓 Processing icon
+        // case .enhancedGemma3nCore: return "brain"   // 🎓 Processing icon
         }
     }
     
@@ -83,10 +82,9 @@ enum TestProviderType: String, CaseIterable {
     // Each provider gets a distinctive color in the UI
     var color: Color {
         switch self {
-        case .mlxLLM: return .blue      // 🎓 SwiftUI built-in colors
-        case .mlxVLM: return .purple
+        case .mlx: return .blue                     // 🎓 SwiftUI built-in colors
         case .appleFoundationModels: return .green
-        case .enhancedGemma3nCore: return .orange
+        // case .enhancedGemma3nCore: return .orange
         }
     }
     
@@ -94,9 +92,9 @@ enum TestProviderType: String, CaseIterable {
     // Determines which providers need iOS 26.0+
     var requiresIOS26: Bool {
         switch self {
-        case .appleFoundationModels, .enhancedGemma3nCore: 
+        case .appleFoundationModels: 
             return true   // 🎓 These need iOS 26+ Foundation Models
-        default: 
+        case .mlx: 
             return false  // 🎓 MLX providers work on older iOS
         }
     }
@@ -105,10 +103,10 @@ enum TestProviderType: String, CaseIterable {
     // Determines which providers can handle images
     var supportsImages: Bool {
         switch self {
-        case .mlxVLM, .enhancedGemma3nCore: 
-            return true   // 🎓 Vision-language models support images
-        default: 
-            return false  // 🎓 Text-only models don't support images
+        case .mlx: 
+            return true   // 🎓 Unified MLX supports images
+        case .appleFoundationModels: 
+            return false  // 🎓 Apple Foundation models are text-only for now
         }
     }
 }
@@ -135,7 +133,7 @@ struct UnifiedAITestView: View {
     // 🎓 SWIFT LEARNING: @State creates reactive data binding
     // When these properties change, SwiftUI automatically re-renders affected UI components
     @State private var testPrompt = "Hello, how are you? Please tell me a short joke, Jared."
-    @State private var selectedProviders: Set<TestProviderType> = [.mlxLLM, .appleFoundationModels]
+    @State private var selectedProviders: Set<TestProviderType> = [.mlx, .appleFoundationModels]
     @State private var testResults: [ProviderTestResult] = []       // 🎓 Array of test results
     @State private var isLoading = false                           // 🎓 Overall loading state
     @State private var showComparison = false                      // 🎓 UI mode toggle
@@ -150,11 +148,31 @@ struct UnifiedAITestView: View {
     // • @StateObject: View OWNS the object, creates it once and keeps it alive
     // • @ObservedObject: View OBSERVES object owned by someone else
     // • These create the actual AI provider instances this view will test
-    @StateObject private var mlxLLMProvider = MLXLLMProvider()                      // 🎓 Text-only MLX
-    @StateObject private var mlxVLMProvider = MLXVLMProvider()                      // 🎓 Multimodal MLX  
-    @StateObject private var workingMLXProvider = WorkingMLXProvider()              // 🎓 Working MLX implementation
+    @StateObject private var mlxProvider: MLXProvider                               // 🎓 Unified MLX provider
     @StateObject private var appleFoundationProvider = AppleFoundationModelsProvider() // 🎓 Apple's Foundation Models
-    @StateObject private var enhancedCore = EnhancedGemma3nCore()                  // 🎓 Enhanced Gemma3n orchestrator
+    // @StateObject private var enhancedCore = EnhancedGemma3nCore()  // 🎓 Functionality moved to ExternalProviderFactory
+    
+    init() {
+        // Initialize MLXProvider with proper configuration
+        let config = ExternalAIProvider.Configuration(
+            apiKey: nil,
+            baseURL: "local://mlx",
+            model: "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
+            maxTokens: 2048,
+            temperature: 0.7
+        )
+        let mlxConfig = MLXProvider.MLXConfiguration(
+            modelPath: "",
+            maxSequenceLength: 2048
+        )
+        // Create temporary SwiftData ModelContext for MLX provider
+        let schema = Schema([])
+        let modelConfiguration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let swiftDataContainer = try! SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
+        let modelContext = ModelContext(swiftDataContainer)
+        let provider = MLXProvider(configuration: config, mlxConfig: mlxConfig, modelContext: modelContext)
+        _mlxProvider = StateObject(wrappedValue: provider)
+    }
     
     var body: some View {
         NavigationStack {
@@ -223,7 +241,7 @@ struct UnifiedAITestView: View {
                             .font(.headline)
                         
                         ProviderStatusGrid(
-                            workingMLXProvider: workingMLXProvider,
+                            mlxProvider: mlxProvider,
                             appleFoundationProvider: appleFoundationProvider
                         )
                     }
@@ -305,13 +323,10 @@ struct UnifiedAITestView: View {
     
     private func isProviderAvailable(_ providerType: TestProviderType) -> Bool {
         switch providerType {
-        case .enhancedGemma3nCore:
-            return true // Always try to test the enhanced core
-        case .mlxVLM:
-            return mlxVLMProvider.isSupported
-        case .mlxLLM:
-            // Use working MLX provider for MLX LLM testing
-            return workingMLXProvider.isMLXSupported
+        // case .enhancedGemma3nCore:
+        //     return true // Always try to test the enhanced core
+        case .mlx:
+            return MLXProvider.isMLXSupported
         case .appleFoundationModels:
             return appleFoundationProvider.isAvailable
         }
@@ -337,32 +352,20 @@ struct UnifiedAITestView: View {
                 print("❌ Apple Foundation Models failed: \(error)")
             }
             
-            // Setup Enhanced Gemma3n Core (orchestrates all providers)
-            await enhancedCore.setup()
-            print("✅ Enhanced Gemma3n Core ready: \(enhancedCore.isReady)")
+            // Setup Enhanced Gemma3n Core (orchestrates all providers) - now handled by ExternalProviderFactory
+            // await enhancedCore.setup()
+            // print("✅ Enhanced Gemma3n Core ready: \(enhancedCore.isReady)")
             
-            // Setup Working MLX Provider for direct testing
-            if workingMLXProvider.isMLXSupported {
+            // Setup Unified MLX Provider
+            if MLXProvider.isMLXSupported {
                 do {
-                    let recommendedModel = "mlx-community/Llama-3.2-1B-Instruct-4bit"
-                    print("🔄 Loading MLX model: \(recommendedModel)")
-                    try await workingMLXProvider.loadModel(recommendedModel)
-                    print("✅ Working MLX Provider ready: \(workingMLXProvider.isReady)")
+                    try await mlxProvider.prepareModel()
+                    print("✅ Unified MLX Provider status: \(mlxProvider.modelLoadingStatus)")
                 } catch {
-                    print("❌ Working MLX Provider failed: \(error)")
+                    print("❌ Unified MLX Provider failed: \(error)")
                 }
             } else {
                 print("❌ MLX not supported on this device (simulator or Intel Mac)")
-            }
-            
-            // Setup MLX LLM Provider (legacy)
-            if mlxLLMProvider.isSupported {
-                do {
-                    try await mlxLLMProvider.loadRecommendedModel()
-                    print("✅ MLX LLM Provider ready: \(mlxLLMProvider.isReady)")
-                } catch {
-                    print("❌ MLX LLM Provider failed: \(error)")
-                }
             }
             
             print("🎯 Provider setup complete!")
@@ -458,14 +461,11 @@ struct UnifiedAITestView: View {
     
     private func generateResponse(for providerType: TestProviderType, prompt: String) async throws -> String {
         switch providerType {
-        case .mlxLLM:
-            // Use the working MLX provider since it has the real implementation
+        case .mlx:
+            // Use the unified MLX provider
             let context = MemoryContext(userQuery: prompt)
-            let response = try await workingMLXProvider.generateResponse(prompt: prompt, context: context)
+            let response = try await mlxProvider.generateResponse(prompt: prompt, context: context)
             return response.content
-            
-        case .mlxVLM:
-            return try await mlxVLMProvider.generateResponse(to: prompt)
             
         case .appleFoundationModels:
             // Check availability and provide detailed error if not available
@@ -494,9 +494,9 @@ struct UnifiedAITestView: View {
             // Use the existing provider instance that was already set up
             return try await appleFoundationProvider.generateModelResponse(prompt)
             
-        case .enhancedGemma3nCore:
-            // Use the existing core instance that was already set up
-            return await enhancedCore.processText(prompt)
+        // case .enhancedGemma3nCore:
+        //     // Use the existing core instance that was already set up
+        //     return await enhancedCore.processText(prompt)
         }
     }
     
@@ -526,9 +526,8 @@ struct UnifiedAITestView: View {
         #endif
         
         
-        print("WorkingMLXProvider.isMLXSupported: \(workingMLXProvider.isMLXSupported)")
-        print("MLXLLMProvider.isSupported: \(mlxLLMProvider.isSupported)")
-        print("MLXVLMProvider.isSupported: \(mlxVLMProvider.isSupported)")
+        print("MLXProvider.isMLXSupported: \(MLXProvider.isMLXSupported)")
+        print("MLXProvider.modelLoadingStatus: \(mlxProvider.modelLoadingStatus)")
         print("AppleFoundationProvider.isAvailable: \(appleFoundationProvider.isAvailable)")
         print("====================================")
     }
@@ -591,15 +590,27 @@ struct ProviderSelectionCard: View {
 }
 
 struct ProviderStatusGrid: View {
-    let workingMLXProvider: WorkingMLXProvider
+    let mlxProvider: MLXProvider
     let appleFoundationProvider: AppleFoundationModelsProvider
     
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             ProviderStatusCard(
-                name: "Working MLX",
-                status: workingMLXProvider.isReady ? "Ready" : "Not loaded",
-                isReady: workingMLXProvider.isReady,
+                name: "Unified MLX",
+                status: {
+                    if case .ready = mlxProvider.modelLoadingStatus {
+                        return "Ready"
+                    } else {
+                        return "Not loaded"
+                    }
+                }(),
+                isReady: {
+                    if case .ready = mlxProvider.modelLoadingStatus {
+                        return true
+                    } else {
+                        return false
+                    }
+                }(),
                 color: .blue
             )
             
