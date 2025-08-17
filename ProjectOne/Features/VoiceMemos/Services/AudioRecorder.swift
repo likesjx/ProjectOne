@@ -810,14 +810,16 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
                     // Update duration from audio file
                     recordingItem.duration = duration
                     
-                    // TODO: Implement entity extraction with new architecture
-                    // This will be enhanced in future phases to use the protocol-based system
-                    
                     do {
                         try modelContext.save()
                         print("💾 [AudioRecorder] Saved transcription from \(result.method.displayName)")
                     } catch {
                         print("💾 [AudioRecorder] Failed to save transcription data: \(error.localizedDescription)")
+                    }
+                    
+                    // Process through Gemma3n for enhanced insights
+                    Task {
+                        await processWithGemma3n(recordingItem: recordingItem, transcription: result.text, audioURL: url)
                     }
                     
                     fetchRecordingItems()
@@ -1909,6 +1911,82 @@ class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
         - Monitoring Active: \(audioLevelTimer != nil ? "YES" : "NO")
         """
         return status
+    }
+    
+    // MARK: - Gemma3n AI Processing
+    
+    /// Process transcribed voice memo through Gemma3n for enhanced insights
+    private func processWithGemma3n(recordingItem: RecordingItem, transcription: String, audioURL: URL) async {
+        print("🤖 [Gemma3n] Starting AI analysis of voice memo...")
+        
+        do {
+            let loader = SimpleMLXLoader.shared
+            
+            // Load recommended model if not already loaded
+            if !loader.isModelReady {
+                print("🤖 [Gemma3n] Loading recommended model...")
+                let recommendedModel = loader.getRecommendedModel()
+                try await loader.loadModel(recommendedModel)
+                print("🤖 [Gemma3n] Model \(recommendedModel) loaded successfully")
+            }
+            
+            // Read audio data for VLM processing
+            let audioData = try Data(contentsOf: audioURL)
+            
+            // Process audio + transcription through Gemma3n VLM
+            let insights = try await loader.processAudio(audioData, prompt: """
+                Voice Memo Analysis - Please analyze this voice memo comprehensively:
+                
+                Transcription: "\(transcription)"
+                
+                Provide insights about:
+                1. Main topics and themes discussed
+                2. Emotional tone and sentiment 
+                3. Action items, deadlines, or tasks mentioned
+                4. People, places, or entities referenced
+                5. Overall context and importance
+                6. Suggested follow-up actions
+                
+                Format your response as a structured analysis that would be useful for the user's memory and productivity.
+                """)
+            
+            // Store insights in the recording item
+            await MainActor.run {
+                // Create a summary field or use existing fields
+                recordingItem.notes = insights
+                
+                do {
+                    try modelContext.save()
+                    print("🤖 [Gemma3n] ✅ AI insights saved successfully")
+                } catch {
+                    print("🤖 [Gemma3n] ❌ Failed to save AI insights: \(error.localizedDescription)")
+                }
+            }
+            
+        } catch {
+            print("🤖 [Gemma3n] ❌ AI processing failed: \(error.localizedDescription)")
+            
+            // Fallback to basic analysis
+            await MainActor.run {
+                let fallbackAnalysis = """
+                Basic Analysis (Gemma3n unavailable):
+                - Transcription length: \(transcription.count) characters
+                - Estimated speaking time: \(transcription.split(separator: " ").count / 150) minutes
+                - Contains: \(transcription.split(separator: " ").count) words
+                
+                Transcription: \(transcription)
+                """
+                
+                recordingItem.notes = fallbackAnalysis
+                
+                do {
+                    try modelContext.save()
+                    print("🤖 [Gemma3n] ✅ Fallback analysis saved")
+                } catch {
+                    print("🤖 [Gemma3n] ❌ Failed to save fallback analysis: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }
 
