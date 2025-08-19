@@ -1040,7 +1040,7 @@ extension SpeechEngineFactory {
     }
     fileprivate func createWhisperKitEngine() async throws -> SpeechTranscriptionProtocol {
         #if targetEnvironment(simulator)
-        throw SpeechTranscriptionError.insufficientResources("WhisperKit not supported in simulator")
+        throw SpeechTranscriptionError.insufficientResources
         #else
         let locale = Locale(identifier: configuration.preferredLanguage ?? Locale.current.identifier)
         let transcriber = try WhisperKitTranscriber(locale: locale, modelSize: .tiny)
@@ -1081,3 +1081,4 @@ extension SpeechEngineFactory {
 
 // MARK: - MLXWhisperTranscriberAdapter Stub
 // Note: Real implementation is now in MLXWhisperTranscriberAdapter.swift
+

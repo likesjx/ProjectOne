@@ -15,30 +15,32 @@ struct ContentView: View {
             .environmentObject(urlHandler)
             .environmentObject(systemManager)
         #else
-        NavigationStack {
-            // Separate the TabView to ensure clean TabContent conformance
-            MainTabView(selectedTab: $selectedTab)
-                .background(.regularMaterial)
-                .navigationTitle("ProjectOne")
-                #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-                #endif
-                .toolbar {
-                    ToolbarItemGroup(placement: .primaryAction) {
-                        LiquidGlassToolbarGroup {
-                            QuickActionButton(icon: "plus.circle.fill", color: .mint) {
-                                showingQuickNote = true
-                            }
-                            
-                            QuickActionButton(icon: "mic.badge.plus", color: .red) {
-                                selectedTab = 2 // Switch to Voice Memos tab
-                            }
+        ZStack {
+            // Adaptive tinted gradient behind system glass (fallback on < iOS 26)
+            LinearGradient(colors: [.black, .indigo.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            
+            // Optional dynamic tint overlay by tab
+            Color(activeTabColor.opacity(0.10)).ignoresSafeArea()
+            
+            NavigationStack {
+                MainTabView(selectedTab: $selectedTab)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.clear)
+                    .navigationTitle("ProjectOne")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .primaryAction) {
+                            GlassToolbarActions(selectedTab: $selectedTab, showingQuickNote: $showingQuickNote)
                         }
                     }
-                }
-                .liquidGlassToolbar()
+                    .toolbarBackground(.ultraThinMaterial, for: .navigationBar, .tabBar)
+                    .toolbarBackgroundVisibility(.visible, for: .navigationBar, .tabBar)
+                    .ignoresSafeArea(edges: [.bottom])
+            }
         }
-        .liquidGlassContainer()
+        .ignoresSafeArea()
+        .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showingQuickNote) {
             EnhancedNoteCreationView(modelContext: modelContext, systemManager: systemManager)
         }
@@ -138,51 +140,7 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Enhanced Liquid Glass Components
-
-struct LiquidGlassTabContainer<Content: View>: View {
-    @Binding var selectedTab: Int
-    let content: Content
-    
-    init(selectedTab: Binding<Int>, @ViewBuilder content: () -> Content) {
-        self._selectedTab = selectedTab
-        self.content = content()
-    }
-    
-    var body: some View {
-        content
-            .background {
-                LiquidGlassBackgroundExtension(selectedTab: selectedTab)
-            }
-    }
-}
-
-struct LiquidGlassBackgroundExtension: View {
-    let selectedTab: Int
-    
-    private var activeColor: Color {
-        switch selectedTab {
-        case 0: return .indigo
-        case 1: return .pink
-        case 2: return .blue
-        case 3: return .purple
-        case 4: return .cyan
-        case 5: return .green
-        case 6: return .orange  // AI Models tab
-        case 7: return .mint    // Settings tab
-        case 8: return .gray
-        default: return .indigo
-        }
-    }
-    
-    var body: some View {
-        Rectangle()
-            .fill(.regularMaterial)
-            .overlay { activeColor.opacity(0.08) }
-            .ignoresSafeArea(.all)
-            .animation(.smooth(duration: 0.5), value: selectedTab)
-    }
-}
+// (Deprecated LiquidGlass components removed after migration to appGlass / system glass)
 
 struct LiquidGlassToolbarGroup<Content: View>: View {
     let content: Content
@@ -192,16 +150,10 @@ struct LiquidGlassToolbarGroup<Content: View>: View {
     }
     
     var body: some View {
-        HStack(spacing: 12) {
-            content
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.regularMaterial)
-                .overlay { Color.primary.opacity(0.05) }
-        }
+        HStack(spacing: 12) { content }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .appGlass(.pill, tint: .primary.opacity(0.4), shape: Capsule())
     }
 }
 
@@ -215,16 +167,12 @@ struct QuickActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(color)
-                .frame(width: 32, height: 32)
-                .background {
-                    Circle()
-                        .fill(.regularMaterial)
-                        .overlay { color.opacity(0.15) }
-                }
-                .scaleEffect(isPressed ? 0.9 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                .frame(width: 36, height: 36)
+                .circleGlass(tint: color)
+                .scaleEffect(isPressed ? 0.92 : 1.0)
+                .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isPressed)
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
@@ -233,35 +181,73 @@ struct QuickActionButton: View {
     }
 }
 
+// MARK: - Glass Toolbar Wrapper
+
+private struct GlassToolbarActions: View {
+    @Binding var selectedTab: Int
+    @Binding var showingQuickNote: Bool
+    
+    var body: some View {
+        LiquidGlassToolbarGroup {
+            QuickActionButton(icon: "plus.circle.fill", color: .mint) { showingQuickNote = true }
+            QuickActionButton(icon: "mic.badge.plus", color: .red) { selectedTab = 2 }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Quick Actions")
+    }
+}
+
+// MARK: - Active Tab Color Helper
+
+extension ContentView {
+    var activeTabColor: Color {
+        switch selectedTab {
+        case 0: return .indigo
+        case 1: return .pink
+        case 2: return .blue
+        case 3: return .purple
+        case 4: return .cyan
+        case 5: return .green
+        case 6: return .orange
+        case 7: return .mint
+        default: return .indigo
+        }
+    }
+}
+
 // MARK: - Liquid Glass View Modifiers
 
 extension View {
     func liquidGlassContainer() -> some View {
         self
-            .background(.ultraThinMaterial)
-            .environment(\.colorScheme, .dark) // Optimize for glass readability
+            .background(
+                Group {
+            // Unified material background (previously conditional glassEffect for iOS 26)
+            Color.clear.background(.ultraThinMaterial)
+                }
+            )
     }
     
     func glassBackground() -> some View {
         self
-            .glassEffect(.regular)
+        // Replaced unsupported glassEffect with ultraThinMaterial to simulate translucency
+        .background(.ultraThinMaterial)
             .compositingGroup()
     }
     
     func liquidGlassTabStyle() -> some View {
         self
             .tabViewStyle(.automatic)
-            .background(.regularMaterial)
     }
     
     func liquidGlassToolbar() -> some View {
         self
 #if os(iOS)
-            .toolbarBackground(.regularMaterial, for: .navigationBar)
-            .toolbarBackground(.regularMaterial, for: .tabBar)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.ultraThinMaterial, for: .tabBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .tabBar)
-            #endif
+#endif
     }
 }
 
@@ -321,9 +307,8 @@ struct HealthUnavailableCard: View {
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
         }
-        .padding(24)
-        .background(.regularMaterial)
-        .cornerRadius(16)
+    .padding(24)
+    .appGlass(.elevated, tint: .red, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -345,9 +330,8 @@ struct TimeRangeSelector: View {
                 }
             }
         }
-        .padding(4)
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding(4)
+    .appGlass(.header, tint: .accentColor, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -392,10 +376,9 @@ struct HealthMetricCard: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .appGlass(.surface, tint: color, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -409,8 +392,7 @@ struct HealthInsightsSection: View {
             Text("Connect with HealthKit to see personalized insights and correlations with your voice notes.")
                 .foregroundColor(.secondary)
                 .padding()
-                .background(.regularMaterial)
-                .cornerRadius(10)
+                .appGlass(.surface, tint: .indigo, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
 }

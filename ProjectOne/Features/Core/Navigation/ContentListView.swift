@@ -57,51 +57,52 @@ struct ContentListView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Search and Filter Bar
-                ContentSearchBar(
-                    searchText: $searchText,
-                    selectedFilter: $selectedFilter,
-                    showingFilters: $showingFilters
-                )
-                
-                // Content List
-                List {
-                    if combinedContent.isEmpty {
-                        ContentEmptyState(hasSearchOrFilter: !searchText.isEmpty || selectedFilter != .all)
-                    } else {
-                        ForEach(combinedContent) { item in
-                            ContentListRow(item: item)
-                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                                .listRowSeparator(.hidden)
-                                #if os(iOS)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    ContentSwipeActions(item: item, modelContext: modelContext)
-                                }
-                                #endif
-                        }
+        VStack(spacing: 0) {
+            // Search and Filter Bar (acts as a floating header)
+            ContentSearchBar(
+                searchText: $searchText,
+                selectedFilter: $selectedFilter,
+                showingFilters: $showingFilters
+            )
+            .padding(.top, 4)
+            
+            // Content List
+            List {
+                if combinedContent.isEmpty {
+                    ContentEmptyState(hasSearchOrFilter: !searchText.isEmpty || selectedFilter != .all)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(.init())
+                } else {
+                    ForEach(combinedContent) { item in
+                        ContentListRow(item: item)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            #if os(iOS)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                ContentSwipeActions(item: item, modelContext: modelContext)
+                            }
+                            #endif
                     }
                 }
-                .listStyle(.plain)
-                .refreshable {
-                    // Pull to refresh functionality
-                    await refreshContent()
-                }
             }
-            .navigationTitle("All Content")
-            .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    ContentToolbarActions(showingFilters: $showingFilters)
-                }
-            }
-            .sheet(isPresented: $showingFilters) {
-                ContentFilterSheet(selectedFilter: $selectedFilter)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden) // Remove default grouped background so immersive background shows through
+            .background(Color.clear)
+            .refreshable { await refreshContent() }
+        }
+        .background(Color.clear)
+        .navigationTitle("All Content") // Applies to outer NavigationStack
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                ContentToolbarActions(showingFilters: $showingFilters)
             }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-#endif
+        .sheet(isPresented: $showingFilters) {
+            ContentFilterSheet(selectedFilter: $selectedFilter)
+        }
     }
     
     @MainActor
@@ -292,11 +293,8 @@ struct ContentListRow: View {
                 #endif
             }
             .padding(.vertical, 4)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.regularMaterial)
-                    .opacity(isHovered ? 0.3 : 0)
-            }
+            .appGlass(AppGlassStyle.surface, tint: item.contentType.color, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .opacity(isHovered ? 0.35 : 0.0)
             #if os(macOS)
             .onHover { hovering in
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -439,7 +437,7 @@ struct ContentSearchBar: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .appGlass(AppGlassStyle.header, tint: Color.primary.opacity(0.4), shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
             
             // Quick Filter Buttons
             ScrollView(.horizontal, showsIndicators: false) {
@@ -456,9 +454,9 @@ struct ContentSearchBar: View {
                 .padding(.horizontal, 16)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 8)
+    .appGlass(AppGlassStyle.header, tint: Color.indigo, shape: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 

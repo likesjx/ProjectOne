@@ -81,14 +81,7 @@ struct MarkdownNotesView: View {
                                 .foregroundStyle(.mint)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
-                                .background {
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(.regularMaterial)
-                                        .overlay { 
-                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                                .fill(.mint.opacity(0.15)) 
-                                        }
-                                }
+                                .appGlass(.pill, tint: .mint, shape: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
                             }
                             .buttonStyle(.plain)
                         }
@@ -103,13 +96,10 @@ struct MarkdownNotesView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background {
+                        .appGlass(.header, tint: .mint, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(.regularMaterial)
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(.mint.opacity(0.2), lineWidth: 1)
-                                }
+                                .stroke(.mint.opacity(0.2), lineWidth: 1)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -300,13 +290,10 @@ struct NoteCard: View {
             }
         }
         .padding(20)
-        .background {
+        .appGlass(.elevated, tint: .mint, shape: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.regularMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(.mint.opacity(0.2), lineWidth: 1)
-                }
+                .stroke(.mint.opacity(0.2), lineWidth: 1)
         }
         .contentShape(Rectangle())
     }

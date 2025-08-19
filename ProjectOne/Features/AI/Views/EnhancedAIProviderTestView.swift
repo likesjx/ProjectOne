@@ -10,7 +10,6 @@ import SwiftUI
 import Combine
 import SwiftData
 
-@available(iOS 26.0, macOS 26.0, *)
 struct EnhancedAIProviderTestView: View {
     
     // MARK: - State Management
@@ -67,7 +66,16 @@ struct EnhancedAIProviderTestView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    Group { EmptyView() }
+                    .background(
+                        Group {
+                            if #available(iOS 26, macOS 26, *) {
+                                Color.clear.appGlass(.elevated, tint: .blue, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            } else {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.regularMaterial)
+                            }
+                        }
+                    )
                     
                     // Provider Selection Grid
                     VStack(alignment: .leading, spacing: 16) {
@@ -95,7 +103,15 @@ struct EnhancedAIProviderTestView: View {
                         }
                     }
                     .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(
+                        Group {
+                            if #available(iOS 26, macOS 26, *) {
+                                Color.clear.appGlass(.surface, tint: .blue, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            } else {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.regularMaterial)
+                            }
+                        }
+                    )
                     
                     // Test Input Section
                     VStack(alignment: .leading, spacing: 12) {
@@ -150,7 +166,15 @@ struct EnhancedAIProviderTestView: View {
                         }
                     }
                     .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(
+                        Group {
+                            if #available(iOS 26, macOS 26, *) {
+                                Color.clear.appGlass(.surface, tint: .mint, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            } else {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.regularMaterial)
+                            }
+                        }
+                    )
                     
                     // Provider Status Section
                     VStack(alignment: .leading, spacing: 12) {
@@ -172,7 +196,15 @@ struct EnhancedAIProviderTestView: View {
                         }
                     }
                     .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(
+                        Group {
+                            if #available(iOS 26, macOS 26, *) {
+                                Color.clear.appGlass(.surface, tint: .orange, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            } else {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.regularMaterial)
+                            }
+                        }
+                    )
                     
                     // Test Results Section
                     if !testResults.isEmpty {
@@ -193,7 +225,15 @@ struct EnhancedAIProviderTestView: View {
                             }
                         }
                         .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .background(
+                            Group {
+                                if #available(iOS 26, macOS 26, *) {
+                                    Color.clear.appGlass(.surface, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                } else {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.regularMaterial)
+                                }
+                            }
+                        )
                     }
                     
                     Spacer(minLength: 50)

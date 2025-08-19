@@ -224,7 +224,7 @@ struct SidebarRow: View {
 struct MacOSSidebarBackground: View {
     var body: some View {
         Rectangle()
-            .fill(.regularMaterial)
+            .appGlass(.surface, shape: Rectangle())
             .overlay {
                 Rectangle()
                     .fill(.ultraThinMaterial)
@@ -260,6 +260,8 @@ struct MacOSToolbarGroup: View {
                 triggerVoiceMemoRecording = true
             }
         }
+        .padding(6)
+        .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -280,7 +282,7 @@ struct MacOSToolbarButton: View {
                 .frame(width: 28, height: 28)
                 .background {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(.regularMaterial)
+                        .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .stroke(.primary.opacity(0.1), lineWidth: 0.5)
@@ -444,8 +446,7 @@ struct MacOSHealthDashboardView: View {
                     }
                 }
                 .padding()
-                .background(.regularMaterial)
-                .cornerRadius(12)
+                .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .padding(.horizontal)
             }
         }
@@ -482,8 +483,7 @@ struct MacOSHealthFeatureCard: View {
             Spacer()
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

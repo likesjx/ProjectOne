@@ -137,9 +137,8 @@ struct HealthPermissionCard: View {
             }
             .disabled(healthKitManager.isLoading)
         }
-        .padding(24)
-        .background(.regularMaterial)
-        .cornerRadius(16)
+    .padding(24)
+    .appGlass(.elevated, tint: .red, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -167,9 +166,8 @@ struct TimeRangeSelector: View {
                 }
             }
         }
-        .padding(4)
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding(4)
+    .appGlass(.header, tint: .accentColor, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -263,8 +261,7 @@ struct HealthMetricCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .appGlass(.surface, tint: color, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -326,8 +323,7 @@ struct HealthTrendCard: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(10)
+    .appGlass(.surface, tint: trend.direction.color, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -391,8 +387,7 @@ struct HealthInsightCard: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
-        .cornerRadius(10)
+    .appGlass(.surface, tint: .mint, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

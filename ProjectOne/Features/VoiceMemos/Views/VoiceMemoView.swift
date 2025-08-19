@@ -167,7 +167,7 @@ struct LiquidGlassView<Content: View>: View {
     
     var body: some View {
         content
-            .background(.ultraThinMaterial)
+            .appGlass(.surface, shape: Rectangle())
             .containerRelativeFrame([.horizontal, .vertical])
     }
 }
@@ -185,7 +185,7 @@ struct LiquidGlassHeader<Content: View>: View {
             .padding(.horizontal, 24)
             .background {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(.regularMaterial)
+                    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 24, style: .continuous))
             }
             .compositingGroup()
     }
@@ -205,7 +205,7 @@ struct LiquidGlassIcon: View {
             .symbolEffect(.pulse, isActive: isAnimated)
             .background {
                 Circle()
-                    .fill(.regularMaterial)
+                    .appGlass(.elevated, shape: Circle())
                     .overlay { color.opacity(0.2) }
                     .frame(width: size * 1.8, height: size * 1.8)
             }
@@ -351,7 +351,7 @@ struct LiquidGlassRecordButton: View {
                 
                 // Main button
                 Circle()
-                    .fill(.regularMaterial)
+                    .appGlass(.elevated, shape: Circle())
                     .overlay { isRecording ? Color.red.opacity(0.3) : Color.blue.opacity(0.3) }
                     .frame(width: 80, height: 80)
                     .overlay {
@@ -424,7 +424,7 @@ struct LiquidGlassActionButton: View {
             .padding(.vertical, 12)
             .background {
                 RoundedRectangle(cornerRadius: style == .primary ? 25 : 20, style: .continuous)
-                    .fill(.regularMaterial)
+                    .appGlass(.pill, tint: color, shape: RoundedRectangle(cornerRadius: style == .primary ? 25 : 20, style: .continuous), interactive: true)
                     .overlay { color.opacity(0.2) }
             }
             .scaleEffect(isPressed ? 0.95 : 1.0)
@@ -489,7 +489,7 @@ struct LiquidGlassStatusCard: View {
         .padding(.vertical, 20)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.regularMaterial)
+                .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay { status.color.opacity(0.1) }
         }
         .animation(.smooth(duration: 0.3), value: statusInfo.title)
@@ -530,7 +530,7 @@ struct LiquidGlassTranscriptionCard: View {
             .padding(.vertical, 16)
             .background {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.regularMaterial)
+                    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay { Color.blue.opacity(0.15) }
             }
         }
@@ -575,7 +575,7 @@ struct LiquidGlassRecentRecordings: View {
                         .padding(.vertical, 6)
                         .background {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.regularMaterial)
+                                .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 .overlay { Color.red.opacity(0.1) }
                         }
                     }
@@ -742,7 +742,7 @@ struct LiquidGlassRecordingRow: View {
         .padding(.vertical, 12)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.regularMaterial)
+                .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay { 
                     if isCurrentlyLoaded {
                         Color.blue.opacity(0.1)
@@ -850,7 +850,7 @@ struct LiquidGlassSheet<Content: View>: View {
     var body: some View {
         NavigationStack {
             content
-                .background(.regularMaterial)
+                    .appGlass(.surface, shape: Rectangle())
                 .presentationBackground(.ultraThinMaterial)
                 .presentationCornerRadius(24)
         }
@@ -898,7 +898,7 @@ struct VoiceMemoNoteCreationView: View {
                                     .frame(width: 32, height: 32)
                                     .background {
                                         Circle()
-                                            .fill(.regularMaterial)
+                                            .appGlass(.pill, tint: .mint, shape: Circle(), interactive: true)
                                             .overlay { Color.mint.opacity(0.15) }
                                     }
                             }
@@ -954,7 +954,7 @@ struct VoiceMemoNoteCreationView: View {
                     }
                     .background {
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(.regularMaterial)
+                            .appGlass(.elevated, tint: .mint, shape: RoundedRectangle(cornerRadius: 24, style: .continuous))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                                     .stroke(.mint.opacity(0.3), lineWidth: 1)
@@ -1112,7 +1112,7 @@ struct MarkdownToolbar: View {
         .padding(.vertical, 12)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.regularMaterial)
+                .appGlass(.elevated, tint: .mint, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(.mint.opacity(0.2), lineWidth: 1)
@@ -1145,7 +1145,7 @@ struct ToolbarButton: View {
             .frame(width: 60, height: 48)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.regularMaterial)
+                    .appGlass(.elevated, tint: .mint, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(.mint.opacity(0.2), lineWidth: 1)
@@ -1164,7 +1164,7 @@ extension View {
             .background {
                 // Extended background that blurs under other content
                 Rectangle()
-                    .fill(.regularMaterial)
+                    .appGlass(.surface, shape: Rectangle())
                     .overlay { color }
                     .ignoresSafeArea(.container, edges: .horizontal)
                     .frame(height: 200)
@@ -1176,7 +1176,7 @@ extension View {
     func liquidGlassNavigation() -> some View {
         self
 #if os(iOS)
-            .toolbarBackground(.regularMaterial, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
             #endif
     }

@@ -132,9 +132,8 @@ struct HealthCorrelationDisabledView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -152,9 +151,8 @@ struct HealthAnalysisLoadingView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -191,9 +189,8 @@ struct HealthCorrelationPromptView: View {
                 .cornerRadius(8)
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -256,9 +253,8 @@ struct HealthCorrelationResultsView: View {
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(12)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -330,8 +326,7 @@ struct CorrelationOverviewSection: View {
                 }
             }
             .padding()
-            .background(.regularMaterial)
-            .cornerRadius(10)
+            .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
 }
@@ -365,8 +360,7 @@ struct HealthContextSection: View {
                     }
                 }
                 .padding()
-                .background(.regularMaterial)
-                .cornerRadius(10)
+                .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
     }
@@ -387,9 +381,8 @@ struct ContextCard: View {
                 .fontWeight(.medium)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(10)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -407,8 +400,7 @@ struct InsightsSection: View {
                     .font(.body)
                     .foregroundColor(.secondary)
                     .padding()
-                    .background(.regularMaterial)
-                    .cornerRadius(10)
+                    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
                 ForEach(insights) { insight in
                     InsightCard(insight: insight)
@@ -457,9 +449,8 @@ struct InsightCard: View {
                 .padding(.top, 4)
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(10)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -477,8 +468,7 @@ struct SuggestionsSection: View {
                     .font(.body)
                     .foregroundColor(.secondary)
                     .padding()
-                    .background(.regularMaterial)
-                    .cornerRadius(10)
+                    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
                 ForEach(suggestions) { suggestion in
                     SuggestionCard(suggestion: suggestion)
@@ -519,9 +509,8 @@ struct SuggestionCard: View {
                     .foregroundColor(.secondary)
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(10)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -539,8 +528,7 @@ struct HealthDataSection: View {
                     .font(.body)
                     .foregroundColor(.secondary)
                     .padding()
-                    .background(.regularMaterial)
-                    .cornerRadius(10)
+                    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
                 ForEach(Array(correlations.enumerated()), id: \.offset) { index, correlation in
                     HealthDataCard(correlation: correlation, rank: index + 1)
@@ -593,9 +581,8 @@ struct HealthDataCard: View {
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(10)
+    .padding()
+    .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

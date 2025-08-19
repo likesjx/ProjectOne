@@ -305,8 +305,7 @@ struct EnhancedNoteCreationView: View {
                 TextEditor(text: $noteContent)
                     .font(.body)
                     .padding(12)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .appGlass(.surface, shape: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(.secondary.opacity(0.2), lineWidth: 1)
@@ -430,10 +429,7 @@ struct EnhancedNoteCreationView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
             }
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.regularMaterial)
-            }
+            .appGlass(.elevated, shape: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }
@@ -525,7 +521,7 @@ struct EnhancedNoteCreationView: View {
         .padding(.vertical, 16)
         .background {
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .appGlass(.header, shape: Rectangle())
                 .overlay(alignment: .bottom) {
                     Rectangle()
                         .fill(.secondary.opacity(0.2))
