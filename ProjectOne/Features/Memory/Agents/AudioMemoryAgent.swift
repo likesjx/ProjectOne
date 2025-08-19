@@ -22,7 +22,7 @@ public class AudioMemoryAgent: ObservableObject {
     // MARK: - Dependencies
     
     private let modelContext: ModelContext
-    private let retrievalEngine: MemoryRetrievalEngine
+    private let retrievalEngine: MemoryAgentRAGEngine
     private let knowledgeGraphService: KnowledgeGraphService
     private let mlxProvider: MLXProvider
     private let fallbackMemoryAgent: MemoryAgent
@@ -69,7 +69,7 @@ public class AudioMemoryAgent: ObservableObject {
         self.knowledgeGraphService = knowledgeGraphService
         self.mlxProvider = mlxProvider
         self.fallbackMemoryAgent = fallbackMemoryAgent
-        self.retrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
+        self.retrievalEngine = MemoryAgentRAGEngine(modelContext: modelContext)
         self.configuration = configuration
         
         logger.info("Audio Memory Agent initializing...")

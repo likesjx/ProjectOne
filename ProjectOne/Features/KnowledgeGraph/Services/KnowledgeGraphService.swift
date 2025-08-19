@@ -23,6 +23,10 @@ public final class KnowledgeGraphService: ObservableObject {
     private var currentLayout: GraphLayout = .force
     private nonisolated(unsafe) var layoutTimer: Timer?
     
+    // MARK: - Cognitive Integration
+    
+    private let cognitiveAdapter: KnowledgeGraphCognitiveAdapter?
+    
     // Force-directed layout parameters
     private let springConstant: Double = 0.01
     private let repulsionConstant: Double = 1000.0
@@ -32,8 +36,9 @@ public final class KnowledgeGraphService: ObservableObject {
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, cognitiveAdapter: KnowledgeGraphCognitiveAdapter? = nil) {
         self.modelContext = modelContext
+        self.cognitiveAdapter = cognitiveAdapter
     }
     
     deinit {
@@ -543,5 +548,282 @@ extension KnowledgeGraphService {
         }
         
         return component
+    }
+}
+
+// MARK: - Cognitive Search Integration
+
+extension KnowledgeGraphService {
+    
+    /// Perform cognitive-enhanced semantic search for entities
+    func cognitiveSemanticSearch(
+        query: String,
+        limit: Int = 10,
+        includeTraditionalSearch: Bool = true
+    ) async throws -> CognitiveSearchResult {
+        guard let cognitiveAdapter = cognitiveAdapter else {
+            // Fallback to traditional search
+            return CognitiveSearchResult(
+                query: query,
+                cognitiveMatches: [],
+                traditionalMatches: includeTraditionalSearch ? performTraditionalSearch(query: query, limit: limit) : [],
+                totalResults: 0,
+                cognitiveEnhanced: false
+            )
+        }
+        
+        // Perform cognitive semantic search
+        let cognitiveMatches = try await cognitiveAdapter.findSimilarEntities(
+            query: query,
+            limit: limit,
+            threshold: 0.3
+        )
+        
+        // Perform traditional search if requested
+        var traditionalMatches: [Entity] = []
+        if includeTraditionalSearch {
+            traditionalMatches = performTraditionalSearch(query: query, limit: limit)
+        }
+        
+        // Combine and deduplicate results
+        let combinedResults = combineSearchResults(
+            cognitiveMatches: cognitiveMatches,
+            traditionalMatches: traditionalMatches
+        )
+        
+        return CognitiveSearchResult(
+            query: query,
+            cognitiveMatches: cognitiveMatches,
+            traditionalMatches: traditionalMatches,
+            totalResults: combinedResults.count,
+            cognitiveEnhanced: true
+        )
+    }
+    
+    /// Sync entities with cognitive system
+    func syncWithCognitiveSystem() async throws {
+        guard let cognitiveAdapter = cognitiveAdapter else { return }
+        
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            // Sync all entities to cognitive layers
+            try await cognitiveAdapter.syncEntitiesToCognitive(entities)
+            
+            // Update entity importance scores from cognitive consolidation
+            await updateEntityImportanceFromCognitive()
+            
+            // Create new relationships from fusion connections
+            try await updateRelationshipsFromFusions()
+            
+            print("🧠 [KnowledgeGraphService] Synchronized \(entities.count) entities with cognitive system")
+            
+        } catch {
+            print("❌ [KnowledgeGraphService] Cognitive sync failed: \(error)")
+            throw error
+        }
+    }
+    
+    /// Find entities that need cognitive synchronization
+    func findEntitiesNeedingCognitiveSync() -> [Entity] {
+        return entities.filter { entity in
+            entity.needsCognitiveSync()
+        }
+    }
+    
+    /// Get cognitive insights for the knowledge graph
+    func getCognitiveGraphInsights() async throws -> GraphCognitiveInsights {
+        guard let cognitiveAdapter = cognitiveAdapter else {
+            return GraphCognitiveInsights(
+                totalEntities: entities.count,
+                cognitivelyEnhancedEntities: 0,
+                fusionConnections: 0,
+                averageCognitiveScore: 0.0,
+                layerDistribution: [:],
+                insights: ["Cognitive integration not available"]
+            )
+        }
+        
+        let enhancedEntities = entities.filter { $0.hasCognitiveRepresentation }
+        let fusionConnectionCount = entities.reduce(0) { total, entity in
+            total + entity.fusionConnectionIds.count
+        }
+        
+        let averageScore = enhancedEntities.isEmpty ? 0.0 :
+            enhancedEntities.reduce(0.0) { $0 + $1.cognitiveConsolidationScore } / Double(enhancedEntities.count)
+        
+        // Calculate layer distribution
+        var layerDistribution: [CognitiveLayerType: Int] = [:]
+        for entity in enhancedEntities {
+            if let layerType = entity.cognitiveLayerType {
+                layerDistribution[layerType, default: 0] += 1
+            }
+        }
+        
+        // Generate insights
+        var insights: [String] = []
+        
+        if enhancedEntities.count > entities.count / 2 {
+            insights.append("Over half of entities have cognitive representation")
+        }
+        
+        if averageScore > 0.7 {
+            insights.append("High cognitive consolidation scores indicate strong memory integration")
+        }
+        
+        if fusionConnectionCount > 0 {
+            insights.append("\(fusionConnectionCount) fusion connections create cross-layer relationships")
+        }
+        
+        if layerDistribution[.semantic, default: 0] > layerDistribution[.veridical, default: 0] {
+            insights.append("Semantic layer dominance suggests conceptual knowledge focus")
+        }
+        
+        if insights.isEmpty {
+            insights.append("Knowledge graph shows basic cognitive integration")
+        }
+        
+        return GraphCognitiveInsights(
+            totalEntities: entities.count,
+            cognitivelyEnhancedEntities: enhancedEntities.count,
+            fusionConnections: fusionConnectionCount,
+            averageCognitiveScore: averageScore,
+            layerDistribution: layerDistribution,
+            insights: insights
+        )
+    }
+    
+    // MARK: - Private Cognitive Methods
+    
+    private func performTraditionalSearch(query: String, limit: Int) -> [Entity] {
+        let lowercaseQuery = query.lowercased()
+        
+        return entities.filter { entity in
+            entity.matches(query: query)
+        }.sorted { entity1, entity2 in
+            // Score by relevance (name match > description match > tag match)
+            let score1 = calculateTraditionalSearchScore(entity: entity1, query: lowercaseQuery)
+            let score2 = calculateTraditionalSearchScore(entity: entity2, query: lowercaseQuery)
+            return score1 > score2
+        }.prefix(limit).map { $0 }
+    }
+    
+    private func calculateTraditionalSearchScore(entity: Entity, query: String) -> Double {
+        var score = 0.0
+        
+        if entity.name.lowercased().contains(query) {
+            score += 1.0
+        }
+        
+        if let description = entity.entityDescription,
+           description.lowercased().contains(query) {
+            score += 0.7
+        }
+        
+        if entity.tags.contains(where: { $0.lowercased().contains(query) }) {
+            score += 0.5
+        }
+        
+        if entity.aliases.contains(where: { $0.lowercased().contains(query) }) {
+            score += 0.8
+        }
+        
+        return score
+    }
+    
+    private func combineSearchResults(
+        cognitiveMatches: [EntityCognitiveMatch],
+        traditionalMatches: [Entity]
+    ) -> [Entity] {
+        var combinedResults: [Entity] = []
+        var seenEntityIds: Set<UUID> = []
+        
+        // Add cognitive matches first (higher priority)
+        for match in cognitiveMatches {
+            if !seenEntityIds.contains(match.entity.id) {
+                combinedResults.append(match.entity)
+                seenEntityIds.insert(match.entity.id)
+            }
+        }
+        
+        // Add traditional matches that weren't already included
+        for entity in traditionalMatches {
+            if !seenEntityIds.contains(entity.id) {
+                combinedResults.append(entity)
+                seenEntityIds.insert(entity.id)
+            }
+        }
+        
+        return combinedResults
+    }
+    
+    private func updateEntityImportanceFromCognitive() async {
+        for entity in entities {
+            if entity.hasCognitiveRepresentation {
+                // Update importance based on cognitive consolidation
+                let enhancedImportance = entity.enhancedEntityScore
+                entity.importance = max(entity.importance, enhancedImportance)
+            }
+        }
+    }
+    
+    private func updateRelationshipsFromFusions() async throws {
+        guard let cognitiveAdapter = cognitiveAdapter else { return }
+        
+        // This would need to be implemented to get fusion nodes from cognitive system
+        // For now, we'll implement a placeholder that updates existing relationships
+        // with fusion-based importance scores
+        
+        for relationship in relationships {
+            if let subjectEntity = entities.first(where: { $0.id == relationship.subjectEntityId }),
+               let objectEntity = entities.first(where: { $0.id == relationship.objectEntityId }) {
+                
+                // Check if both entities have fusion connections
+                let sharedFusions = Set(subjectEntity.fusionConnectionIds)
+                    .intersection(Set(objectEntity.fusionConnectionIds))
+                
+                if !sharedFusions.isEmpty {
+                    relationship.importance = min(1.0, relationship.importance + 0.2)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Supporting Types for Cognitive Search
+
+public struct CognitiveSearchResult {
+    public let query: String
+    public let cognitiveMatches: [EntityCognitiveMatch]
+    public let traditionalMatches: [Entity]
+    public let totalResults: Int
+    public let cognitiveEnhanced: Bool
+    
+    public var allMatches: [Entity] {
+        var results = cognitiveMatches.map { $0.entity }
+        let cognitiveEntityIds = Set(results.map { $0.id })
+        
+        // Add traditional matches that aren't already in cognitive results
+        for entity in traditionalMatches {
+            if !cognitiveEntityIds.contains(entity.id) {
+                results.append(entity)
+            }
+        }
+        
+        return results
+    }
+}
+
+public struct GraphCognitiveInsights {
+    public let totalEntities: Int
+    public let cognitivelyEnhancedEntities: Int
+    public let fusionConnections: Int
+    public let averageCognitiveScore: Double
+    public let layerDistribution: [CognitiveLayerType: Int]
+    public let insights: [String]
+    
+    public var enhancementPercentage: Double {
+        return totalEntities > 0 ? Double(cognitivelyEnhancedEntities) / Double(totalEntities) * 100 : 0
     }
 }

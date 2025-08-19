@@ -34,6 +34,27 @@ public final class Entity {
     public var importance: Double // Calculated importance score (0.0-1.0)
     public var salience: Double // How central this entity is to the knowledge graph
     
+    // MARK: - Cognitive Integration Fields
+    
+    /// UUID of associated cognitive memory node (if any)
+    public var associatedCognitiveNodeId: String?
+    
+    /// Which cognitive layer this entity is primarily represented in
+    public var primaryCognitiveLayer: String? // CognitiveLayerType.rawValue
+    
+    /// Cognitive consolidation score from memory fusion processes
+    public var cognitiveConsolidationScore: Double
+    
+    /// Timestamp when cognitive sync was last performed
+    public var lastCognitiveSyncAt: Date?
+    
+    /// IDs of fusion connections involving this entity
+    @Attribute(.transformable(by: "NSSecureUnarchiveFromData"))
+    public var fusionConnectionIds: [String] // FusionNode IDs
+    
+    /// Cognitive relevance score for search and retrieval
+    public var cognitiveRelevanceScore: Double
+    
     // MARK: - Embedding Fields
     
     /// Vector embedding for semantic similarity search
@@ -66,6 +87,14 @@ public final class Entity {
         self.tags = []
         self.importance = 0.0
         self.salience = 0.0
+        
+        // Initialize cognitive integration fields
+        self.associatedCognitiveNodeId = nil
+        self.primaryCognitiveLayer = nil
+        self.cognitiveConsolidationScore = 0.0
+        self.lastCognitiveSyncAt = nil
+        self.fusionConnectionIds = []
+        self.cognitiveRelevanceScore = 0.0
         
         // Initialize embedding fields
         self.embedding = nil
@@ -340,5 +369,99 @@ extension Entity {
         text += ". Type: \(type.rawValue)"
         
         return text
+    }
+    
+    // MARK: - Cognitive Integration Methods
+    
+    /// Associate this entity with a cognitive memory node
+    public func associateWithCognitiveNode(_ nodeId: String, layer: CognitiveLayerType) {
+        self.associatedCognitiveNodeId = nodeId
+        self.primaryCognitiveLayer = layer.rawValue
+        self.lastCognitiveSyncAt = Date()
+    }
+    
+    /// Update cognitive consolidation score
+    public func updateCognitiveConsolidationScore(_ score: Double) {
+        self.cognitiveConsolidationScore = max(0.0, min(1.0, score))
+        self.lastCognitiveSyncAt = Date()
+    }
+    
+    /// Add a fusion connection ID
+    public func addFusionConnection(_ fusionId: String) {
+        if !fusionConnectionIds.contains(fusionId) {
+            fusionConnectionIds.append(fusionId)
+        }
+    }
+    
+    /// Remove a fusion connection ID
+    public func removeFusionConnection(_ fusionId: String) {
+        fusionConnectionIds.removeAll { $0 == fusionId }
+    }
+    
+    /// Update cognitive relevance score based on recent cognitive activity
+    public func updateCognitiveRelevance(_ score: Double) {
+        self.cognitiveRelevanceScore = max(0.0, min(1.0, score))
+    }
+    
+    /// Check if entity has cognitive representation
+    public var hasCognitiveRepresentation: Bool {
+        return associatedCognitiveNodeId != nil
+    }
+    
+    /// Check if entity needs cognitive sync
+    public func needsCognitiveSync(maxAge: TimeInterval = 24 * 3600) -> Bool {
+        guard let lastSync = lastCognitiveSyncAt else { return true }
+        return Date().timeIntervalSince(lastSync) > maxAge
+    }
+    
+    /// Get cognitive layer type from string
+    public var cognitiveLayerType: CognitiveLayerType? {
+        guard let layerString = primaryCognitiveLayer else { return nil }
+        return CognitiveLayerType(rawValue: layerString)
+    }
+    
+    /// Enhanced entity score including cognitive factors
+    public var enhancedEntityScore: Double {
+        let baseScore = entityScore
+        let cognitiveBonus = cognitiveConsolidationScore * 0.2
+        let relevanceBonus = cognitiveRelevanceScore * 0.1
+        let fusionBonus = min(0.1, Double(fusionConnectionIds.count) * 0.02)
+        
+        return min(1.0, baseScore + cognitiveBonus + relevanceBonus + fusionBonus)
+    }
+}
+
+// MARK: - Cognitive Layer Type
+
+public enum CognitiveLayerType: String, CaseIterable, Codable {
+    case veridical = "veridical"
+    case semantic = "semantic"
+    case episodic = "episodic"
+    case fusion = "fusion"
+    
+    public var displayName: String {
+        switch self {
+        case .veridical:
+            return "Veridical Layer"
+        case .semantic:
+            return "Semantic Layer"
+        case .episodic:
+            return "Episodic Layer"
+        case .fusion:
+            return "Fusion Layer"
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .veridical:
+            return "Immediate facts and verified information"
+        case .semantic:
+            return "Consolidated knowledge and concepts"
+        case .episodic:
+            return "Contextual experiences and temporal information"
+        case .fusion:
+            return "Cross-layer integrated insights"
+        }
     }
 }

@@ -1,8 +1,9 @@
 //
-//  MemoryRetrievalEngine.swift
+//  MemoryAgentRAGEngine.swift
 //  ProjectOne
 //
 //  Created by Memory Agent on 7/15/25.
+//  Renamed from MemoryRetrievalEngine.swift to resolve build conflicts
 //
 
 import Foundation
@@ -11,9 +12,9 @@ import os.log
 import Combine
 
 /// RAG-based memory retrieval engine for the Memory Agent
-public class MemoryRetrievalEngine: ObservableObject, @unchecked Sendable {
+public class MemoryAgentRAGEngine: ObservableObject, @unchecked Sendable {
     
-    private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MemoryRetrievalEngine")
+    private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MemoryAgentRAGEngine")
     private let modelContext: ModelContext
     private let embeddingProvider: MLXProvider?
     private let embeddingService: EmbeddingGenerationService?
@@ -127,7 +128,7 @@ public class MemoryRetrievalEngine: ObservableObject, @unchecked Sendable {
         self.modelContext = modelContext
         self.embeddingProvider = embeddingProvider
         self.embeddingService = embeddingService
-        logger.info("Memory Retrieval Engine initialized with semantic search: \(embeddingProvider != nil)")
+        logger.info("Memory Agent RAG Engine initialized with semantic search: \(embeddingProvider != nil)")
     }
     
     // MARK: - Primary Retrieval Method

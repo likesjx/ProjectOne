@@ -24,7 +24,7 @@ public class RealTimeMemoryService: ObservableObject {
     
     // MARK: - Private Properties
     
-    private let memoryRetrievalEngine: MemoryRetrievalEngine
+    private let memoryRetrievalEngine: MemoryAgentRAGEngine
     private let embeddingGenerationService: EmbeddingGenerationService?
     private let privacyAnalyzer = PrivacyAnalyzer()
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "RealTimeMemoryService")
@@ -47,7 +47,7 @@ public class RealTimeMemoryService: ObservableObject {
         embeddingProvider: MLXProvider? = nil,
         embeddingGenerationService: EmbeddingGenerationService? = nil
     ) {
-        self.memoryRetrievalEngine = MemoryRetrievalEngine(
+        self.memoryRetrievalEngine = MemoryAgentRAGEngine(
             modelContext: modelContext,
             embeddingProvider: embeddingProvider,
             embeddingService: embeddingGenerationService
@@ -215,13 +215,13 @@ public class RealTimeMemoryService: ObservableObject {
         }
     }
     
-    private func buildRetrievalConfiguration(for analysis: PrivacyAnalyzer.PrivacyAnalysis) -> MemoryRetrievalEngine.RetrievalConfiguration {
+    private func buildRetrievalConfiguration(for analysis: PrivacyAnalyzer.PrivacyAnalysis) -> MemoryAgentRAGEngine.RetrievalConfiguration {
         switch analysis.level {
         case .publicKnowledge:
             return .default
             
         case .contextual:
-            return MemoryRetrievalEngine.RetrievalConfiguration(
+            return MemoryAgentRAGEngine.RetrievalConfiguration(
                 maxResults: 12,
                 recencyWeight: 0.4,
                 relevanceWeight: 0.6,
@@ -243,7 +243,7 @@ public class RealTimeMemoryService: ObservableObject {
             
         case .sensitive:
             // Minimal retrieval for sensitive queries - prefer keyword-only for privacy
-            return MemoryRetrievalEngine.RetrievalConfiguration(
+            return MemoryAgentRAGEngine.RetrievalConfiguration(
                 maxResults: 6,
                 recencyWeight: 0.5,
                 relevanceWeight: 0.5,

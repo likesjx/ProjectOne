@@ -19,7 +19,7 @@ public class MemoryAgent: ObservableObject {
     // MARK: - Dependencies
     
     private let modelContext: ModelContext
-    private let retrievalEngine: MemoryRetrievalEngine
+    private let retrievalEngine: MemoryAgentRAGEngine
     private let knowledgeGraphService: KnowledgeGraphService
     private let aiModelProvider: MemoryAgentModelProvider
     private let promptManager: PromptManager
@@ -63,7 +63,7 @@ public class MemoryAgent: ObservableObject {
     ) {
         self.modelContext = modelContext
         self.knowledgeGraphService = knowledgeGraphService
-        self.retrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
+        self.retrievalEngine = MemoryAgentRAGEngine(modelContext: modelContext)
         self.configuration = configuration
         self.aiModelProvider = aiModelProvider ?? MemoryAgentModelProvider()
         self.promptManager = promptManager ?? PromptManager(modelContext: modelContext)
@@ -225,7 +225,7 @@ public class MemoryAgent: ObservableObject {
             return MemoryContext(userQuery: query)
         }
         
-        let retrievalConfig = MemoryRetrievalEngine.RetrievalConfiguration.personalFocus
+        let retrievalConfig = MemoryAgentRAGEngine.RetrievalConfiguration.personalFocus
         // Note: Suppressing sendable warning - retrievalEngine is safe for concurrent access
         return try await retrievalEngine.retrieveRelevantMemories(for: query, configuration: retrievalConfig)
     }

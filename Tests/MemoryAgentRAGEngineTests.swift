@@ -10,11 +10,11 @@ import SwiftData
 @testable import ProjectOne
 
 @MainActor
-final class MemoryRetrievalEngineTests: XCTestCase {
+final class MemoryAgentRAGEngineTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var retrievalEngine: MemoryRetrievalEngine!
+    var retrievalEngine: MemoryAgentRAGEngine!
     
     override func setUpWithError() throws {
         // Create in-memory model container for testing
@@ -30,7 +30,7 @@ final class MemoryRetrievalEngineTests: XCTestCase {
         modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
         modelContext = modelContainer.mainContext
         
-        retrievalEngine = MemoryRetrievalEngine(modelContext: modelContext)
+        retrievalEngine = MemoryAgentRAGEngine(modelContext: modelContext)
     }
     
     override func tearDownWithError() throws {
@@ -231,7 +231,7 @@ final class MemoryRetrievalEngineTests: XCTestCase {
     func testCustomConfiguration() async throws {
         try setupTestMemories()
         
-        let customConfig = MemoryRetrievalEngine.RetrievalConfiguration(
+        let customConfig = MemoryAgentRAGEngine.RetrievalConfiguration(
             maxResults: 5,
             recencyWeight: 0.8,
             relevanceWeight: 0.2,
@@ -305,7 +305,7 @@ final class MemoryRetrievalEngineTests: XCTestCase {
     func testSemanticThreshold() async throws {
         try setupTestMemories()
         
-        let highThresholdConfig = MemoryRetrievalEngine.RetrievalConfiguration(
+        let highThresholdConfig = MemoryAgentRAGEngine.RetrievalConfiguration(
             maxResults: 10,
             recencyWeight: 0.3,
             relevanceWeight: 0.7,
