@@ -47,6 +47,16 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
     @Published public private(set) var isConsolidating: Bool = false
     @Published public private(set) var lastConsolidation: Date?
     
+    // Performance optimization
+    public private(set) lazy var performanceOptimizer: CognitivePerformanceOptimizer = {
+        CognitivePerformanceOptimizer(
+            cognitiveSystem: self,
+            batchSize: 25,
+            memoryThreshold: 0.8,
+            indexingEnabled: true
+        )
+    }()
+    
     // Configuration
     private let consolidationInterval: TimeInterval = 300 // 5 minutes
     private let maxFusionNodes: Int = 200
@@ -186,7 +196,7 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
     
     // MARK: - Cognitive Search Operations
     
-    /// Search across all cognitive layers
+    /// Search across all cognitive layers (standard implementation)
     public func searchCognitiveLayers(
         query: String,
         layerWeights: LayerWeights = .default,
@@ -214,6 +224,32 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
         logger.info("Cognitive search completed in \(results.processingTime)s")
         
         return results
+    }
+    
+    /// Optimized search with performance enhancements
+    public func optimizedSearch(
+        query: String,
+        layerWeights: LayerWeights = .default,
+        maxResults: Int = 20
+    ) async throws -> CognitiveSearchResult {
+        return try await performanceOptimizer.optimizedCognitiveSearch(
+            query: query,
+            maxResults: maxResults,
+            layerWeights: layerWeights
+        )
+    }
+    
+    /// Batch multiple search operations for improved performance
+    public func batchSearch(
+        queries: [String],
+        layerWeights: LayerWeights = .default,
+        maxResults: Int = 20
+    ) async throws -> [CognitiveSearchResult] {
+        let operations = queries.map { query in
+            { try await self.optimizedSearch(query: query, layerWeights: layerWeights, maxResults: maxResults) }
+        }
+        
+        return try await performanceOptimizer.batchCognitiveOperations(operations: operations)
     }
     
     /// Get memory context for a query (used by control loop)
@@ -277,6 +313,25 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
             recommendedActions: getRecommendedActions(),
             lastConsolidation: lastConsolidation
         )
+    }
+    
+    /// Get performance metrics and optimization status
+    public func getPerformanceStatus() async -> CognitivePerformanceStatus {
+        let performanceMetrics = await performanceOptimizer.performanceMetrics
+        let optimizationLevel = await performanceOptimizer.optimizationLevel
+        
+        return CognitivePerformanceStatus(
+            metrics: performanceMetrics,
+            optimizationLevel: optimizationLevel,
+            isOptimizing: await performanceOptimizer.isOptimizing,
+            recommendedOptimizations: await getRecommendedOptimizations()
+        )
+    }
+    
+    /// Trigger performance optimization manually
+    public func optimizePerformance() async throws {
+        try await performanceOptimizer.optimizeMemoryUsage()
+        try await performanceOptimizer.optimizeSearchIndices()
     }
     
     // MARK: - Private Implementation
@@ -522,6 +577,34 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
         return actions
     }
     
+    private func getRecommendedOptimizations() async -> [String] {
+        var optimizations: [String] = []
+        
+        let performanceMetrics = await performanceOptimizer.performanceMetrics
+        
+        if performanceMetrics.avgQueryTime > 1.0 {
+            optimizations.append("Enable query caching")
+        }
+        
+        if performanceMetrics.cacheHitRate < 0.5 {
+            optimizations.append("Increase cache size")
+        }
+        
+        if performanceMetrics.memoryUsage > 0.8 {
+            optimizations.append("Optimize memory usage")
+        }
+        
+        if performanceMetrics.indexEfficiency < 0.7 {
+            optimizations.append("Rebuild search indices")
+        }
+        
+        if systemMetrics.systemLoadFactor > 0.7 {
+            optimizations.append("Increase optimization level")
+        }
+        
+        return optimizations
+    }
+    
     private func pruneFusionNodes() async {
         let sortedNodes = fusionNodes.sorted { node1, node2 in
             let score1 = node1.coherenceScore + node1.strengthScore
@@ -595,4 +678,12 @@ public struct CognitiveSystemStatus: Sendable {
     public let memoryPressure: Double
     public let recommendedActions: [String]
     public let lastConsolidation: Date?
+}
+
+/// Performance status including optimization metrics
+public struct CognitivePerformanceStatus: Sendable {
+    public let metrics: PerformanceMetrics
+    public let optimizationLevel: CognitivePerformanceOptimizer.OptimizationLevel
+    public let isOptimizing: Bool
+    public let recommendedOptimizations: [String]
 }
