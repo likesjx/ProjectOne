@@ -340,7 +340,7 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
         // Load existing fusion nodes
         do {
             let descriptor = FetchDescriptor<FusionNode>(
-                sortBy: [SortDescriptor(\\.timestamp, order: .reverse)]
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
             )
             fusionNodes = try modelContext.fetch(descriptor)
             
@@ -360,27 +360,27 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
             // Load STM
             let stmDescriptor = FetchDescriptor<ShortTermMemory>(
                 predicate: #Predicate { $0.isActive == true },
-                sortBy: [SortDescriptor(\\.createdAt, order: .reverse)]
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
             )
             let stmResults = try modelContext.fetch(stmDescriptor)
             shortTermMemory = stmResults.first
             
             // Load LTM
             let ltmDescriptor = FetchDescriptor<LongTermMemory>(
-                sortBy: [SortDescriptor(\\.createdAt, order: .reverse)]
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
             )
             let ltmResults = try modelContext.fetch(ltmDescriptor)
             longTermMemory = ltmResults.first
             
             // Load Working Memory items
             let wmDescriptor = FetchDescriptor<WorkingMemoryItem>(
-                sortBy: [SortDescriptor(\\.lastAccessed, order: .reverse)]
+                sortBy: [SortDescriptor(\.lastAccessed, order: .reverse)]
             )
             workingMemory = try modelContext.fetch(wmDescriptor)
             
             // Load Episodic Memory
             let epDescriptor = FetchDescriptor<EpisodicMemoryEntry>(
-                sortBy: [SortDescriptor(\\.timestamp, order: .reverse)]
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
             )
             episodicMemory = try modelContext.fetch(epDescriptor)
             

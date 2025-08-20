@@ -44,7 +44,7 @@ struct ProjectOneApp: App {
             RecordingItem.self,
             ProcessedNote.self,
             NoteItem.self,
-            // Thought.self, // TODO: Add Thought.swift to Xcode project target
+            Thought.self,
             
             // Prompt models
             PromptTemplate.self,

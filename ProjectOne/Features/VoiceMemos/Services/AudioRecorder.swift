@@ -31,6 +31,8 @@ public enum RecordingValidationStatus {
     }
 }
 
+// TODO(human): Add AudioRecorderError enum and error handling infrastructure
+
 @MainActor
 class AudioRecorder: NSObject, ObservableObject, @unchecked Sendable {
     var audioRecorder: AVAudioRecorder?
