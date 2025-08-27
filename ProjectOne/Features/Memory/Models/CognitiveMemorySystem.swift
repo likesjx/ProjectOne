@@ -10,6 +10,13 @@ import Foundation
 import SwiftData
 import os.log
 
+// MARK: - Supporting Protocols
+
+/// Protocol for nodes that provide emotional resonance data
+public protocol EmotionalResonanceProvider {
+    var emotionalResonance: Double { get }
+}
+
 // MARK: - Main Cognitive Memory System
 
 /// Cognitive Memory System implementing ComoRAG 3-layer architecture
@@ -18,6 +25,9 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "CognitiveMemorySystem")
     private let modelContext: ModelContext
+    
+    // BubbleUp integration
+    public weak var bubbleUpEngine: BubbleUpEngine?
     
     // MARK: - ComoRAG 3-Layer Architecture
     
@@ -276,21 +286,49 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
         
         logger.info("Starting full system consolidation")
         
+        let startMetrics = systemMetrics
+        var consolidationResult: MemoryConsolidationResult
+        
         do {
+            // Track new nodes created during consolidation
+            let initialFusionCount = fusionNodes.count
+            
             // Consolidate each layer
             try await veridicalLayer.consolidate()
             try await semanticLayer.consolidate()
             try await episodicLayer.consolidate()
             
             // Identify new fusion opportunities
-            await identifyFusionOpportunities()
+            let detectedConnections = await identifyAndCreateFusionOpportunities()
+            let detectedPatterns = await analyzeMemoryPatternsForConsolidation()
             
             // Update system metrics
             await updateSystemMetrics()
             
+            // Calculate consolidation results
+            let newFusionNodes = Array(fusionNodes.suffix(fusionNodes.count - initialFusionCount))
+            let memoryPressureReduction = startMetrics.systemLoadFactor - systemMetrics.systemLoadFactor
+            let performanceImprovement = systemMetrics.memoryEfficiency - startMetrics.memoryEfficiency
+            
+            consolidationResult = MemoryConsolidationResult(
+                memoryPressureReduction: max(0.0, memoryPressureReduction),
+                newFusionNodes: newFusionNodes,
+                newCrossLayerConnections: detectedConnections,
+                detectedPatterns: detectedPatterns,
+                prunedNodes: 0, // TODO: Track pruned nodes
+                optimizedConnections: 0, // TODO: Track optimized connections
+                systemPerformanceImprovement: performanceImprovement
+            )
+            
             await MainActor.run {
                 lastConsolidation = Date()
                 isConsolidating = false
+            }
+            
+            // Notify bubble-up engine about consolidation results
+            if let bubbleUpEngine = bubbleUpEngine {
+                try await bubbleUpEngine.onMemoryConsolidation(consolidationResult: consolidationResult)
+                logger.info("Notified bubble-up engine of consolidation results")
             }
             
             logger.info("System consolidation completed successfully")
@@ -482,6 +520,225 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
         }
         
         logger.info("Identified \(opportunityCount) fusion opportunities")
+    }
+    
+    /// Enhanced fusion opportunity identification that returns cross-layer connections
+    private func identifyAndCreateFusionOpportunities() async -> [CrossLayerConnection] {
+        var detectedConnections: [CrossLayerConnection] = []
+        
+        // Look for veridical-semantic connections
+        for verNode in veridicalLayer.nodes.prefix(25) {
+            for semNode in semanticLayer.nodes.prefix(25) {
+                if let connection = await analyzeConnectionBetweenNodes(verNode, semNode) {
+                    detectedConnections.append(connection)
+                    
+                    if await shouldCreateFusion(verNode, semNode) {
+                        try? await createAutomaticFusion([verNode, semNode], type: .crossLayer)
+                    }
+                }
+            }
+        }
+        
+        // Look for semantic-episodic connections  
+        for semNode in semanticLayer.nodes.prefix(25) {
+            for epNode in episodicLayer.nodes.prefix(25) {
+                if let connection = await analyzeConnectionBetweenNodes(semNode, epNode) {
+                    detectedConnections.append(connection)
+                    
+                    if await shouldCreateFusion(semNode, epNode) {
+                        try? await createAutomaticFusion([semNode, epNode], type: .crossLayer)
+                    }
+                }
+            }
+        }
+        
+        // Look for veridical-episodic connections
+        for verNode in veridicalLayer.nodes.prefix(15) {
+            for epNode in episodicLayer.nodes.prefix(15) {
+                if let connection = await analyzeConnectionBetweenNodes(verNode, epNode) {
+                    detectedConnections.append(connection)
+                    
+                    if await shouldCreateFusion(verNode, epNode) {
+                        try? await createAutomaticFusion([verNode, epNode], type: .crossLayer)
+                    }
+                }
+            }
+        }
+        
+        logger.info("Detected \(detectedConnections.count) cross-layer connections during consolidation")
+        return detectedConnections
+    }
+    
+    /// Analyze memory patterns for consolidation triggers
+    private func analyzeMemoryPatternsForConsolidation() async -> [DetectedMemoryPattern] {
+        var detectedPatterns: [DetectedMemoryPattern] = []
+        
+        // Analyze recurring patterns in semantic layer
+        let recurringPatterns = await analyzeRecurringSemanticPatterns()
+        detectedPatterns.append(contentsOf: recurringPatterns)
+        
+        // Analyze temporal patterns in episodic layer
+        let temporalPatterns = await analyzeTemporalEpisodicPatterns()
+        detectedPatterns.append(contentsOf: temporalPatterns)
+        
+        // Analyze emotional patterns across all layers
+        let emotionalPatterns = await analyzeEmotionalPatterns()
+        detectedPatterns.append(contentsOf: emotionalPatterns)
+        
+        // Analyze behavioral patterns from node access patterns
+        let behavioralPatterns = await analyzeBehavioralAccessPatterns()
+        detectedPatterns.append(contentsOf: behavioralPatterns)
+        
+        logger.info("Detected \(detectedPatterns.count) memory patterns during consolidation")
+        return detectedPatterns
+    }
+    
+    private func analyzeConnectionBetweenNodes(_ node1: BaseCognitiveNode, _ node2: BaseCognitiveNode) async -> CrossLayerConnection? {
+        let contentSimilarity = calculateContentSimilarity(node1.content, node2.content)
+        let connectionStrength = calculateConnectionStrength(node1, node2)
+        
+        // Only create connections above threshold
+        guard contentSimilarity > 0.4 || connectionStrength > 0.5 else { return nil }
+        
+        let connectionType: CrossLayerConnection.ConnectionType = determineConnectionType(node1, node2)
+        let insightContent = generateConnectionInsight(node1, node2, similarity: contentSimilarity)
+        
+        return CrossLayerConnection(
+            sourceLayerType: node1.layerType,
+            targetLayerType: node2.layerType,
+            sourceNodeId: node1.id.uuidString,
+            targetNodeId: node2.id.uuidString,
+            connectionType: connectionType,
+            strengthScore: max(contentSimilarity, connectionStrength),
+            relevanceScore: (contentSimilarity + connectionStrength) / 2.0,
+            insightContent: insightContent
+        )
+    }
+    
+    private func determineConnectionType(_ node1: BaseCognitiveNode, _ node2: BaseCognitiveNode) -> CrossLayerConnection.ConnectionType {
+        // Simplified connection type determination
+        let sharedWords = Set(node1.content.lowercased().components(separatedBy: .whitespacesAndNewlines))
+            .intersection(Set(node2.content.lowercased().components(separatedBy: .whitespacesAndNewlines)))
+        
+        if sharedWords.contains(where: { $0.contains("feel") || $0.contains("emotion") }) {
+            return .emotional
+        } else if sharedWords.contains(where: { $0.contains("when") || $0.contains("time") }) {
+            return .temporal
+        } else if sharedWords.contains(where: { $0.contains("because") || $0.contains("cause") }) {
+            return .causal
+        } else if sharedWords.count > 3 {
+            return .semantic
+        } else {
+            return .associative
+        }
+    }
+    
+    private func generateConnectionInsight(_ node1: BaseCognitiveNode, _ node2: BaseCognitiveNode, similarity: Double) -> String {
+        return "Connection between \(node1.layerType.displayName) and \(node2.layerType.displayName): \(String(node1.content.prefix(30)))... relates to \(String(node2.content.prefix(30)))... (strength: \(String(format: "%.2f", similarity)))"
+    }
+    
+    private func analyzeRecurringSemanticPatterns() async -> [DetectedMemoryPattern] {
+        var patterns: [DetectedMemoryPattern] = []
+        
+        // Group semantic nodes by similar content
+        let contentGroups = Dictionary(grouping: semanticLayer.nodes) { node in
+            node.content.components(separatedBy: .whitespacesAndNewlines).prefix(3).joined(separator: " ")
+        }
+        
+        for (groupKey, nodes) in contentGroups where nodes.count >= 3 {
+            let pattern = DetectedMemoryPattern(
+                patternType: .recurring,
+                description: "Recurring conceptual theme: \(groupKey)",
+                significanceScore: min(1.0, Double(nodes.count) / 10.0),
+                confidenceLevel: 0.8,
+                frequency: nodes.count,
+                timeframe: "recent consolidation period",
+                contextualDetails: "Appears across \(nodes.count) concept nodes"
+            )
+            patterns.append(pattern)
+        }
+        
+        return patterns
+    }
+    
+    private func analyzeTemporalEpisodicPatterns() async -> [DetectedMemoryPattern] {
+        var patterns: [DetectedMemoryPattern] = []
+        
+        // Analyze time-based clustering of episodic memories
+        let recentMemories = episodicLayer.nodes.filter { 
+            Date().timeIntervalSince($0.timestamp) < 86400 * 7 // Last week
+        }
+        
+        if recentMemories.count > 5 {
+            let pattern = DetectedMemoryPattern(
+                patternType: .temporal,
+                description: "Increased episodic memory activity",
+                significanceScore: min(1.0, Double(recentMemories.count) / 20.0),
+                confidenceLevel: 0.9,
+                frequency: recentMemories.count,
+                timeframe: "past week",
+                contextualDetails: "Clustering of \(recentMemories.count) recent experiences",
+                isTimeSelective: true
+            )
+            patterns.append(pattern)
+        }
+        
+        return patterns
+    }
+    
+    private func analyzeEmotionalPatterns() async -> [DetectedMemoryPattern] {
+        var patterns: [DetectedMemoryPattern] = []
+        
+        // Analyze nodes with high emotional resonance
+        let emotionalNodes = (veridicalLayer.nodes + semanticLayer.nodes + episodicLayer.nodes)
+            .filter { ($0 as? any EmotionalResonanceProvider)?.emotionalResonance ?? 0.0 > 0.7 }
+        
+        if emotionalNodes.count > 3 {
+            let avgEmotionalIntensity = emotionalNodes.compactMap { 
+                ($0 as? any EmotionalResonanceProvider)?.emotionalResonance 
+            }.reduce(0.0, +) / Double(emotionalNodes.count)
+            
+            let pattern = DetectedMemoryPattern(
+                patternType: .emotional,
+                description: "High emotional resonance across memory layers",
+                significanceScore: min(1.0, avgEmotionalIntensity),
+                confidenceLevel: 0.7,
+                frequency: emotionalNodes.count,
+                timeframe: "consolidation period",
+                contextualDetails: "Emotional themes in \(emotionalNodes.count) nodes",
+                emotionalIntensity: avgEmotionalIntensity,
+                emotionalContext: "Cross-layer emotional significance detected"
+            )
+            patterns.append(pattern)
+        }
+        
+        return patterns
+    }
+    
+    private func analyzeBehavioralAccessPatterns() async -> [DetectedMemoryPattern] {
+        var patterns: [DetectedMemoryPattern] = []
+        
+        // Analyze frequently accessed nodes
+        let frequentlyAccessed = (veridicalLayer.nodes + semanticLayer.nodes + episodicLayer.nodes)
+            .filter { $0.accessCount > 5 }
+            .sorted { $0.accessCount > $1.accessCount }
+        
+        if frequentlyAccessed.count > 5 {
+            let pattern = DetectedMemoryPattern(
+                patternType: .behavioral,
+                description: "Consistent access pattern to specific memories",
+                significanceScore: min(1.0, Double(frequentlyAccessed.count) / 15.0),
+                confidenceLevel: 0.8,
+                frequency: frequentlyAccessed.count,
+                timeframe: "ongoing",
+                contextualDetails: "Top \(min(5, frequentlyAccessed.count)) frequently accessed memories",
+                behavioralDomain: "memory retrieval patterns",
+                isActionable: true
+            )
+            patterns.append(pattern)
+        }
+        
+        return patterns
     }
     
     private func shouldCreateFusion(_ node1: BaseCognitiveNode, _ node2: BaseCognitiveNode) async -> Bool {

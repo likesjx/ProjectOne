@@ -41,6 +41,19 @@ public final class Thought {
     public var embeddingModelVersion: String?
     public var embeddingGeneratedAt: Date?
     
+    // Location and temporal context
+    public var creationLatitude: Double?         // GPS latitude when thought was created
+    public var creationLongitude: Double?        // GPS longitude when thought was created  
+    public var creationLocationName: String?     // Human-readable location name
+    public var creationLocationAccuracy: Double? // GPS accuracy in meters
+    
+    // Target/due temporal and location context
+    public var targetDateTime: Date?             // When this thought should be acted upon or reviewed
+    public var targetLatitude: Double?           // Target/relevant GPS latitude
+    public var targetLongitude: Double?          // Target/relevant GPS longitude
+    public var targetLocationName: String?       // Human-readable target location name
+    public var targetLocationRadius: Double?     // Relevant radius around target location in meters
+    
     public init(
         content: String,
         contextBefore: String? = nil,
@@ -154,6 +167,87 @@ public final class Thought {
         }
         
         return false
+    }
+    
+    // MARK: - Location and Temporal Management
+    
+    /// Set the creation location for this thought
+    public func setCreationLocation(latitude: Double, longitude: Double, locationName: String? = nil, accuracy: Double? = nil) {
+        self.creationLatitude = latitude
+        self.creationLongitude = longitude
+        self.creationLocationName = locationName
+        self.creationLocationAccuracy = accuracy
+    }
+    
+    /// Set the target location for this thought
+    public func setTargetLocation(latitude: Double, longitude: Double, locationName: String? = nil, radius: Double? = nil) {
+        self.targetLatitude = latitude
+        self.targetLongitude = longitude
+        self.targetLocationName = locationName
+        self.targetLocationRadius = radius
+    }
+    
+    /// Check if thought has creation location data
+    public var hasCreationLocation: Bool {
+        return creationLatitude != nil && creationLongitude != nil
+    }
+    
+    /// Check if thought has target location data
+    public var hasTargetLocation: Bool {
+        return targetLatitude != nil && targetLongitude != nil
+    }
+    
+    /// Check if thought has a target date/time
+    public var hasTargetDateTime: Bool {
+        return targetDateTime != nil
+    }
+    
+    /// Check if thought is overdue (target date has passed)
+    public var isOverdue: Bool {
+        guard let targetDate = targetDateTime else { return false }
+        return Date() > targetDate
+    }
+    
+    /// Check if thought is due soon (within specified hours)
+    public func isDueSoon(withinHours hours: Double = 24.0) -> Bool {
+        guard let targetDate = targetDateTime else { return false }
+        let hoursUntilTarget = targetDate.timeIntervalSinceNow / 3600.0
+        return hoursUntilTarget > 0 && hoursUntilTarget <= hours
+    }
+    
+    /// Calculate distance from current location to creation location (in meters)
+    public func distanceFromCreationLocation(currentLatitude: Double, currentLongitude: Double) -> Double? {
+        guard let creationLat = creationLatitude, let creationLng = creationLongitude else { return nil }
+        return haversineDistance(lat1: currentLatitude, lon1: currentLongitude, lat2: creationLat, lon2: creationLng)
+    }
+    
+    /// Calculate distance from current location to target location (in meters)
+    public func distanceFromTargetLocation(currentLatitude: Double, currentLongitude: Double) -> Double? {
+        guard let targetLat = targetLatitude, let targetLng = targetLongitude else { return nil }
+        return haversineDistance(lat1: currentLatitude, lon1: currentLongitude, lat2: targetLat, lon2: targetLng)
+    }
+    
+    /// Check if current location is near target location
+    public func isNearTargetLocation(currentLatitude: Double, currentLongitude: Double) -> Bool {
+        guard let distance = distanceFromTargetLocation(currentLatitude: currentLatitude, currentLongitude: currentLongitude),
+              let radius = targetLocationRadius else { return false }
+        return distance <= radius
+    }
+    
+    /// Haversine distance calculation between two GPS coordinates
+    private func haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
+        let earthRadius = 6371000.0 // Earth's radius in meters
+        
+        let dLat = (lat2 - lat1) * .pi / 180.0
+        let dLon = (lon2 - lon1) * .pi / 180.0
+        
+        let lat1Rad = lat1 * .pi / 180.0
+        let lat2Rad = lat2 * .pi / 180.0
+        
+        let a = sin(dLat/2) * sin(dLat/2) + cos(lat1Rad) * cos(lat2Rad) * sin(dLon/2) * sin(dLon/2)
+        let c = 2 * atan2(sqrt(a), sqrt(1-a))
+        
+        return earthRadius * c
     }
 }
 
