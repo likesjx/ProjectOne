@@ -167,8 +167,54 @@ Voice / Drafts / Obsidian Capture
 
 ⸻
 
-10. Why This Matters
-	•	Working Memory Support: bubble-up ensures you don’t lose threads.
+10. Spatial-Temporal Context Integration
+
+Location-Aware Memory Surfacing
+	•	Creation Context: Every thought captures GPS location and timestamp
+	•	Target Locations: Thoughts can be linked to specific places (Home, Office, Gym)
+	•	Proximity Triggers: Memories surface when approaching relevant locations
+	•	Radius Zones: Configurable 10m-1km detection zones
+
+Temporal Memory Management
+	•	Target DateTime: Thoughts can have due dates/times for review
+	•	Dopamine Wave Alignment: Target times align with productivity windows
+		○	Morning Peak (7:30-11:30am): Deep work tasks and critical thoughts
+		○	Afternoon Boost (3-6pm): Structured tasks and problem-solving thoughts
+		○	Evening Creative (6:30-9pm): Creative ideas and reflection prompts
+	•	Overdue Detection: System identifies missed target times
+	•	Smart Scheduling: Reschedules missed thoughts to next optimal wave
+
+Context-Aware Bubble-Up
+	•	Location + Time: "Show office tasks when at office during morning peak"
+	•	Routine Detection: Learning location patterns (Home evenings, Office mornings)
+	•	Context Switching: Different thought types surface based on location
+		○	Home: Personal goals, family tasks, creative projects
+		○	Office: Work tasks, professional development, meetings
+		○	Gym: Health goals, workout plans, motivation thoughts
+		○	Travel: Trip planning, location-specific information
+
+Architecture Enhancement
+```
+Bubble-Up Engine → Location Services → Current Context
+       ↓                ↓                   ↓
+Dopamine Wave    GPS Coordinates    Context Matching
+   Timing         & Reverse         Algorithm
+       ↓           Geocoding             ↓
+     Thought Selection → Spatial-Temporal Filter → UI Surface
+```
+
+Privacy & Local Processing
+	•	All GPS data stored locally in SwiftData
+	•	No location transmitted to external services
+	•	User controls location sharing per thought
+	•	Reverse geocoding for readable location names
+
+⸻
+
+11. Why This Matters
+	•	Working Memory Support: bubble-up ensures you don't lose threads.
 	•	Fluid Intelligence: graph + hierarchy allow you to synthesize across domains.
 	•	ADHD Adaptation: externalizes memory load into UI structures.
+	•	Spatial Intelligence: right thoughts surface in right places at right times.
+	•	Context Switching: smooth transitions between environments and mindsets.
 	•	Longevity: supplements, sleep, and local-first AI combine for sustainable cognitive enhancement.

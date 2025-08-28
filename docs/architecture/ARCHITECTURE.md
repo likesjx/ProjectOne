@@ -418,6 +418,117 @@ import Foundation
 
 ---
 
+## Spatial & Temporal Context Architecture
+
+### 18. Location-Aware Memory System
+
+The memory system integrates comprehensive spatial and temporal context tracking to enable location-based memory surfacing and time-sensitive thought management.
+
+#### Core Components
+
+```swift
+// Enhanced Thought Model with Spatial-Temporal Context
+@Model class Thought {
+    // Spatial Context
+    var creationLatitude: Double?         // GPS coordinates at creation
+    var creationLongitude: Double?
+    var creationLocationName: String?     // Human-readable location
+    var creationLocationAccuracy: Double? // GPS accuracy in meters
+    
+    // Target/Due Context
+    var targetDateTime: Date?             // When thought should be reviewed
+    var targetLatitude: Double?           // Target location coordinates
+    var targetLongitude: Double?
+    var targetLocationName: String?       // Target location name
+    var targetLocationRadius: Double?     // Relevant radius in meters
+    
+    // Location Intelligence Methods
+    func distanceFromTargetLocation(currentLatitude: Double, currentLongitude: Double) -> Double?
+    func isNearTargetLocation(currentLatitude: Double, currentLongitude: Double) -> Bool
+    func isDueSoon(withinHours hours: Double) -> Bool
+}
+```
+
+#### Spatial Memory Creation
+
+```swift
+// BubbleUpMemoryCreator with Location Services
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public actor BubbleUpMemoryCreator {
+    private let locationManager = CLLocationManager()
+    
+    // Automatic location capture during memory creation
+    private func captureCurrentLocation() async -> LocationData {
+        // CoreLocation integration with reverse geocoding
+        // Returns: latitude, longitude, accuracy, locationName
+    }
+    
+    // Memory creation with spatial context
+    public func createMemoryFromBubbleUp(
+        _ bubbleUpItem: BubbleUpItem,
+        userInput: String? = nil,
+        thoughtType: ThoughtType = .insight
+    ) async throws -> Thought {
+        // Captures current GPS location automatically
+        // Stores creation context for future surfacing
+    }
+}
+```
+
+#### Interactive Location Selection
+
+```swift
+// LocationPickerView for precise coordinate selection
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+struct LocationPickerView: View {
+    // MapKit integration for location selection
+    // Search functionality for places
+    // Current location button
+    // Reverse geocoding for names
+    
+    let onLocationSelected: (CLLocationCoordinate2D, String?) -> Void
+}
+```
+
+#### Spatial-Temporal Intelligence
+
+**Location-Based Memory Surfacing**:
+- Memories surface when user approaches target locations
+- Haversine distance calculations for proximity detection
+- Configurable radius zones around target locations
+
+**Temporal Memory Management**:
+- Target datetime tracking for future-oriented thoughts
+- Overdue detection and "due soon" notifications
+- Integration with dopamine wave scheduling
+
+**Context Preservation**:
+- Creation location captured automatically
+- Target locations selected interactively via map
+- Human-readable location names via reverse geocoding
+
+#### Architecture Flow
+
+```
+User Input → Location Capture → Memory Creation → Spatial Storage
+     ↓              ↓                    ↓              ↓
+BubbleUp      CoreLocation      BubbleUpMemoryCreator   SwiftData
+   UI         Integration          Actor Service       Persistence
+     ↓              ↓                    ↓              ↓
+Location      GPS Coordinates    Enhanced Thought     Cognitive
+Picker         & Reverse         with Spatial        Memory
+View           Geocoding         Context            System
+```
+
+#### Privacy & Permissions
+
+- Location services request proper iOS permissions
+- GPS data stored locally in SwiftData
+- No location data transmitted to external services
+- User controls spatial context via interactive UI
+
+---
+
 ## Performance Considerations
 
 ### 20. Optimization Strategies

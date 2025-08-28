@@ -12,6 +12,7 @@ ProjectOne implements sophisticated **Agentic Architecture Patterns** that trans
 - **Multi-Agent Coordination**: Specialized agents working together
 - **Emergent Intelligence**: Complex behaviors from simple agent interactions
 - **Privacy-First Agency**: All agent operations happen on-device
+- **Spatial-Temporal Intelligence**: Location-aware memory surfacing and time-sensitive thought management
 
 ## Core Technology Strategy
 
