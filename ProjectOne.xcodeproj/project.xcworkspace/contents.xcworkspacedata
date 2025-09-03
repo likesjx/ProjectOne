@@ -4,4 +4,19 @@
    <FileRef
       location = "self:">
    </FileRef>
+   <FileRef
+      location = "group:ErrorLogger.swift">
+   </FileRef>
+   <FileRef
+      location = "group:ServiceFactory.swift">
+   </FileRef>
+   <FileRef
+      location = "group:OpenAIProvider.swift">
+   </FileRef>
+   <FileRef
+      location = "group:OpenRouterProvider.swift">
+   </FileRef>
+   <FileRef
+      location = "group:OllamaProvider.swift">
+   </FileRef>
 </Workspace>

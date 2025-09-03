@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Foundation
 import Combine
 import os.log
 
@@ -16,50 +15,28 @@ private func disableHapticsInSimulator() {
 }
 #endif
 
-
 @main
 struct ProjectOneApp: App {
     @State private var urlHandler = URLHandler()
     @StateObject private var initCoordinator = InitializationCoordinator()
     @StateObject private var providerFactory = ExternalProviderFactory(settings: AIProviderSettings())
     
+    // Trimmed SwiftData schema to only include models that currently exist in the project.
+    // Add additional models back here as they are implemented and available.
     var sharedModelContainer: SwiftData.ModelContainer = {
         let schema = Schema([
-            // Analytics models
-            MemoryAnalytics.self,
-            ConsolidationEvent.self,
-            MemoryPerformanceMetric.self,
-            
-            // Memory models
-            STMEntry.self,
-            LTMEntry.self,
-            WorkingMemoryEntry.self,
-            EpisodicMemoryEntry.self,
-            
-            // Knowledge graph models
-            Entity.self,
-            Relationship.self,
-            
-            // Note models
-            RecordingItem.self,
+            // Note and content models known to exist
             ProcessedNote.self,
-            NoteItem.self,
             Thought.self,
-            
-            // Prompt models
-            PromptTemplate.self,
-            
-            // User profile models
-            UserSpeechProfile.self,
-            
-            // Cognitive decision models
-            CognitiveDecision.self
+            NoteItem.self,
+            RecordingItem.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
             return try SwiftData.ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
+            // If you don't have ErrorLogger implemented, replace the following line with a simple Logger.
             ErrorLogger.log(.modelContainerCreationFailed(error.localizedDescription))
             fatalError("Could not create ModelContainer: \(error)")
         }
@@ -98,6 +75,4 @@ struct ProjectOneApp: App {
         }
         #endif
     }
-    
-    @MainActor
 }

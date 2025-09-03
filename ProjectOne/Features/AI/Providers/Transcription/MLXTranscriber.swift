@@ -135,7 +135,22 @@ private func loadBinaryTensor(baseURL: URL, name: String, shape: [Int]) throws -
 }
 
 // MARK: - Manifest Loading (mlx-community)
-private struct WhisperManifest: Decodable { struct Cfg: Decodable { let n_mels:Int; let d_model:Int; let n_heads:Int; let n_layers:Int; let vocab_size:Int; let max_frames:Int? } struct TensorEntry: Decodable { let shape:[Int]; let file:String }; let config: Cfg; let tensors: [String:TensorEntry] }
+private struct WhisperManifest: Decodable {
+    struct Cfg: Decodable {
+        let n_mels: Int
+        let d_model: Int
+        let n_heads: Int
+        let n_layers: Int
+        let vocab_size: Int
+        let max_frames: Int?
+    }
+    struct TensorEntry: Decodable {
+        let shape: [Int]
+        let file: String
+    }
+    let config: Cfg
+    let tensors: [String: TensorEntry]
+}
 
 private func loadFromManifest(manifestURL: URL, variant: MLXWhisperModel.Variant, locale: Locale) throws -> MLXWhisperModel {
     let data = try Data(contentsOf: manifestURL)

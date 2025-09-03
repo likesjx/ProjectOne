@@ -333,7 +333,7 @@ public class BubbleUpEngine: ObservableObject {
         let sortedItems = scoredItems.sorted { $0.1 > $1.1 }
         
         if !sortedItems.isEmpty {
-            logger.info("Scored candidates: top 3 scores = \(sortedItems.prefix(3).map { String(format: "%.3f", $0.1) })")
+            logger.info("Scored candidates: top 3 scores = \(sortedItems.prefix(3).map { String(format: \"%.3f\", $0.1) })")
         }
         
         return sortedItems
@@ -706,7 +706,7 @@ public class BubbleUpEngine: ObservableObject {
             content: insight,
             taskType: .insight,
             createdAt: Date(),
-            scheduledFor: Date().addingTimeInterval(600), // Surface in 10 minutes
+            scheduledFor: Date().addingTimeInterval(600), // 10 minutes
             importance: fusion.strengthScore,
             contextTags: ["fusion", "cross-layer", "insight"],
             relatedMemoryIDs: []
@@ -729,7 +729,7 @@ public class BubbleUpEngine: ObservableObject {
                 contextMultipliers: [:],
                 geospatialRelevance: []
             ),
-            privacySensitivity: 0.2,
+            privacySensitivity: calculateEntityPrivacySensitivity(entity),
             contextDependency: 0.8,
             lastUpdated: Date()
         )
@@ -1159,7 +1159,7 @@ public class BubbleUpEngine: ObservableObject {
     
     /// Create bubble-up from entity mention spike
     private func createBubbleUpFromEntityMentionSpike(_ entity: Entity, spikeRatio: Double) async {
-        let spikeInsight = "'\(entity.name)' is being mentioned \(String(format: "%.1f", spikeRatio))x more than usual. This might indicate emerging importance."
+        let spikeInsight = "'\(entity.name)' is being mentioned \(String(format: \"%.1f\", spikeRatio))x more than usual. This might indicate emerging importance."
         
         let bubbleUpItem = BubbleUpItem(
             content: spikeInsight,
@@ -1464,23 +1464,28 @@ public class BubbleUpEngine: ObservableObject {
     
     /// Entity relationship growth evaluation helpers
     private func shouldBubbleUpEntityFromRelationshipGrowth(_ entity: Entity, newRelationships: [Relationship]) async -> Bool {
-        return !newRelationships.isEmpty && entity.importance > 0.4 && !await hasRecentBubbleUpForEntity(entity.id)
+        let recent = await hasRecentBubbleUpForEntity(entity.id)
+        return !newRelationships.isEmpty && entity.importance > 0.4 && !recent
     }
     
     private func shouldBubbleUpEntityFromCognitiveFusion(_ entity: Entity) async -> Bool {
-        return entity.cognitiveConsolidationScore > 0.5 && !await hasRecentBubbleUpForEntity(entity.id)
+        let recent = await hasRecentBubbleUpForEntity(entity.id)
+        return entity.cognitiveConsolidationScore > 0.5 && !recent
     }
     
     private func shouldBubbleUpEntityFromMentionSpike(_ entity: Entity, spikeRatio: Double) async -> Bool {
-        return spikeRatio > 1.5 && entity.importance > 0.3 && !await hasRecentBubbleUpForEntity(entity.id)
+        let recent = await hasRecentBubbleUpForEntity(entity.id)
+        return spikeRatio > 1.5 && entity.importance > 0.3 && !recent
     }
     
     private func shouldBubbleUpEntityFromLocationRelevance(_ entity: Entity, context: OrchestratorContext) async -> Bool {
-        return entity.importance > 0.2 && !await hasRecentBubbleUpForEntity(entity.id)
+        let recent = await hasRecentBubbleUpForEntity(entity.id)
+        return entity.importance > 0.2 && !recent
     }
     
     private func shouldBubbleUpEntityFromTimeRelevance(_ entity: Entity, context: OrchestratorContext) async -> Bool {
-        return entity.importance > 0.2 && !await hasRecentBubbleUpForEntity(entity.id)
+        let recent = await hasRecentBubbleUpForEntity(entity.id)
+        return entity.importance > 0.2 && !recent
     }
 
     // MARK: - CoachCard Integration
