@@ -729,7 +729,7 @@ public class BubbleUpEngine: ObservableObject {
                 contextMultipliers: [:],
                 geospatialRelevance: []
             ),
-            privacySensitivity: calculateEntityPrivacySensitivity(entity),
+            privacySensitivity: calculateEntityPrivacySensitivity(fusion),
             contextDependency: 0.8,
             lastUpdated: Date()
         )
@@ -939,7 +939,7 @@ public class BubbleUpEngine: ObservableObject {
         for entity in knowledgeGraphService.entities {
             if entity.hasCognitiveRepresentation &&
                !entity.fusionConnectionIds.isEmpty &&
-               entity.lastCognitiveSyncAt ?? Date.distantPast > recentFusionThreshold {
+               (entity.lastCognitiveSyncAt ?? Date.distantPast) > recentFusionThreshold {
                 
                 if await shouldBubbleUpEntityFromCognitiveFusion(entity) {
                     await createBubbleUpFromEntityCognitiveFusion(entity)
@@ -1862,13 +1862,15 @@ public class BubbleUpEngine: ObservableObject {
         // Only surface significant patterns
         guard pattern.significanceScore > 0.6 else { return }
         
-        let taskType: BubbleUpTaskType = switch pattern.patternType {
-        case .recurring: .routine
-        case .emerging: .creative
-        case .temporal: .planning
-        case .emotional: .reflection
-        case .behavioral: .action
-        }
+        let taskType: BubbleUpTaskType = {
+            switch pattern.patternType {
+            case .recurring: return .routine
+            case .emerging: return .creative
+            case .temporal: return .planning
+            case .emotional: return .reflection
+            case .behavioral: return .action
+            }
+        }()
         
         let bubbleUpItem = BubbleUpItem(
             content: generatePatternInsightContent(pattern),
