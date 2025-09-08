@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Charts
 
 // MARK: - Cognitive Memory Dashboard
@@ -521,5 +522,5 @@ public enum TimeRange: String, CaseIterable {
     let mockContext = try! ModelContext(ModelContainer(for: Schema([]), configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]))
     let mockCognitiveSystem = CognitiveMemorySystem(modelContext: mockContext)
     
-    return CognitiveMemoryDashboard(cognitiveSystem: mockCognitiveSystem)
+    CognitiveMemoryDashboard(cognitiveSystem: mockCognitiveSystem)
 }

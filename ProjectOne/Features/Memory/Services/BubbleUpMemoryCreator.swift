@@ -22,21 +22,39 @@ public actor BubbleUpMemoryCreator {
     public init(modelContext: ModelContext, cognitiveMemorySystem: CognitiveMemorySystem) {
         self.modelContext = modelContext
         self.cognitiveMemorySystem = cognitiveMemorySystem
-        setupLocationManager()
+        Task {
+            await setupLocationManager()
+        }
     }
     
-    private func setupLocationManager() {
+    private func setupLocationManager() async {
         locationManager.requestWhenInUseAuthorization()
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
     }
     
     /// Captures current location for memory creation
     private func captureCurrentLocation() async -> (latitude: Double?, longitude: Double?, accuracy: Double?, locationName: String?) {
-        guard CLLocationManager.locationServicesEnabled(),
-              locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways else {
+        guard CLLocationManager.locationServicesEnabled() else {
+            logger.debug("Location services not enabled")
+            return (nil, nil, nil, nil)
+        }
+        
+        #if os(iOS)
+        guard locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways else {
+            logger.debug("Location not authorized on iOS")
+            return (nil, nil, nil, nil)
+        }
+        #elseif os(macOS)
+        guard locationManager.authorizationStatus == .authorizedAlways else {
+            logger.debug("Location not authorized on macOS")
+            return (nil, nil, nil, nil)
+        }
+        #else
+        guard locationManager.authorizationStatus == .authorizedAlways else {
             logger.debug("Location services not available or not authorized")
             return (nil, nil, nil, nil)
         }
+        #endif
         
         guard let location = locationManager.location else {
             logger.debug("No location available from location manager")

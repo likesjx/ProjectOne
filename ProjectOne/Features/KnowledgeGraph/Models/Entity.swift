@@ -433,35 +433,3 @@ extension Entity {
 
 // MARK: - Cognitive Layer Type
 
-public enum CognitiveLayerType: String, CaseIterable, Codable {
-    case veridical = "veridical"
-    case semantic = "semantic"
-    case episodic = "episodic"
-    case fusion = "fusion"
-    
-    public var displayName: String {
-        switch self {
-        case .veridical:
-            return "Veridical Layer"
-        case .semantic:
-            return "Semantic Layer"
-        case .episodic:
-            return "Episodic Layer"
-        case .fusion:
-            return "Fusion Layer"
-        }
-    }
-    
-    public var description: String {
-        switch self {
-        case .veridical:
-            return "Immediate facts and verified information"
-        case .semantic:
-            return "Consolidated knowledge and concepts"
-        case .episodic:
-            return "Contextual experiences and temporal information"
-        case .fusion:
-            return "Cross-layer integrated insights"
-        }
-    }
-}

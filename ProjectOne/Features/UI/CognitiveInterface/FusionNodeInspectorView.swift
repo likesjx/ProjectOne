@@ -970,7 +970,7 @@ private struct ConnectionCard: View {
         importance: 0.85
     )
     
-    return FusionNodeInspectorView(fusionNode: fusionNode)
+    FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
@@ -990,7 +990,7 @@ private struct ConnectionCard: View {
     fusionNode.accessCount = 15
     fusionNode.fusionCount = 3
     
-    return FusionNodeInspectorView(fusionNode: fusionNode)
+    FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
@@ -1010,7 +1010,7 @@ private struct ConnectionCard: View {
     fusionNode.accessCount = 2
     fusionNode.fusionCount = 0
     
-    return FusionNodeInspectorView(fusionNode: fusionNode)
+    FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
@@ -1030,7 +1030,7 @@ private struct ConnectionCard: View {
     fusionNode.accessCount = 8
     fusionNode.fusionCount = 1
     
-    return FusionNodeInspectorView(fusionNode: fusionNode)
+    FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
@@ -1050,7 +1050,7 @@ private struct ConnectionCard: View {
     fusionNode.accessCount = 12
     fusionNode.fusionCount = 2
     
-    return FusionNodeInspectorView(fusionNode: fusionNode)
+    FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
@@ -1070,6 +1070,6 @@ private struct ConnectionCard: View {
     fusionNode.accessCount = 24
     fusionNode.fusionCount = 5
     
-    return FusionNodeInspectorView(fusionNode: fusionNode)
+    FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }

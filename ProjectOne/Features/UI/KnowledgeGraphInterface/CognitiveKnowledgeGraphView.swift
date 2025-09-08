@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Charts
 
 // MARK: - Cognitive Knowledge Graph View
@@ -638,5 +639,5 @@ public enum GraphLayout: String, CaseIterable {
     let mockContext = try! ModelContext(ModelContainer(for: Schema([]), configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]))
     let mockService = KnowledgeGraphService(modelContext: mockContext)
     
-    return CognitiveKnowledgeGraphView(knowledgeGraphService: mockService)
+    CognitiveKnowledgeGraphView(knowledgeGraphService: mockService)
 }

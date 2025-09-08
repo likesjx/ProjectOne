@@ -171,10 +171,6 @@ public struct MLXModelInfo {
     public let isLoaded: Bool
 }
 
-public enum MLXModelType {
-    case llm
-    case vlm
-}
 
 public enum MLXError: Error, LocalizedError {
     case deviceNotSupported(String)

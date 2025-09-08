@@ -2260,21 +2260,6 @@ public struct DetectedMemoryPattern: Sendable, Identifiable {
 
 /// Represents the different cognitive layer types for memory consolidation
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public enum CognitiveLayerType: String, Sendable, CaseIterable {
-    case veridical = "veridical"
-    case semantic = "semantic"
-    case episodic = "episodic"
-    case fusion = "fusion"
-    
-    public var displayName: String {
-        switch self {
-        case .veridical: return "Facts"
-        case .semantic: return "Concepts"
-        case .episodic: return "Experiences"
-        case .fusion: return "Insights"
-        }
-    }
-}
 
 // MARK: - Extensions
 

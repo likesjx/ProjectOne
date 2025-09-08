@@ -561,45 +561,7 @@ class NoteHealthCorrelation {
     }
 }
 
-struct HealthContext: Codable {
-    let timeOfDay: TimeOfDay
-    let activityLevel: ActivityLevel
-    let wellnessState: WellnessState
-    let physiologicalState: PhysiologicalState
-    let environmentalFactors: [String]
-    
-    init(
-        timeOfDay: TimeOfDay = .unknown,
-        activityLevel: ActivityLevel = .unknown,
-        wellnessState: WellnessState = .unknown,
-        physiologicalState: PhysiologicalState = .unknown,
-        environmentalFactors: [String] = []
-    ) {
-        self.timeOfDay = timeOfDay
-        self.activityLevel = activityLevel
-        self.wellnessState = wellnessState
-        self.physiologicalState = physiologicalState
-        self.environmentalFactors = environmentalFactors
-    }
-}
 
-struct HealthInsight: Codable, Identifiable {
-    let id = UUID()
-    let type: InsightType
-    let title: String
-    let description: String
-    let confidence: Double
-    let actionable: Bool
-    let suggestions: [String]
-}
-
-struct HealthSuggestion: Codable, Identifiable {
-    let id = UUID()
-    let category: String
-    let action: String
-    let priority: SuggestionPriority
-    let estimatedImpact: Double
-}
 
 struct HealthTrend: Identifiable {
     let id = UUID()
