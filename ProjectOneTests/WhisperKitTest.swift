@@ -6,13 +6,16 @@
 //
 
 import Foundation
+#if canImport(WhisperKit)
 @preconcurrency import WhisperKit
+#endif
 @preconcurrency import AVFoundation
 
 /// Simple test to verify WhisperKit integration
 class WhisperKitTest {
     
     static func runBasicTest() async {
+#if canImport(WhisperKit)
         print("🧪 [WhisperKitTest] Starting basic WhisperKit test...")
         
         do {
@@ -36,9 +39,13 @@ class WhisperKitTest {
             print("❌ [WhisperKitTest] Test failed: \(error.localizedDescription)")
             print("❌ [WhisperKitTest] Error type: \(type(of: error))")
         }
+#else
+        print("⚠️ [WhisperKitTest] WhisperKit not available, skipping basic test")
+#endif
     }
     
     static func testSpeechTranscriberIntegration() async {
+#if canImport(WhisperKit)
         print("🧪 [WhisperKitTest] Testing SpeechTranscriber integration...")
         
         do {
@@ -74,5 +81,8 @@ class WhisperKitTest {
             print("❌ [WhisperKitTest] SpeechTranscriber test failed: \(error.localizedDescription)")
             print("❌ [WhisperKitTest] Error type: \(type(of: error))")
         }
+#else
+        print("⚠️ [WhisperKitTest] WhisperKit not available, skipping test")
+#endif
     }
 }
