@@ -333,7 +333,8 @@ public class BubbleUpEngine: ObservableObject {
         let sortedItems = scoredItems.sorted { $0.1 > $1.1 }
         
         if !sortedItems.isEmpty {
-            logger.info("Scored candidates: top 3 scores = \(sortedItems.prefix(3).map { String(format: \"%.3f\", $0.1) })")
+            let topScores = sortedItems.prefix(3).map { String(format: "%.3f", $0.1) }
+            logger.info("Scored candidates: top 3 scores = \(topScores)")
         }
         
         return sortedItems
@@ -1159,7 +1160,8 @@ public class BubbleUpEngine: ObservableObject {
     
     /// Create bubble-up from entity mention spike
     private func createBubbleUpFromEntityMentionSpike(_ entity: Entity, spikeRatio: Double) async {
-        let spikeInsight = "'\(entity.name)' is being mentioned \(String(format: \"%.1f\", spikeRatio))x more than usual. This might indicate emerging importance."
+        let spikeRatioFormatted = String(format: "%.1f", spikeRatio)
+        let spikeInsight = "'\(entity.name)' is being mentioned \(spikeRatioFormatted)x more than usual. This might indicate emerging importance."
         
         let bubbleUpItem = BubbleUpItem(
             content: spikeInsight,

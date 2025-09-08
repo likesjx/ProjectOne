@@ -1,7 +1,9 @@
 
 import XCTest
 import AVFoundation
+#if canImport(WhisperKit)
 import WhisperKit
+#endif
 @testable import ProjectOne
 
 /// This test case is specifically designed to reproduce and diagnose the
@@ -24,6 +26,7 @@ class WhisperKitCrashTest: XCTestCase {
     /// This test attempts to transcribe a silent audio file using the WhisperKitTranscriber.
     /// It is expected to crash if the buffer overflow bug is present.
     func testForWhisperKitCrash() async {
+#if canImport(WhisperKit)
         // Using the .tiny model as it's the smallest and fastest to load.
         guard let transcriber = try? WhisperKitTranscriber(locale: Locale(identifier: "en-US"), modelSize: .tiny) else {
             XCTFail("Failed to initialize WhisperKitTranscriber")
@@ -47,6 +50,9 @@ class WhisperKitCrashTest: XCTestCase {
             // We expect a crash, but if it throws an error instead, we log it.
             XCTFail("WhisperKit transcription failed with an error, not a crash: \(error.localizedDescription)")
         }
+#else
+        print("⚠️ WhisperKit not available, skipping crash test")
+#endif
     }
 
     // Helper function to create a silent audio file.

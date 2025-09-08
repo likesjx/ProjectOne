@@ -17,7 +17,9 @@ import Foundation
 import os.log        // 🎓 SWIFT LEARNING: Apple's unified logging system - preferred over print()
 import SwiftData     // 🎓 SWIFT LEARNING: Apple's modern data persistence framework
 import Combine       // 🎓 SWIFT LEARNING: Reactive programming framework for handling asynchronous events
+#if canImport(Atomics)
 import Atomics       // 🎓 SWIFT LEARNING: Thread-safe atomic operations for concurrent programming
+#endif
 
 #if canImport(UIKit)
 import UIKit         // 🎓 PLATFORM OPTIMIZATION: iOS/iPadOS-specific optimizations
@@ -1075,18 +1077,43 @@ public class BaseAIProvider: AIModelProvider, ObservableObject, @unchecked Senda
             Task { @Sendable in
                 do {
                     let config = platformConfig
+                    #if canImport(Atomics)
                     let activeOperations = ManagedAtomic<Int>(0)
+                    #else
+                    var activeOperations = 0
+                    let activeOperationsLock = NSLock()
+                    #endif
                     let maxConcurrent = config.maxConcurrentOperations
                     
                     for try await item in input {
                         // Implement backpressure by limiting concurrent operations
+                        #if canImport(Atomics)
                         while activeOperations.load(ordering: .relaxed) >= maxConcurrent {
                             await Task.yield()
                         }
+                        #else
+                        activeOperationsLock.lock()
+                        let currentCount = activeOperations
+                        activeOperationsLock.unlock()
+                        while currentCount >= maxConcurrent {
+                            await Task.yield()
+                        }
+                        #endif
                         
                         Task { @Sendable in
+                            #if canImport(Atomics)
                             defer { activeOperations.wrappingDecrement(ordering: .relaxed) }
                             activeOperations.wrappingIncrement(ordering: .relaxed)
+                            #else
+                            defer {
+                                activeOperationsLock.lock()
+                                activeOperations -= 1
+                                activeOperationsLock.unlock()
+                            }
+                            activeOperationsLock.lock()
+                            activeOperations += 1
+                            activeOperationsLock.unlock()
+                            #endif
                             
                             do {
                                 let result = try await transform(item)

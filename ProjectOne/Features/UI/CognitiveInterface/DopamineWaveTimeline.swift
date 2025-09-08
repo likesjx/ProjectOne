@@ -573,7 +573,7 @@ public enum EventType: String, CaseIterable, Sendable {
     case focus = "focus"
     case creative = "creative"
     case routine = "routine"
-    case break = "break"
+    case breakTime = "break"
     case meeting = "meeting"
     
     var color: Color {
@@ -581,7 +581,7 @@ public enum EventType: String, CaseIterable, Sendable {
         case .focus: return .blue
         case .creative: return .purple
         case .routine: return .green
-        case .break: return .gray
+        case .breakTime: return .gray
         case .meeting: return .orange
         }
     }

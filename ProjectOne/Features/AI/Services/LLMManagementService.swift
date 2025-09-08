@@ -149,7 +149,7 @@ public class LLMManagementService: ObservableObject {
             loadingProgress: getFoundationLoadingProgress(),
             errorMessage: getFoundationError(),
             currentModel: "Apple Intelligence",
-            capabilities: [.textGeneration, .structuredGeneration, .systemIntegration, .onDevice, .private],
+            capabilities: [.textGeneration, .structuredGeneration, .systemIntegration, .onDevice, .privateMode],
             deviceRequirements: "iOS 26.0+, Apple Intelligence enabled",
             estimatedMemoryUsage: "System managed",
             lastAttempt: getLastAttempt(for: "foundation")
@@ -516,7 +516,7 @@ public enum LLMCapability: String, CaseIterable {
     case conversational = "conversational"
     case systemIntegration = "system_integration"
     case onDevice = "on_device"
-    case private = "private"
+    case privateMode = "private"
     
     public var displayName: String {
         switch self {
@@ -527,7 +527,7 @@ public enum LLMCapability: String, CaseIterable {
         case .conversational: return "Conversational"
         case .systemIntegration: return "System Integration"
         case .onDevice: return "On-Device"
-        case .private: return "Privacy-First"
+        case .privateMode: return "Privacy-First"
         }
     }
     
@@ -540,7 +540,7 @@ public enum LLMCapability: String, CaseIterable {
         case .conversational: return "bubble.left.and.bubble.right"
         case .systemIntegration: return "gearshape.2"
         case .onDevice: return "iphone"
-        case .private: return "lock.shield"
+        case .privateMode: return "lock.shield"
         }
     }
 }

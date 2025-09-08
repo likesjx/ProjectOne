@@ -9,6 +9,7 @@ import Foundation
 @preconcurrency import AVFoundation
 import os.log
 import CoreML
+#if canImport(WhisperKit)
 @preconcurrency import WhisperKit
 
 /// WhisperKit-based speech transcription implementation using CoreML-optimized Whisper models
@@ -575,4 +576,5 @@ public enum WhisperKitModelSize: String, CaseIterable {
 
 // MARK: - WhisperKit Integration Complete
 // Real WhisperKit implementation is now used directly through the WhisperKit framework
+#endif
 

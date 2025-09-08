@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(WhisperKit)
 @preconcurrency import WhisperKit
+#endif
 import os.log
 import Combine
 
@@ -24,8 +26,12 @@ public class WhisperKitModelPreloader: ObservableObject {
     @Published public var loadingStatus = "Initializing..."
     @Published public var lastError: Error?
     
+#if canImport(WhisperKit)
     private var preloadedWhisperKit: WhisperKit?
     private var preloadedModelSize: WhisperKitModelSize = .tiny
+#else
+    private var preloadedModelSize: String = "tiny"
+#endif
     private var shouldUseAppleSpeechFallback = false
     
     // MARK: - Singleton
@@ -53,13 +59,21 @@ public class WhisperKitModelPreloader: ObservableObject {
     }
     
     /// Get preloaded WhisperKit instance
-    public func getPreloadedWhisperKit() -> WhisperKit? {
+    public func getPreloadedWhisperKit() -> Any? {
+#if canImport(WhisperKit)
         return preloadedWhisperKit
+#else
+        return nil
+#endif
     }
     
     /// Get the model size that was preloaded
-    public func getPreloadedModelSize() -> WhisperKitModelSize {
+    public func getPreloadedModelSize() -> String {
+#if canImport(WhisperKit)
+        return preloadedModelSize.rawValue
+#else
         return preloadedModelSize
+#endif
     }
     
     /// Check if we should use Apple Speech as fallback
@@ -79,8 +93,8 @@ public class WhisperKitModelPreloader: ObservableObject {
     }
     
     /// Force reload with different model size
-    public func reloadWithModelSize(_ modelSize: WhisperKitModelSize) {
-        logger.info("Reloading with model size: \(modelSize.rawValue)")
+    public func reloadWithModelSize(_ modelSize: String) {
+        logger.info("Reloading with model size: \(modelSize)")
         
         Task {
             await performBackgroundLoading(forceModelSize: modelSize)
@@ -90,7 +104,9 @@ public class WhisperKitModelPreloader: ObservableObject {
     /// Clean up preloaded resources
     public func cleanup() {
         logger.info("Cleaning up preloaded WhisperKit resources")
+#if canImport(WhisperKit)
         preloadedWhisperKit = nil
+#endif
         shouldUseAppleSpeechFallback = false
         isReady = false
         lastError = nil
@@ -100,25 +116,26 @@ public class WhisperKitModelPreloader: ObservableObject {
     
     // MARK: - Private Methods
     
-    private func performBackgroundLoading(forceModelSize: WhisperKitModelSize? = nil) async {
+    private func performBackgroundLoading(forceModelSize: String? = nil) async {
         isLoading = true
         isReady = false
         lastError = nil
         loadingProgress = 0.0
         
+#if canImport(WhisperKit)
         do {
             // Determine optimal model size
             let modelSize = forceModelSize ?? determineOptimalModelSize()
-            preloadedModelSize = modelSize
+            preloadedModelSize = WhisperKitModelSize(rawValue: modelSize) ?? .tiny
             
-            updateStatus("Selecting model: \(modelSize.rawValue)")
+            updateStatus("Selecting model: \(modelSize)")
             await Task.yield() // Allow UI updates
             
             loadingProgress = 0.1
             updateStatus("Downloading model...")
             
             // Create WhisperKit instance with timeout
-            let whisperKit = try await createWhisperKitWithTimeout(modelSize: modelSize)
+            let whisperKit = try await createWhisperKitWithTimeout(modelSize: preloadedModelSize)
             
             loadingProgress = 0.9
             updateStatus("Finalizing setup...")
@@ -131,7 +148,7 @@ public class WhisperKitModelPreloader: ObservableObject {
             isReady = true
             isLoading = false
             
-            logger.info("WhisperKit model \(modelSize.rawValue) preloaded successfully")
+            logger.info("WhisperKit model \(modelSize) preloaded successfully")
             
         } catch {
             logger.error("Failed to preload WhisperKit model: \(error.localizedDescription)")
@@ -148,8 +165,20 @@ public class WhisperKitModelPreloader: ObservableObject {
             // Force cleanup of any partial WhisperKit state
             preloadedWhisperKit = nil
         }
+#else
+        // WhisperKit not available, use Apple Speech fallback immediately
+        logger.info("WhisperKit not available, using Apple Speech for transcription")
+        
+        shouldUseAppleSpeechFallback = true
+        preloadedModelSize = forceModelSize ?? "tiny"
+        isLoading = false
+        loadingProgress = 1.0
+        isReady = true
+        updateStatus("Ready (using Apple Speech)")
+#endif
     }
     
+#if canImport(WhisperKit)
     private func createWhisperKitWithTimeout(modelSize: WhisperKitModelSize) async throws -> WhisperKit {
         let modelIdentifier = modelSize.modelIdentifier
         
@@ -191,11 +220,12 @@ public class WhisperKitModelPreloader: ObservableObject {
             return result
         }
     }
+#endif
     
-    private func determineOptimalModelSize() -> WhisperKitModelSize {
+    private func determineOptimalModelSize() -> String {
         #if targetEnvironment(simulator)
         // Always use tiny in simulator
-        return .tiny
+        return "tiny"
         #else
         // Get device capabilities for physical devices
         let capabilities = ModelPreloaderDeviceCapabilities.detect()
@@ -203,11 +233,11 @@ public class WhisperKitModelPreloader: ObservableObject {
         
         // Select based on available memory and device capabilities
         if availableMemory > 4 * 1024 * 1024 * 1024 { // 4GB+
-            return capabilities.hasAppleSilicon ? .base : .tiny // Start conservative
+            return capabilities.hasAppleSilicon ? "base" : "tiny" // Start conservative
         } else if availableMemory > 2 * 1024 * 1024 * 1024 { // 2GB+
-            return .tiny
+            return "tiny"
         } else {
-            return .tiny
+            return "tiny"
         }
         #endif
     }
