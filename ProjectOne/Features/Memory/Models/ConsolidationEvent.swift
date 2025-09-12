@@ -4,8 +4,8 @@ import SwiftData
 /// Tracks memory consolidation events for analytics and optimization
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class ConsolidationEvent {
-    var id: UUID
+public final class ConsolidationEvent {
+    public var id: UUID
     var timestamp: Date
     
     // Consolidation flow details

@@ -71,7 +71,7 @@ public class MLXService: ObservableObject {
     
     /// Load a model with the specified ID and type
     /// Now uses SingletonMLXLoader for real model loading
-    public func loadModel(modelId: String, type: MLXModelType) async throws -> ModelContainer {
+    public func loadModel(modelId: String, type: MLXModelType) async throws -> MLXModelContainer {
         logger.info("Loading model: \(modelId) of type: \(type.rawValue) - using SingletonMLXLoader")
         
         self.isLoading = true
@@ -86,7 +86,7 @@ public class MLXService: ObservableObject {
         }
         
         // Create container that reflects the real loading state
-        let container = ModelContainer(modelId: modelId, type: type, isReady: loader.isModelReady)
+        let container = MLXModelContainer(modelId: modelId, type: type, isReady: loader.isModelReady)
         trainedModels[modelId] = container
         
         self.isLoading = false
@@ -296,7 +296,7 @@ public class MLXService: ObservableObject {
     */
     
     /// Load model from local storage
-    public func loadModel(modelId: String) async throws -> ModelContainer {
+    public func loadModel(modelId: String) async throws -> MLXModelContainer {
         logger.info("Loading model from registry: \(modelId)")
         
         // Check if model is in registry
@@ -324,7 +324,7 @@ public class MLXService: ObservableObject {
     /// Generate text using a loaded model container
     /// Now delegates to SingletonMLXLoader for real inference
     public func generate(with container: Any, prompt: String) async throws -> String {
-        guard let modelContainer = container as? ModelContainer else {
+        guard let modelContainer = container as? MLXModelContainer else {
             throw MLXServiceError.modelLoadingFailed("Invalid model container")
         }
         
@@ -388,7 +388,7 @@ public class MLXService: ObservableObject {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    guard let modelContainer = container as? ModelContainer else {
+                    guard let modelContainer = container as? MLXModelContainer else {
                         continuation.finish(throwing: MLXServiceError.modelLoadingFailed("Invalid model container"))
                         return
                     }
@@ -520,7 +520,7 @@ public class SimpleLinearModel {
 // MARK: - Model Container
 
 /// Container for loaded models with metadata
-public class ModelContainer {
+public class MLXModelContainer {
     public let modelId: String
     public let type: MLXModelType
     public let isReady: Bool

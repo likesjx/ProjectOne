@@ -588,7 +588,7 @@ public class MLXProvider: ExternalAIProvider, @unchecked Sendable {
 
 // MARK: - MLX-Specific Types
 
-public struct MLXModelInfo {
+public struct MLXModelFileInfo {
     public let name: String
     public let path: String
     public let size: Int64

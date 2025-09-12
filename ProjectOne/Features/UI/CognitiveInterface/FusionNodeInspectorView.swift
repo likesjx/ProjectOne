@@ -77,12 +77,11 @@ public struct FusionNodeInspectorView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Fusion Node Inspector")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Fusion Node Inspector", displayMode: .compact)
             .accessibilityLabel("Fusion Node Inspector")
             .accessibilityHint("View and analyze cognitive fusion node details across multiple tabs")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("Validate Node", systemImage: "checkmark.seal") {
                             showingValidationSheet = true
@@ -125,8 +124,7 @@ public struct FusionNodeInspectorView: View {
     // MARK: - Header Card
     
     private var fusionHeaderCard: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "brain.head.profile")
                         .font(.title2)
@@ -182,7 +180,7 @@ public struct FusionNodeInspectorView: View {
                 .accessibilityLabel("Metrics: Coherence \(Int(fusionNode.coherenceScore * 100)) percent, Novelty \(Int(fusionNode.noveltyScore * 100)) percent, Strength \(Int(fusionNode.strengthScore * 100)) percent")
             }
             .padding()
-        }
+        .glassCard()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Fusion Node Header")
     }
@@ -258,80 +256,77 @@ public struct FusionNodeInspectorView: View {
     private var overviewContent: some View {
         VStack(spacing: 16) {
             // Fusion Layers
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Fused Layers")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
-                        ForEach(fusionNode.fusedLayers, id: \.self) { layer in
-                            LayerChip(layer: layer)
-                        }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Fused Layers")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
+                    ForEach(fusionNode.fusedLayers, id: \.self) { layer in
+                        LayerChip(layer: layer)
                     }
                 }
-                .padding()
             }
+            .padding()
+            .glassCard()
             
             // Fusion Metrics
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Fusion Metrics")
-                        .font(.headline)
-                        .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Fusion Metrics")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                VStack(spacing: 8) {
+                    MetricRow(
+                        title: "Source Nodes",
+                        value: "\(fusionNode.sourceNodes.count)",
+                        systemImage: "link.circle"
+                    )
                     
-                    VStack(spacing: 8) {
-                        MetricRow(
-                            title: "Source Nodes",
-                            value: "\(fusionNode.sourceNodes.count)",
-                            systemImage: "link.circle"
-                        )
-                        
-                        MetricRow(
-                            title: "Connections",
-                            value: "\(fusionNode.connections.count)",
-                            systemImage: "network"
-                        )
-                        
-                        MetricRow(
-                            title: "Access Count",
-                            value: "\(fusionNode.accessCount)",
-                            systemImage: "eye.circle"
-                        )
-                        
-                        MetricRow(
-                            title: "Fusion Count",
-                            value: "\(fusionNode.fusionCount)",
-                            systemImage: "brain.head.profile"
-                        )
-                    }
+                    MetricRow(
+                        title: "Connections",
+                        value: "\(fusionNode.connections.count)",
+                        systemImage: "network"
+                    )
+                    
+                    MetricRow(
+                        title: "Access Count",
+                        value: "\(fusionNode.accessCount)",
+                        systemImage: "eye.circle"
+                    )
+                    
+                    MetricRow(
+                        title: "Fusion Count",
+                        value: "\(fusionNode.fusionCount)",
+                        systemImage: "brain.head.profile"
+                    )
                 }
-                .padding()
             }
+            .padding()
+            .glassCard()
             
             // Timeline
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Timeline")
-                        .font(.headline)
-                        .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Timeline")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    TimelineRow(
+                        title: "Created",
+                        date: fusionNode.timestamp,
+                        systemImage: "plus.circle"
+                    )
                     
-                    VStack(alignment: .leading, spacing: 8) {
-                        TimelineRow(
-                            title: "Created",
-                            date: fusionNode.timestamp,
-                            systemImage: "plus.circle"
-                        )
-                        
-                        TimelineRow(
-                            title: "Last Accessed",
-                            date: fusionNode.lastAccessed,
-                            systemImage: "clock.circle"
-                        )
-                    }
+                    TimelineRow(
+                        title: "Last Accessed",
+                        date: fusionNode.lastAccessed,
+                        systemImage: "clock.circle"
+                    )
                 }
-                .padding()
             }
+            .padding()
+            .glassCard()
         }
     }
     
@@ -382,135 +377,130 @@ public struct FusionNodeInspectorView: View {
     private var analysisContent: some View {
         VStack(spacing: 16) {
             // Coherence Analysis
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Coherence Analysis")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    ProgressView(value: fusionNode.coherenceScore) {
-                        HStack {
-                            Text("Coherence Score")
-                            Spacer()
-                            Text("\(Int(fusionNode.coherenceScore * 100))%")
-                        }
-                        .font(.subheadline)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Coherence Analysis")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                ProgressView(value: fusionNode.coherenceScore) {
+                    HStack {
+                        Text("Coherence Score")
+                        Spacer()
+                        Text("\(Int(fusionNode.coherenceScore * 100))%")
                     }
-                    .tint(.blue)
-                    
-                    Text(coherenceAnalysisText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .font(.subheadline)
                 }
-                .padding()
+                .tint(.blue)
+                
+                Text(coherenceAnalysisText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            .padding()
+            .glassCard()
             
             // Novelty Analysis
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Novelty Analysis")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    ProgressView(value: fusionNode.noveltyScore) {
-                        HStack {
-                            Text("Novelty Score")
-                            Spacer()
-                            Text("\(Int(fusionNode.noveltyScore * 100))%")
-                        }
-                        .font(.subheadline)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Novelty Analysis")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                ProgressView(value: fusionNode.noveltyScore) {
+                    HStack {
+                        Text("Novelty Score")
+                        Spacer()
+                        Text("\(Int(fusionNode.noveltyScore * 100))%")
                     }
-                    .tint(.green)
-                    
-                    Text(noveltyAnalysisText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .font(.subheadline)
                 }
-                .padding()
+                .tint(.green)
+                
+                Text(noveltyAnalysisText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            .padding()
+            .glassCard()
             
             // Layer Distribution
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Layer Distribution")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    ForEach(fusionNode.fusedLayers, id: \.self) { layer in
-                        HStack {
-                            LayerChip(layer: layer)
-                            Spacer()
-                            Text("\(sourceNodeCount(for: layer))")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Layer Distribution")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                ForEach(fusionNode.fusedLayers, id: \.self) { layer in
+                    HStack {
+                        LayerChip(layer: layer)
+                        Spacer()
+                        Text("\(sourceNodeCount(for: layer))")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
                 }
-                .padding()
             }
+            .padding()
+            .glassCard()
         }
     }
     
     private var validationContent: some View {
         VStack(spacing: 16) {
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Validation Status")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Button("Update Status") {
-                            showingValidationSheet = true
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                    
-                    HStack {
-                        Circle()
-                            .fill(statusColor)
-                            .frame(width: 12, height: 12)
-                        
-                        Text(fusionNode.validationStatus.rawValue.capitalized)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Spacer()
-                    }
-                    
-                    Text(validationStatusDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-            }
-            
-            // Validation Recommendations
-            GlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Validation Recommendations")
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Validation Status")
                         .font(.headline)
                         .foregroundColor(.primary)
                     
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(validationRecommendations, id: \.self) { recommendation in
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: "lightbulb")
-                                    .font(.caption)
-                                    .foregroundColor(.yellow)
-                                
-                                Text(recommendation)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                    Spacer()
+                    
+                    Button("Update Status") {
+                        showingValidationSheet = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                
+                HStack {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 12, height: 12)
+                    
+                    Text(fusionNode.validationStatus.rawValue.capitalized)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    Spacer()
+                }
+                
+                Text(validationStatusDescription)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .glassCard()
+            
+            // Validation Recommendations
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Validation Recommendations")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(validationRecommendations, id: \.self) { recommendation in
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "lightbulb")
+                                .font(.caption)
+                                .foregroundColor(.yellow)
+                            
+                            Text(recommendation)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
-                .padding()
             }
+            .padding()
+            .glassCard()
         }
     }
     
@@ -560,10 +550,9 @@ public struct FusionNodeInspectorView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("Validation")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Validation", displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Done") {
                         showingValidationSheet = false
                     }
@@ -855,8 +844,7 @@ private struct SourceNodeCard: View {
     let node: any CognitiveMemoryNode
     
     var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     nodeTypeIcon
                     
@@ -884,7 +872,7 @@ private struct SourceNodeCard: View {
                 }
             }
             .padding()
-        }
+        .glassCard()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Source Node")
         .accessibilityHint("Tap to view details of this \(nodeTypeName.lowercased()) source node")
@@ -927,8 +915,7 @@ private struct ConnectionCard: View {
     let connectionId: String
     
     var body: some View {
-        GlassCard {
-            HStack {
+        HStack {
                 Image(systemName: "link.circle")
                     .font(.title3)
                     .foregroundColor(.blue)
@@ -954,7 +941,7 @@ private struct ConnectionCard: View {
                 .controlSize(.small)
             }
             .padding()
-        }
+        .glassCard()
     }
 }
 
@@ -976,100 +963,115 @@ private struct ConnectionCard: View {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 #Preview("High Confidence Fusion") {
-    let fusionNode = FusionNode(
-        content: "Strong correlation between user engagement metrics and feature adoption rates across multiple product releases",
-        fusedLayers: [.veridical, .semantic, .episodic],
-        sourceNodes: ["analytics_node_1", "user_feedback_2", "release_data_3", "engagement_metrics_4"],
-        fusionType: .causal,
-        importance: 0.95
-    )
-    fusionNode.coherenceScore = 0.92
-    fusionNode.noveltyScore = 0.88
-    fusionNode.strengthScore = 0.91
-    fusionNode.validationStatus = .validated
-    fusionNode.accessCount = 15
-    fusionNode.fusionCount = 3
+    let fusionNode = {
+        let node = FusionNode(
+            content: "Strong correlation between user engagement metrics and feature adoption rates across multiple product releases",
+            fusedLayers: [.veridical, .semantic, .episodic],
+            sourceNodes: ["analytics_node_1", "user_feedback_2", "release_data_3", "engagement_metrics_4"],
+            fusionType: .causal,
+            importance: 0.95
+        )
+        node.coherenceScore = 0.92
+        node.noveltyScore = 0.88
+        node.strengthScore = 0.91
+        node.validationStatus = .validated
+        node.accessCount = 15
+        node.fusionCount = 3
+        return node
+    }()
     
-    FusionNodeInspectorView(fusionNode: fusionNode)
+    return FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 #Preview("Low Confidence Fusion") {
-    let fusionNode = FusionNode(
-        content: "Potential connection between weather patterns and team productivity, needs validation",
-        fusedLayers: [.episodic],
-        sourceNodes: ["weather_1"],
-        fusionType: .analogical,
-        importance: 0.32
-    )
-    fusionNode.coherenceScore = 0.28
-    fusionNode.noveltyScore = 0.45
-    fusionNode.strengthScore = 0.31
-    fusionNode.validationStatus = .uncertain
-    fusionNode.accessCount = 2
-    fusionNode.fusionCount = 0
+    let fusionNode = {
+        let node = FusionNode(
+            content: "Potential connection between weather patterns and team productivity, needs validation",
+            fusedLayers: [.episodic],
+            sourceNodes: ["weather_1"],
+            fusionType: .analogical,
+            importance: 0.32
+        )
+        node.coherenceScore = 0.28
+        node.noveltyScore = 0.45
+        node.strengthScore = 0.31
+        node.validationStatus = .uncertain
+        node.accessCount = 2
+        node.fusionCount = 0
+        return node
+    }()
     
-    FusionNodeInspectorView(fusionNode: fusionNode)
+    return FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 #Preview("Rejected Fusion") {
-    let fusionNode = FusionNode(
-        content: "Failed hypothesis about market trends - contradicted by recent data analysis",
-        fusedLayers: [.semantic, .veridical],
-        sourceNodes: ["market_trend_1", "contradictory_data_2"],
-        fusionType: .conceptual,
-        importance: 0.15
-    )
-    fusionNode.coherenceScore = 0.12
-    fusionNode.noveltyScore = 0.22
-    fusionNode.strengthScore = 0.18
-    fusionNode.validationStatus = .rejected
-    fusionNode.accessCount = 8
-    fusionNode.fusionCount = 1
+    let fusionNode = {
+        let node = FusionNode(
+            content: "Failed hypothesis about market trends - contradicted by recent data analysis",
+            fusedLayers: [.semantic, .veridical],
+            sourceNodes: ["market_trend_1", "contradictory_data_2"],
+            fusionType: .conceptual,
+            importance: 0.15
+        )
+        node.coherenceScore = 0.12
+        node.noveltyScore = 0.22
+        node.strengthScore = 0.18
+        node.validationStatus = .rejected
+        node.accessCount = 8
+        node.fusionCount = 1
+        return node
+    }()
     
-    FusionNodeInspectorView(fusionNode: fusionNode)
+    return FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 #Preview("Temporal Fusion") {
-    let fusionNode = FusionNode(
-        content: "Sequential pattern in user behavior across quarterly reviews and subsequent feature requests",
-        fusedLayers: [.episodic, .semantic],
-        sourceNodes: ["q1_review", "q2_review", "q3_review", "feature_requests_timeline"],
-        fusionType: .temporal,
-        importance: 0.78
-    )
-    fusionNode.coherenceScore = 0.84
-    fusionNode.noveltyScore = 0.71
-    fusionNode.strengthScore = 0.79
-    fusionNode.validationStatus = .pending
-    fusionNode.accessCount = 12
-    fusionNode.fusionCount = 2
+    let fusionNode = {
+        let node = FusionNode(
+            content: "Sequential pattern in user behavior across quarterly reviews and subsequent feature requests",
+            fusedLayers: [.episodic, .semantic],
+            sourceNodes: ["q1_review", "q2_review", "q3_review", "feature_requests_timeline"],
+            fusionType: .temporal,
+            importance: 0.78
+        )
+        node.coherenceScore = 0.84
+        node.noveltyScore = 0.71
+        node.strengthScore = 0.79
+        node.validationStatus = .pending
+        node.accessCount = 12
+        node.fusionCount = 2
+        return node
+    }()
     
-    FusionNodeInspectorView(fusionNode: fusionNode)
+    return FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 #Preview("All Layers Fusion") {
-    let fusionNode = FusionNode(
-        content: "Comprehensive insight connecting immediate observations, learned concepts, and experiential memories about team dynamics during critical project phases",
-        fusedLayers: [.veridical, .semantic, .episodic, .fusion],
-        sourceNodes: ["observation_1", "concept_2", "experience_3", "previous_fusion_4", "related_insight_5"],
-        fusionType: .crossLayer,
-        importance: 0.89
-    )
-    fusionNode.coherenceScore = 0.87
-    fusionNode.noveltyScore = 0.82
-    fusionNode.strengthScore = 0.85
-    fusionNode.validationStatus = .validated
-    fusionNode.accessCount = 24
-    fusionNode.fusionCount = 5
+    let fusionNode = {
+        let node = FusionNode(
+            content: "Comprehensive insight connecting immediate observations, learned concepts, and experiential memories about team dynamics during critical project phases",
+            fusedLayers: [.veridical, .semantic, .episodic, .fusion],
+            sourceNodes: ["observation_1", "concept_2", "experience_3", "previous_fusion_4", "related_insight_5"],
+            fusionType: .crossLayer,
+            importance: 0.89
+        )
+        node.coherenceScore = 0.87
+        node.noveltyScore = 0.82
+        node.strengthScore = 0.85
+        node.validationStatus = .validated
+        node.accessCount = 24
+        node.fusionCount = 5
+        return node
+    }()
     
-    FusionNodeInspectorView(fusionNode: fusionNode)
+    return FusionNodeInspectorView(fusionNode: fusionNode)
         .modelContainer(for: [FusionNode.self], inMemory: true)
 }

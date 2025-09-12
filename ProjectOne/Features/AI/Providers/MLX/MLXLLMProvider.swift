@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 import Combine
 import os.log
 
@@ -29,7 +30,7 @@ public class MLXLLMProvider: ObservableObject {
     
     private let mlxService: MLXService
     private var currentConfiguration: MLXModelConfiguration?
-    private var modelContainer: ModelContainer?
+    private var modelContainer: MLXModelContainer?
     
     // MARK: - Initialization
     
@@ -37,7 +38,7 @@ public class MLXLLMProvider: ObservableObject {
         self.mlxService = MLXService()
         self.isSupported = checkMLXSupport()
         
-        logger.info("MLXLLMProvider initialized, supported: \(isSupported)")
+        logger.info("MLXLLMProvider initialized, supported: \(self.isSupported)")
     }
     
     // MARK: - Support Check
@@ -63,7 +64,7 @@ public class MLXLLMProvider: ObservableObject {
     /// Load a specific model configuration
     public func loadModel(_ configuration: MLXModelConfiguration) async throws {
         guard isSupported else {
-            throw MLXError.deviceNotSupported("MLX requires Apple Silicon hardware")
+            throw MLXError.modelLoadingFailed("MLX requires Apple Silicon hardware")
         }
         
         await MainActor.run {
@@ -119,7 +120,7 @@ public class MLXLLMProvider: ObservableObject {
     /// Generate text using the loaded model
     public func generateText(_ prompt: String) async throws -> String {
         guard isReady, let container = modelContainer else {
-            throw MLXError.modelNotReady("MLX LLM model not loaded")
+            throw MLXError.modelNotFound("MLX LLM model not loaded")
         }
         
         logger.info("Generating text with MLX LLM")
@@ -150,41 +151,9 @@ public class MLXLLMProvider: ObservableObject {
 
 // MARK: - Supporting Types
 
-public struct MLXModelConfiguration {
-    public let modelId: String
-    public let name: String
-    public let type: MLXModelType
-    public let downloadURL: String?
-    
-    public init(modelId: String, name: String, type: MLXModelType, downloadURL: String? = nil) {
-        self.modelId = modelId
-        self.name = name
-        self.type = type
-        self.downloadURL = downloadURL
-    }
-}
-
 public struct MLXModelInfo {
     public let displayName: String
     public let modelId: String
     public let type: MLXModelType
     public let isLoaded: Bool
-}
-
-
-public enum MLXError: Error, LocalizedError {
-    case deviceNotSupported(String)
-    case modelNotReady(String)
-    case configurationInvalid(String)
-    
-    public var errorDescription: String? {
-        switch self {
-        case .deviceNotSupported(let message):
-            return "Device not supported: \(message)"
-        case .modelNotReady(let message):
-            return "Model not ready: \(message)"
-        case .configurationInvalid(let message):
-            return "Invalid configuration: \(message)"
-        }
-    }
 }

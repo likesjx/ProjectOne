@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 import Combine
 import os.log
 
@@ -29,7 +30,7 @@ public class MLXVLMProvider: ObservableObject {
     
     private let mlxService: MLXService
     private var currentConfiguration: MLXModelConfiguration?
-    private var modelContainer: ModelContainer?
+    private var modelContainer: MLXModelContainer?
     
     // MARK: - Initialization
     
@@ -37,7 +38,7 @@ public class MLXVLMProvider: ObservableObject {
         self.mlxService = MLXService()
         self.isSupported = checkMLXSupport()
         
-        logger.info("MLXVLMProvider initialized, supported: \(isSupported)")
+        logger.info("MLXVLMProvider initialized, supported: \(self.isSupported)")
     }
     
     // MARK: - Support Check
@@ -63,13 +64,13 @@ public class MLXVLMProvider: ObservableObject {
     /// Load a specific model configuration
     public func loadModel(_ configuration: MLXModelConfiguration) async throws {
         guard isSupported else {
-            throw MLXError.deviceNotSupported("MLX requires Apple Silicon hardware")
+            throw MLXError.modelLoadingFailed("MLX requires Apple Silicon hardware")
         }
         
         await MainActor.run {
-            isLoading = true
-            loadingProgress = 0.0
-            errorMessage = nil
+            self.isLoading = true
+            self.loadingProgress = 0.0
+            self.errorMessage = nil
         }
         
         do {
@@ -83,17 +84,17 @@ public class MLXVLMProvider: ObservableObject {
             self.modelContainer = container
             
             await MainActor.run {
-                isReady = true
-                isLoading = false
-                loadingProgress = 1.0
+                self.isReady = true
+                self.isLoading = false
+                self.loadingProgress = 1.0
             }
             
             logger.info("✅ MLX VLM model loaded successfully")
             
         } catch {
             await MainActor.run {
-                isLoading = false
-                errorMessage = error.localizedDescription
+                self.isLoading = false
+                self.errorMessage = error.localizedDescription
             }
             logger.error("❌ Failed to load MLX VLM model: \(error.localizedDescription)")
             throw error
@@ -108,9 +109,9 @@ public class MLXVLMProvider: ObservableObject {
         modelContainer = nil
         
         await MainActor.run {
-            isReady = false
-            loadingProgress = 0.0
-            errorMessage = nil
+            self.isReady = false
+            self.loadingProgress = 0.0
+            self.errorMessage = nil
         }
         
         logger.info("MLX VLM model unloaded")
@@ -119,7 +120,7 @@ public class MLXVLMProvider: ObservableObject {
     /// Generate text with vision input using the loaded model
     public func generateWithVision(prompt: String, imageData: Data) async throws -> String {
         guard isReady, let container = modelContainer else {
-            throw MLXError.modelNotReady("MLX VLM model not loaded")
+            throw MLXError.modelNotFound("MLX VLM model not loaded")
         }
         
         logger.info("Generating vision-language response with MLX VLM")

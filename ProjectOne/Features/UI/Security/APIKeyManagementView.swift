@@ -37,10 +37,7 @@ struct APIKeyManagementView: View {
                 securitySection
                 statusSection
             }
-            .navigationTitle("API Key Management")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("API Key Management", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {

@@ -10,7 +10,7 @@ import SwiftData
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-public final class EpisodicMemoryEntry {
+public final class EpisodicMemoryEntry: SwiftDataEmbeddingCapable {
     public var id: UUID
     var eventDescription: String
     
@@ -38,7 +38,7 @@ public final class EpisodicMemoryEntry {
     // MARK: - Embedding Fields
     
     /// Vector embedding for semantic similarity search
-    var embedding: Data?
+    public var embedding: Data?
     
     /// Version identifier for the embedding model used
     public var embeddingModelVersion: String?

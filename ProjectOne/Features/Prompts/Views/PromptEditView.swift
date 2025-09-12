@@ -107,9 +107,7 @@ struct PromptEditView: View {
                 }
             }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Edit Template", displayMode: .compact)
         .alert("Delete Template", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {

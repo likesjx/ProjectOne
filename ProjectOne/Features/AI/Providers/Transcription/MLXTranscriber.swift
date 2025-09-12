@@ -10,14 +10,16 @@ import AVFoundation
 import os.log
 import Accelerate
 #if canImport(MLX)
-import MLX
+@preconcurrency import MLX
 import MLXNN
 import MLXRandom
+
+// MLX provides MLXArray as the main tensor type
+typealias Tensor = MLXArray
 #endif
 
 // MARK: - MLX Whisper Model Scaffolding
 
-@MainActor
 private actor MLXWhisperModelCache {
     static let shared = MLXWhisperModelCache()
     private var models: [String: MLXWhisperModel] = [:]

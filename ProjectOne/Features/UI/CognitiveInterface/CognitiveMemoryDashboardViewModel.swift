@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Combine
 import Charts
 import Foundation
@@ -29,7 +30,7 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
     @Published public var activityData: [ActivityDataPoint] = []
     @Published public var recentFusions: [RecentFusionActivity] = []
     
-    @Published public var selectedTimeRange: TimeRange = .hour
+    @Published public var selectedMemoryTimeRange: MemoryTimeRange = .hour
     @Published public var isAppleIntelligenceEnabled: Bool = false
     @Published public var isRealTimeMonitoring: Bool = false
     
@@ -56,7 +57,10 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
     }
     
     deinit {
-        stopRealTimeMonitoring()
+        // Use assumeIsolated for cleanup in deinit
+        MainActor.assumeIsolated {
+            stopRealTimeMonitoring()
+        }
     }
     
     // MARK: - Initialization Methods
@@ -165,7 +169,7 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
             let veridicalCount = cognitiveSystem.veridicalLayer.nodes.count
             let semanticCount = cognitiveSystem.semanticLayer.nodes.count
             let episodicCount = cognitiveSystem.episodicLayer.nodes.count
-            let fusionCount = cognitiveSystem.fusionLayer.nodes.count
+            let fusionCount = cognitiveSystem.fusionNodes.count
             
             totalNodes = veridicalCount + semanticCount + episodicCount
             activeFusions = fusionCount
@@ -227,9 +231,9 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
             
             // Update fusion layer metrics
             layerMetrics[.fusion] = LayerMetrics(
-                nodeCount: cognitiveSystem.fusionLayer.nodes.count,
-                averageQuality: calculateAverageQuality(cognitiveSystem.fusionLayer.nodes),
-                isActive: !cognitiveSystem.fusionLayer.nodes.isEmpty
+                nodeCount: cognitiveSystem.fusionNodes.count,
+                averageQuality: calculateAverageQuality(cognitiveSystem.fusionNodes),
+                isActive: !cognitiveSystem.fusionNodes.isEmpty
             )
             
         } catch {
@@ -241,6 +245,12 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
         guard !nodes.isEmpty else { return 0.0 }
         let totalQuality = nodes.reduce(0.0) { $0 + $1.importance }
         return totalQuality / Double(nodes.count)
+    }
+    
+    private func calculateAverageQuality(_ fusionNodes: [FusionNode]) -> Double {
+        guard !fusionNodes.isEmpty else { return 0.0 }
+        let totalQuality = fusionNodes.reduce(0.0) { $0 + ($1.coherenceScore + $1.strengthScore) / 2.0 }
+        return totalQuality / Double(fusionNodes.count)
     }
     
     private func updateControlLoopStatus() async {
@@ -273,8 +283,8 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
     
     private func updateActivityData() async {
         let now = Date()
-        let timeInterval = selectedTimeRange.timeInterval
-        let dataPoints = selectedTimeRange.dataPointCount
+        let timeInterval = selectedMemoryTimeRange.timeInterval
+        let dataPoints = selectedMemoryTimeRange.dataPointCount
         
         // Generate activity data points for the selected time range
         var newActivityData: [ActivityDataPoint] = []
@@ -349,8 +359,8 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
     
     // MARK: - Time Range Management
     
-    public func updateTimeRange(_ timeRange: TimeRange) {
-        selectedTimeRange = timeRange
+    public func updateMemoryTimeRange(_ timeRange: MemoryTimeRange) {
+        selectedMemoryTimeRange = timeRange
         
         Task {
             await updateActivityData()
@@ -359,27 +369,6 @@ public final class CognitiveMemoryDashboardViewModel: ObservableObject {
 }
 
 // MARK: - Supporting Extensions
-
-@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-extension TimeRange {
-    var timeInterval: TimeInterval {
-        switch self {
-        case .hour: return 3600
-        case .day: return 24 * 3600
-        case .week: return 7 * 24 * 3600
-        case .month: return 30 * 24 * 3600
-        }
-    }
-    
-    var dataPointCount: Int {
-        switch self {
-        case .hour: return 60 // One per minute
-        case .day: return 96 // Every 15 minutes
-        case .week: return 168 // Every hour
-        case .month: return 120 // Every 6 hours
-        }
-    }
-}
 
 // MARK: - Mock Data Generation (Development Only)
 

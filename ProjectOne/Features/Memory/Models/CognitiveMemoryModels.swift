@@ -14,7 +14,7 @@ import SwiftData
 /// Base SwiftData model for cognitive memory nodes
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-public class BaseCognitiveNode: CognitiveMemoryNode, EmbeddingCapable {
+public class BaseCognitiveNode: CognitiveMemoryNode, EmbeddingCapable, @unchecked Sendable {
     public var id: UUID
     public var content: String
     public var timestamp: Date
@@ -83,6 +83,10 @@ public class BaseCognitiveNode: CognitiveMemoryNode, EmbeddingCapable {
     
     // MARK: - EmbeddingCapable Implementation (align to canonical protocol)
     
+    public var needsEmbedding: Bool {
+        return embedding == nil
+    }
+    
     public var hasEmbedding: Bool {
         return embedding != nil
     }
@@ -100,6 +104,11 @@ public class BaseCognitiveNode: CognitiveMemoryNode, EmbeddingCapable {
         return content
     }
     
+    public func setEmbedding(_ embedding: [Float]) async {
+        self.embedding = embedding
+        self.embeddingTimestamp = Date()
+    }
+    
     public func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
         self.embedding = embeddingVector
         self.embeddingTimestamp = Date()
@@ -108,6 +117,14 @@ public class BaseCognitiveNode: CognitiveMemoryNode, EmbeddingCapable {
     
     public func getEmbedding() -> [Float]? {
         return embedding
+    }
+    
+    public func shouldRegenerateEmbedding(maxAge: TimeInterval) -> Bool {
+        guard hasEmbedding else { return true }
+        if let ts = embeddingTimestamp {
+            return Date().timeIntervalSince(ts) > maxAge
+        }
+        return true
     }
     
     public func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval) -> Bool {

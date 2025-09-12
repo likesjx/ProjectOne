@@ -14,7 +14,7 @@ import IOKit
 #endif
 
 /// Service for validating MLX model compatibility and requirements
-public class MLXModelValidator {
+public final class MLXModelValidator: Sendable {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MLXModelValidator")
     

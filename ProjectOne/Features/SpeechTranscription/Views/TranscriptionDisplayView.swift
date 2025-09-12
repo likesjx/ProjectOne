@@ -123,9 +123,7 @@ struct TranscriptionDisplayView: View {
                 }
             }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Transcription", displayMode: .compact)
     }
     
     private func copyToClipboard(_ text: String) {

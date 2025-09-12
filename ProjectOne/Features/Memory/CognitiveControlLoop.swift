@@ -38,7 +38,7 @@ public class CognitiveControlLoop: CognitiveControlParticipant, ObservableObject
     private let fusionThreshold: Double
     private let consolidationInterval: TimeInterval
     
-    public enum ControlLoopPhase: String, CaseIterable {
+    public enum ControlLoopPhase: String, CaseIterable, Sendable {
         case idle = "idle"
         case reasoning = "reasoning"
         case probing = "probing"
@@ -78,7 +78,12 @@ public class CognitiveControlLoop: CognitiveControlParticipant, ObservableObject
     /// Execute the complete cognitive control loop for a query
     public func processQuery(_ query: String, context: CognitiveContext? = nil) async throws -> CognitiveResponse {
         let startTime = Date()
-        let effectiveContext = context ?? await createDefaultContext(for: query)
+        let effectiveContext: CognitiveContext
+        if let context = context {
+            effectiveContext = context
+        } else {
+            effectiveContext = await createDefaultContext(for: query)
+        }
         
         await MainActor.run { 
             isProcessing = true
@@ -412,14 +417,5 @@ public struct ControlLoopStatus: Sendable {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 extension CognitiveMemorySystem {
-    internal func getCurrentMemoryState() async -> MemorySystemState {
-        return MemorySystemState(
-            shortTermCount: shortTermMemory?.workingSet.count ?? 0,
-            longTermCount: semanticLayer.nodes.count,
-            workingSetSize: workingMemory.count,
-            episodicCount: episodicLayer.nodes.count,
-            systemLoadFactor: systemMetrics.systemLoadFactor,
-            lastConsolidation: lastConsolidation
-        )
-    }
+    // getCurrentMemoryState method moved to CognitiveMemorySystem main class
 }

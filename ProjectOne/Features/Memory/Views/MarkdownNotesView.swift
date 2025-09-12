@@ -189,9 +189,7 @@ struct MarkdownNotesView: View {
             .frame(width: 1200, height: 800)
         }
 #endif
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Markdown Notes", displayMode: .compact)
     }
 }
 

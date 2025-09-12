@@ -147,15 +147,16 @@ class NoteHealthCorrelation {
         self.contextData = (try? JSONEncoder().encode(healthContext)) ?? Data()
     }
     
-    var insights: [HealthInsight] {
+    // Helper methods for accessing decoded data (not computed properties)
+    func getInsights() -> [HealthInsight] {
         (try? JSONDecoder().decode([HealthInsight].self, from: insightsData)) ?? []
     }
     
-    var suggestions: [HealthSuggestion] {
+    func getSuggestions() -> [HealthSuggestion] {
         (try? JSONDecoder().decode([HealthSuggestion].self, from: suggestionsData)) ?? []
     }
     
-    var healthContext: HealthContext {
+    func getHealthContext() -> HealthContext {
         (try? JSONDecoder().decode(HealthContext.self, from: contextData)) ?? HealthContext()
     }
 }
@@ -183,7 +184,7 @@ struct HealthContext: Codable {
 }
 
 struct HealthInsight: Codable, Identifiable {
-    let id = UUID()
+    var id = UUID()
     let type: InsightType
     let title: String
     let description: String
@@ -193,24 +194,13 @@ struct HealthInsight: Codable, Identifiable {
 }
 
 struct HealthSuggestion: Codable, Identifiable {
-    let id = UUID()
+    var id = UUID()
     let category: String
     let action: String
     let priority: SuggestionPriority
     let estimatedImpact: Double
 }
 
-struct HealthTrend: Identifiable {
-    let id = UUID()
-    let metricName: String
-    let direction: TrendDirection
-    let strength: Double
-    let timeRange: String
-    let insight: String
-    let currentValue: Double
-    let averageValue: Double
-    let unit: String
-}
 
 enum TimeOfDay: String, Codable, CaseIterable {
     case morning = "Morning"
@@ -280,13 +270,13 @@ enum HealthDataType: String, CaseIterable {
         case .activeEnergyBurned:
             return HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
         case .sleepDuration:
-            return HKQuantityType.quantityType(forIdentifier: .sleepDurationGoal)
+            return nil // Use category type for sleep analysis
         case .bodyWeight:
             return HKQuantityType.quantityType(forIdentifier: .bodyMass)
         case .bloodPressure:
             return nil
         case .mindfulMinutes:
-            return HKQuantityType.quantityType(forIdentifier: .mindfulSession)
+            return nil // Use category type for mindfulness
         case .workout:
             return nil
         }

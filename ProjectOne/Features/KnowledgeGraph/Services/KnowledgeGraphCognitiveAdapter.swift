@@ -12,7 +12,7 @@ import os.log
 
 // Resolve CognitiveLayerType ambiguity by using explicit alias
 // Both definitions are identical, using the one from CognitiveMemoryProtocols
-private typealias CognitiveLayer = ProjectOne.CognitiveLayerType
+public typealias CognitiveLayer = ProjectOne.CognitiveLayerType
 
 // MARK: - Knowledge Graph Cognitive Adapter
 

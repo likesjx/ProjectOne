@@ -4,16 +4,22 @@ import SwiftData
 struct HealthDashboardView: View {
     @StateObject private var healthKitManager: HealthKitManager
     @StateObject private var healthEnrichment: HealthEnrichment
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.modelContext) var modelContext
     
-    @State private var selectedTimeRange: TimeRange = .week
+    @State private var selectedTimeRange: HealthTimeRange = .week
     @State private var showingPermissionAlert = false
     @State private var showingErrorAlert = false
+    @State private var hasInitialized = false
     
     init() {
+        // Create a temporary ModelContext for initialization
+        // The actual modelContext will be injected via environment
+        let container = try! ModelContainer(for: ProcessedNote.self, STMEntry.self, LTMEntry.self, EpisodicMemoryEntry.self)
+        let tempContext = ModelContext(container)
+        
         let healthKitManager = HealthKitManager()
         self._healthKitManager = StateObject(wrappedValue: healthKitManager)
-        self._healthEnrichment = StateObject(wrappedValue: HealthEnrichment(healthKitManager: healthKitManager, modelContext: ModelData.shared.modelContainer.mainContext))
+        self._healthEnrichment = StateObject(wrappedValue: HealthEnrichment(healthKitManager: healthKitManager, modelContext: tempContext))
     }
     
     var body: some View {
@@ -46,19 +52,23 @@ struct HealthDashboardView: View {
                     }
                 }
             }
-            .navigationTitle("Health Dashboard")
-            .navigationBarTitleDisplayMode(.large)
+            .glassNavigationTitle("Health Dashboard", displayMode: .prominent)
             .refreshable {
                 await refreshHealthData()
             }
             .onAppear {
-                setupHealthIntegration()
+                if !hasInitialized {
+                    setupHealthIntegration()
+                    hasInitialized = true
+                }
             }
             .alert("Health Access Required", isPresented: $showingPermissionAlert) {
                 Button("Settings") {
+                    #if os(iOS)
                     if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(settingsUrl)
                     }
+                    #endif
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
@@ -143,11 +153,11 @@ struct HealthPermissionCard: View {
 }
 
 struct TimeRangeSelector: View {
-    @Binding var selectedRange: TimeRange
+    @Binding var selectedRange: HealthTimeRange
     
     var body: some View {
         HStack {
-            ForEach(TimeRange.allCases, id: \.self) { range in
+            ForEach(HealthTimeRange.allCases, id: \.self) { range in
                 Button(action: {
                     selectedRange = range
                 }) {
@@ -391,7 +401,7 @@ struct HealthInsightCard: View {
     }
 }
 
-enum TimeRange: String, CaseIterable {
+public enum HealthTimeRange: String, CaseIterable, Sendable {
     case day = "1d"
     case week = "7d"
     case month = "30d"
@@ -434,17 +444,3 @@ extension TrendDirection {
     }
 }
 
-struct ModelData {
-    static let shared = ModelData()
-    
-    lazy var modelContainer: ModelContainer = {
-        let schema = Schema([HealthData.self, NoteHealthCorrelation.self])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        
-        do {
-            return try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-}

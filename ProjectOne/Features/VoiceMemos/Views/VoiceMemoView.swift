@@ -150,9 +150,7 @@ struct VoiceMemoView: View {
                 }
             }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Voice Memos", displayMode: .compact)
     }
 }
 
@@ -964,9 +962,7 @@ struct VoiceMemoNoteCreationView: View {
                     .padding(.bottom, 24)
                 }
             }
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("Voice Memo Details", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

@@ -10,7 +10,7 @@ import Foundation
 import os.log
 
 /// Service for downloading and managing MLX models
-public class MLXModelDownloadService: NSObject, ObservableObject {
+public final class MLXModelDownloadService: NSObject, ObservableObject, @unchecked Sendable {
     
     private let logger = Logger(subsystem: "com.jaredlikes.ProjectOne", category: "MLXModelDownloadService")
     
@@ -206,7 +206,7 @@ public class MLXModelDownloadService: NSObject, ObservableObject {
             "special_tokens_map.json"
         ]
         
-        return commonFiles.map { "\(baseUrl)/\(fileName)" }
+        return commonFiles.map { fileName in "\(baseUrl)/\(fileName)" }
     }
     
     private func downloadModelFiles(_ model: MLXCommunityModel, manifest: ModelManifest, to directory: URL) async throws {
@@ -324,17 +324,17 @@ extension MLXModelDownloadService: URLSessionDownloadDelegate {
         
         let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
         
-        DispatchQueue.main.async {
-            self.activeDownloads[modelId]?.totalSize = totalBytesExpectedToWrite
-            self.activeDownloads[modelId]?.downloadedSize = totalBytesWritten
-            self.activeDownloads[modelId]?.progress = progress
+        DispatchQueue.main.async { [weak self] in
+            self?.activeDownloads[modelId]?.totalSize = totalBytesExpectedToWrite
+            self?.activeDownloads[modelId]?.downloadedSize = totalBytesWritten
+            self?.activeDownloads[modelId]?.progress = progress
             
             // Calculate estimated time remaining
-            if let startTime = self.activeDownloads[modelId]?.startTime {
+            if let startTime = self?.activeDownloads[modelId]?.startTime {
                 let elapsed = Date().timeIntervalSince(startTime)
                 if progress > 0.01 { // Avoid division by zero
                     let estimatedTotal = elapsed / progress
-                    self.activeDownloads[modelId]?.estimatedTimeRemaining = estimatedTotal - elapsed
+                    self?.activeDownloads[modelId]?.estimatedTimeRemaining = estimatedTotal - elapsed
                 }
             }
         }

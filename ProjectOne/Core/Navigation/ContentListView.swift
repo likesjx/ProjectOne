@@ -91,10 +91,7 @@ struct ContentListView: View {
             .refreshable { await refreshContent() }
         }
         .background(Color.clear)
-        .navigationTitle("All Content") // Applies to outer NavigationStack
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
+        .glassNavigationTitle("All Content", displayMode: .prominent) // Applies to outer NavigationStack
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 ContentToolbarActions(showingFilters: $showingFilters)
@@ -555,9 +552,7 @@ struct ContentFilterSheet: View {
                 }
             }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Content Details", displayMode: .compact)
     }
 }
 

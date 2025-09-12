@@ -69,9 +69,12 @@ public class VeridicalMemoryLayer: CognitiveMemoryLayer, ObservableObject, @unch
         let queryTerms = extractQueryTerms(from: query)
         
         // Score nodes by relevance
-        let scoredNodes = nodes.compactMap { node -> (node: VeridicalNode, score: Double)? in
+        var scoredNodes: [(node: VeridicalNode, score: Double)] = []
+        for node in nodes {
             let relevanceScore = await getRelevanceScore(for: query, node: node)
-            return relevanceScore > 0.1 ? (node, relevanceScore) : nil
+            if relevanceScore > 0.1 {
+                scoredNodes.append((node, relevanceScore))
+            }
         }
         
         // Sort by score and apply limit
@@ -154,7 +157,7 @@ public class VeridicalMemoryLayer: CognitiveMemoryLayer, ObservableObject, @unch
                 sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
             )
             nodes = try modelContext.fetch(descriptor)
-            logger.info("Loaded \(nodes.count) veridical nodes")
+            logger.info("Loaded \(self.nodes.count) veridical nodes")
         } catch {
             logger.error("Failed to load veridical nodes: \(error.localizedDescription)")
         }
@@ -303,9 +306,12 @@ public class SemanticMemoryLayer: CognitiveMemoryLayer, ObservableObject, @unche
     }
     
     public func searchNodes(query: String, limit: Int) async throws -> [SemanticNode] {
-        let scoredNodes = nodes.compactMap { node -> (node: SemanticNode, score: Double)? in
+        var scoredNodes: [(node: SemanticNode, score: Double)] = []
+        for node in nodes {
             let relevanceScore = await getRelevanceScore(for: query, node: node)
-            return relevanceScore > 0.1 ? (node, relevanceScore) : nil
+            if relevanceScore > 0.1 {
+                scoredNodes.append((node, relevanceScore))
+            }
         }
         
         let sortedNodes = scoredNodes.sorted { $0.score > $1.score }
@@ -372,7 +378,7 @@ public class SemanticMemoryLayer: CognitiveMemoryLayer, ObservableObject, @unche
                 sortBy: [SortDescriptor(\.confidence, order: .reverse)]
             )
             nodes = try modelContext.fetch(descriptor)
-            logger.info("Loaded \(nodes.count) semantic nodes")
+            logger.info("Loaded \(self.nodes.count) semantic nodes")
         } catch {
             logger.error("Failed to load semantic nodes: \(error.localizedDescription)")
         }
@@ -535,9 +541,12 @@ public class EpisodicMemoryLayer: CognitiveMemoryLayer, ObservableObject, @unche
     }
     
     public func searchNodes(query: String, limit: Int) async throws -> [EpisodicNode] {
-        let scoredNodes = nodes.compactMap { node -> (node: EpisodicNode, score: Double)? in
+        var scoredNodes: [(node: EpisodicNode, score: Double)] = []
+        for node in nodes {
             let relevanceScore = await getRelevanceScore(for: query, node: node)
-            return relevanceScore > 0.1 ? (node, relevanceScore) : nil
+            if relevanceScore > 0.1 {
+                scoredNodes.append((node, relevanceScore))
+            }
         }
         
         let sortedNodes = scoredNodes.sorted { $0.score > $1.score }
@@ -624,7 +633,7 @@ public class EpisodicMemoryLayer: CognitiveMemoryLayer, ObservableObject, @unche
                 sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
             )
             nodes = try modelContext.fetch(descriptor)
-            logger.info("Loaded \(nodes.count) episodic nodes")
+            logger.info("Loaded \(self.nodes.count) episodic nodes")
         } catch {
             logger.error("Failed to load episodic nodes: \(error.localizedDescription)")
         }

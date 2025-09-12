@@ -240,10 +240,7 @@ struct EnhancedAIProviderTestView: View {
                 }
                 .padding()
             }
-            .navigationTitle("AI Provider Testing")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("AI Provider Testing", displayMode: .compact)
             .onAppear {
                 setupProviders()
             }

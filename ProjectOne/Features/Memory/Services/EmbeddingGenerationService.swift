@@ -10,6 +10,38 @@ import SwiftData
 import Combine
 import os.log
 
+// MARK: - Temporary Protocol Definition
+// TODO: Move to separate file once project structure is finalized
+
+/// Protocol for SwiftData models that can participate in embedding operations
+/// This protocol accommodates SwiftData's limitations (no Sendable, Data storage)
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public protocol SwiftDataEmbeddingCapable: PersistentModel {
+    /// Raw embedding data stored as Data for SwiftData compatibility
+    var embedding: Data? { get set }
+    
+    /// Model version used to generate the embedding
+    var embeddingModelVersion: String? { get set }
+    
+    /// Timestamp when embedding was generated
+    var embeddingGeneratedAt: Date? { get set }
+    
+    /// Content to be used for embedding generation
+    var embeddingText: String { get }
+    
+    /// Check if this model has a valid embedding
+    var hasEmbedding: Bool { get }
+    
+    /// Set embedding data from float array
+    func setEmbedding(_ embeddingVector: [Float], modelVersion: String)
+    
+    /// Get embedding as float array for calculations
+    func getEmbedding() -> [Float]?
+    
+    /// Check if embedding needs regeneration
+    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval) -> Bool
+}
+
 /// Service for generating and managing embeddings for memory content
 @MainActor
 public class EmbeddingGenerationService: ObservableObject {
@@ -79,7 +111,7 @@ public class EmbeddingGenerationService: ObservableObject {
     }
     
     /// Generate embedding for a single piece of content
-    public func generateEmbedding<T>(for item: T) async throws -> [Float] where T: EmbeddingCapable {
+    public func generateEmbedding<T>(for item: T) async throws -> [Float] where T: SwiftDataEmbeddingCapable {
         if !embeddingProvider.isAvailable {
             logger.info("Loading embedding model...")
             try await embeddingProvider.prepareModel()
@@ -246,7 +278,7 @@ public class EmbeddingGenerationService: ObservableObject {
         }
     }
     
-    private func generateEmbeddingsForType<T>(_ type: T.Type, typeName: String) async where T: EmbeddingCapable & PersistentModel {
+    private func generateEmbeddingsForType<T>(_ type: T.Type, typeName: String) async where T: SwiftDataEmbeddingCapable {
         currentOperation = "Generating embeddings for \(typeName.lowercased())..."
         
         do {
@@ -259,7 +291,9 @@ public class EmbeddingGenerationService: ObservableObject {
             logger.info("Generating embeddings for \(itemsNeedingEmbeddings.count) \(typeName.lowercased())")
             
             // Process in batches
-            for batch in itemsNeedingEmbeddings.chunked(into: batchSize) {
+            for batch in stride(from: 0, to: itemsNeedingEmbeddings.count, by: batchSize).map({ start in
+                Array(itemsNeedingEmbeddings[start..<min(start + batchSize, itemsNeedingEmbeddings.count)])
+            }) {
                 try Task.checkCancellation()
                 
                 await processBatch(batch, typeName: typeName)
@@ -276,7 +310,7 @@ public class EmbeddingGenerationService: ObservableObject {
         }
     }
     
-    private func regenerateEmbeddingsForType<T>(_ type: T.Type, modelVersion: String, typeName: String) async where T: EmbeddingCapable & PersistentModel {
+    private func regenerateEmbeddingsForType<T>(_ type: T.Type, modelVersion: String, typeName: String) async where T: SwiftDataEmbeddingCapable {
         currentOperation = "Regenerating embeddings for \(typeName.lowercased())..."
         
         do {
@@ -289,7 +323,9 @@ public class EmbeddingGenerationService: ObservableObject {
             logger.info("Regenerating embeddings for \(itemsWithModelVersion.count) \(typeName.lowercased())")
             
             // Process in batches
-            for batch in itemsWithModelVersion.chunked(into: batchSize) {
+            for batch in stride(from: 0, to: itemsWithModelVersion.count, by: batchSize).map({ start in
+                Array(itemsWithModelVersion[start..<min(start + batchSize, itemsWithModelVersion.count)])
+            }) {
                 try Task.checkCancellation()
                 
                 await processBatch(batch, typeName: typeName)
@@ -306,7 +342,7 @@ public class EmbeddingGenerationService: ObservableObject {
         }
     }
     
-    private func processBatch<T>(_ batch: [T], typeName: String) async where T: EmbeddingCapable & PersistentModel {
+    private func processBatch<T>(_ batch: [T], typeName: String) async where T: SwiftDataEmbeddingCapable {
         for item in batch {
             do {
                 try Task.checkCancellation()
@@ -339,7 +375,7 @@ public class EmbeddingGenerationService: ObservableObject {
         return stmCount + ltmCount + episodicCount + noteCount + entityCount
     }
     
-    private func countItemsNeedingEmbeddings<T>(type: T.Type) async throws -> Int where T: EmbeddingCapable & PersistentModel {
+    private func countItemsNeedingEmbeddings<T>(type: T.Type) async throws -> Int where T: SwiftDataEmbeddingCapable {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
@@ -356,7 +392,7 @@ public class EmbeddingGenerationService: ObservableObject {
         return stmCount + ltmCount + episodicCount + noteCount + entityCount
     }
     
-    private func countItemsWithModelVersion<T>(type: T.Type, modelVersion: String) async throws -> Int where T: EmbeddingCapable & PersistentModel {
+    private func countItemsWithModelVersion<T>(type: T.Type, modelVersion: String) async throws -> Int where T: SwiftDataEmbeddingCapable {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
@@ -365,14 +401,14 @@ public class EmbeddingGenerationService: ObservableObject {
         }.count
     }
     
-    private func fetchItemsNeedingEmbeddings<T>(type: T.Type) async throws -> [T] where T: EmbeddingCapable & PersistentModel {
+    private func fetchItemsNeedingEmbeddings<T>(type: T.Type) async throws -> [T] where T: SwiftDataEmbeddingCapable {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
         return allItems.filter { $0.needsEmbeddingUpdate(currentModelVersion: currentModelVersion, maxAge: 7 * 24 * 3600) }
     }
     
-    private func fetchItemsWithModelVersion<T>(type: T.Type, modelVersion: String) async throws -> [T] where T: EmbeddingCapable & PersistentModel {
+    private func fetchItemsWithModelVersion<T>(type: T.Type, modelVersion: String) async throws -> [T] where T: SwiftDataEmbeddingCapable {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
@@ -381,7 +417,7 @@ public class EmbeddingGenerationService: ObservableObject {
         }
     }
     
-    private func getEmbeddingStats<T>(for type: T.Type) async throws -> (total: Int, withEmbeddings: Int, needingUpdate: Int) where T: EmbeddingCapable & PersistentModel {
+    private func getEmbeddingStats<T>(for type: T.Type) async throws -> (total: Int, withEmbeddings: Int, needingUpdate: Int) where T: SwiftDataEmbeddingCapable {
         let descriptor = FetchDescriptor<T>()
         let allItems = try modelContext.fetch(descriptor)
         
@@ -443,29 +479,10 @@ public enum EmbeddingGenerationError: LocalizedError {
     }
 }
 
-// MARK: - Protocol for Embedding Capable Items
-
-public protocol EmbeddingCapable: AnyObject {
-    var hasEmbedding: Bool { get }
-    var embeddingModelVersion: String? { get }
-    var embeddingGeneratedAt: Date? { get }
-    var embeddingText: String { get }
-    
-    func setEmbedding(_ embeddingVector: [Float], modelVersion: String)
-    func getEmbedding() -> [Float]?
-    func needsEmbeddingUpdate(currentModelVersion: String, maxAge: TimeInterval) -> Bool
-}
-
 // MARK: - Protocol Conformance
 
-extension STMEntry: EmbeddingCapable {}
-extension LTMEntry: EmbeddingCapable {}
-extension EpisodicMemoryEntry: EmbeddingCapable {}
-extension Entity: EmbeddingCapable {}
+// SwiftData models now implement SwiftDataEmbeddingCapable instead of EmbeddingCapable
+// to resolve Sendable protocol conflicts and property type mismatches.
+// Use the adapter pattern when needed for EmbeddingCapable compatibility.
 
-extension ProcessedNote: EmbeddingCapable {
-    public var embeddingText: String {
-        return contentForEmbedding
-    }
-}
 

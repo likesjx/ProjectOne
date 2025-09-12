@@ -44,8 +44,7 @@ public struct CognitiveMemoryDashboard: View {
                 }
                 .padding(GlassDesignSystem.Spacing.md)
             }
-            .navigationTitle("Cognitive Memory")
-            .navigationBarTitleDisplayMode(.large)
+            .glassNavigationTitle("Cognitive Memory", displayMode: .prominent)
             .background {
                 // Glass background with subtle gradient
                 LinearGradient(
@@ -305,8 +304,8 @@ public struct CognitiveMemoryDashboard: View {
                 
                 Spacer()
                 
-                Picker("Time Range", selection: $viewModel.selectedTimeRange) {
-                    ForEach(TimeRange.allCases, id: \.self) { range in
+                Picker("Time Range", selection: $viewModel.selectedMemoryTimeRange) {
+                    ForEach(MemoryTimeRange.allCases, id: \.self) { range in
                         Text(range.displayName)
                             .tag(range)
                     }
@@ -437,7 +436,7 @@ public struct CognitiveMemoryDashboard: View {
 // MARK: - Supporting Types
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public struct LayerMetrics {
+public struct LayerMetrics: Sendable {
     let nodeCount: Int
     let averageQuality: Double
     let isActive: Bool
@@ -503,7 +502,7 @@ public struct RecentFusionActivity: Identifiable {
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public enum TimeRange: String, CaseIterable {
+public enum MemoryMemoryTimeRange: String, CaseIterable {
     case hour = "1H"
     case day = "1D"
     case week = "1W"

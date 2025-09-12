@@ -324,7 +324,7 @@ enum PredicateType: String, CaseIterable, Codable {
     }
 }
 
-enum RelationshipCategory: String, CaseIterable {
+public enum RelationshipCategory: String, CaseIterable {
     case professional = "Professional"
     case personal = "Personal"
     case activity = "Activity"

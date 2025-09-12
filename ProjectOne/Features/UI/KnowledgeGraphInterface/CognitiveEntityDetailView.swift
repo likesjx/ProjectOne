@@ -60,7 +60,7 @@ public struct CognitiveEntityDetailView: View {
             .ignoresSafeArea()
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .primaryAction) {
                 Button("Edit", systemImage: "pencil") {
                     showEditSheet = true
                 }
@@ -619,16 +619,15 @@ struct EntityEditView: View {
     var body: some View {
         NavigationView {
             Text("Entity editing interface would be implemented here")
-                .navigationTitle("Edit \(entity.name)")
-                .navigationBarTitleDisplayMode(.inline)
+                .glassNavigationTitle("Edit \(entity.name)", displayMode: .compact)
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
                             dismiss()
                         }
                     }
                     
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
                             dismiss()
                         }

@@ -66,10 +66,9 @@ public struct MLXStorageManagementView: View {
                     }
                 )
             }
-            .navigationTitle("MLX Model Management")
-            .navigationBarTitleDisplayMode(.large)
+            .glassNavigationTitle("MLX Model Management", displayMode: .prominent)
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .primaryAction) {
                     Button("Refresh") {
                         Task {
                             await refreshStorage()
@@ -85,7 +84,7 @@ public struct MLXStorageManagementView: View {
                     }
                 }
                 
-                ToolbarItemGroup(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .cancellationAction) {
                     Button("Browse Models") {
                         showingCommunityModels = true
                     }
@@ -162,9 +161,14 @@ public struct MLXStorageManagementView: View {
     }
     
     private func deleteModels(_ modelIds: [String]) async {
+        // Capture the delete method to avoid sending storageManager across concurrency boundary
+        let deleteModelsMethod = storageManager.deleteModels
+        
         do {
-            try await storageManager.deleteModels(modelIds)
-            selectedModels.removeAll()
+            try await deleteModelsMethod(modelIds)
+            await MainActor.run {
+                selectedModels.removeAll()
+            }
             logger.info("Successfully deleted \(modelIds.count) models")
         } catch {
             logger.error("Failed to delete models: \(error.localizedDescription)")
@@ -172,8 +176,11 @@ public struct MLXStorageManagementView: View {
     }
     
     private func cleanupOldModels(days: Int) async {
+        // Capture the cleanup method to avoid sending storageManager across concurrency boundary
+        let cleanupMethod = storageManager.cleanupOldModels
+        
         do {
-            try await storageManager.cleanupOldModels(olderThan: days)
+            try await cleanupMethod(olderThan: days)
             logger.info("Successfully cleaned up models older than \(days) days")
         } catch {
             logger.error("Failed to cleanup old models: \(error.localizedDescription)")
@@ -183,15 +190,19 @@ public struct MLXStorageManagementView: View {
     private func handleStorageWarnings() async {
         let warnings = storageManager.getStorageWarnings()
         
+        // Capture methods to avoid sending storageManager across concurrency boundary
+        let cleanupMethod = storageManager.cleanupOldModels
+        let freeUpSpaceMethod = storageManager.freeUpSpace
+        
         // Auto-handle actionable warnings
         for warning in warnings {
             if warning.actionable {
                 switch warning {
                 case .unusedModels:
-                    try? await storageManager.cleanupOldModels(olderThan: 30)
+                    try? await cleanupMethod(olderThan: 30)
                 case .quotaNearlyExceeded:
                     // Free up 5GB of space
-                    try? await storageManager.freeUpSpace(targetBytes: 5 * 1024 * 1024 * 1024)
+                    try? await freeUpSpaceMethod(targetBytes: 5 * 1024 * 1024 * 1024)
                 default:
                     break
                 }
@@ -306,7 +317,13 @@ struct StorageOverviewCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background({
+            #if os(macOS)
+            return Color(NSColor.controlBackgroundColor)
+            #else
+            return Color(.systemBackground)
+            #endif
+        }())
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }

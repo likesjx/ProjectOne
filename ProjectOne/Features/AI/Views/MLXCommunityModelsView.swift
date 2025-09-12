@@ -52,8 +52,7 @@ public struct MLXCommunityModelsView: View {
                     )
                 }
             }
-            .navigationTitle("MLX Community")
-            .navigationBarTitleDisplayMode(.large)
+            .glassNavigationTitle("MLX Community", displayMode: .prominent)
             .task {
                 if communityService.availableModels.isEmpty {
                     try? await communityService.discoverModels()
@@ -142,7 +141,7 @@ struct SearchAndFilterBar: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.gray.opacity(0.1))
     }
 }
 
@@ -223,7 +222,7 @@ struct ModelCard: View {
             )
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.colorInvert())
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         .sheet(isPresented: $showingDetails) {
@@ -430,10 +429,9 @@ struct DownloadsView: View {
                     }
                 }
             }
-            .navigationTitle("Downloads")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Downloads", displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Done") {
                         dismiss()
                     }
@@ -509,7 +507,9 @@ struct CompletedDownloadRow: View {
         .alert("Delete Model", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                try? downloadService.deleteModel(modelId)
+                Task {
+                    try? await downloadService.deleteModel(modelId)
+                }
             }
         } message: {
             Text("Are you sure you want to delete this model? This action cannot be undone.")
@@ -595,28 +595,27 @@ struct ModelDetailView: View {
                         Text("Technical Details")
                             .font(.headline)
                         
-                        DetailRow("Model ID", model.id)
-                        DetailRow("Author", model.author)
-                        DetailRow("Memory Requirement", model.memoryRequirement)
-                        DetailRow("Quantized", model.isQuantized ? "Yes" : "No")
-                        DetailRow("Compatible", model.isCompatible ? "Yes" : "No")
-                        DetailRow("Last Updated", formatDate(model.lastModified))
+                        MLXDetailRow("Model ID", model.id)
+                        MLXDetailRow("Author", model.author)
+                        MLXDetailRow("Memory Requirement", model.memoryRequirement)
+                        MLXDetailRow("Quantized", model.isQuantized ? "Yes" : "No")
+                        MLXDetailRow("Compatible", model.isCompatible ? "Yes" : "No")
+                        MLXDetailRow("Last Updated", formatDate(model.lastModified))
                     }
                     
                     Spacer()
                 }
                 .padding()
             }
-            .navigationTitle("Model Details")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Model Details", displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {
                         dismiss()
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     DownloadButton(model: model, downloadService: downloadService)
                 }
             }
@@ -658,12 +657,12 @@ struct DetailStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
     }
 }
 
-struct DetailRow: View {
+private struct MLXDetailRow: View {
     let label: String
     let value: String
     

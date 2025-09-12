@@ -14,14 +14,14 @@ struct NoteHealthCorrelationView: View {
     @State private var isAnalyzing = false
     @State private var showingDetails = false
     
-    init(noteId: UUID, noteDate: Date, noteContent: String) {
+    init(noteId: UUID, noteDate: Date, noteContent: String, modelContext: ModelContext) {
         self.noteId = noteId
         self.noteDate = noteDate
         self.noteContent = noteContent
         
         let healthKitManager = HealthKitManager()
         self._healthKitManager = StateObject(wrappedValue: healthKitManager)
-        self._healthEnrichment = StateObject(wrappedValue: HealthEnrichment(healthKitManager: healthKitManager, modelContext: ModelData.shared.modelContainer.mainContext))
+        self._healthEnrichment = StateObject(wrappedValue: HealthEnrichment(healthKitManager: healthKitManager, modelContext: modelContext))
     }
     
     var body: some View {
@@ -79,9 +79,9 @@ struct NoteHealthCorrelationView: View {
                     noteId: existing.noteId,
                     noteDate: existing.noteDate,
                     healthCorrelations: healthCorrelations,
-                    healthContext: existing.healthContext,
-                    insights: existing.insights,
-                    suggestions: existing.suggestions,
+                    healthContext: existing.getHealthContext(),
+                    insights: existing.getInsights(),
+                    suggestions: existing.getSuggestions(),
                     enrichmentScore: existing.enrichmentScore
                 )
                 
@@ -279,11 +279,10 @@ struct HealthCorrelationDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Health Correlation")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Health Correlation", displayMode: .compact)
             .navigationBarBackButtonHidden()
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
                         dismiss()
                     }

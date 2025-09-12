@@ -41,7 +41,7 @@ public class MLXCommunityService: ObservableObject {
         // Create cache directory if needed
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
         
-        logger.info("MLX Community Service initialized with cache at: \(cacheDirectory.path)")
+        logger.info("MLX Community Service initialized with cache at: \(self.cacheDirectory.path)")
     }
     
     // MARK: - Model Discovery
@@ -73,7 +73,7 @@ public class MLXCommunityService: ObservableObject {
             }
             
             // Fetch fresh models
-            await fetchModelsFromAPI(useCache: true)
+            try await fetchModelsFromAPI(useCache: true)
             
         } catch {
             await MainActor.run {

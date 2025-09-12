@@ -22,7 +22,7 @@ public struct CognitiveDecisionDashboard: View {
     @EnvironmentObject private var cognitiveEngine: CognitiveDecisionEngine
     @Environment(\.modelContext) private var modelContext
     
-    @State private var selectedTimeRange: TimeRange = .lastHour
+    @State private var selectedDecisionTimeRange: DecisionTimeRange = .lastHour
     @State private var selectedAgent: String = "All"
     @State private var decisionInsights: DecisionInsights = DecisionInsights()
     @State private var isLoading = false
@@ -88,8 +88,8 @@ public struct CognitiveDecisionDashboard: View {
             
             HStack {
                 // Time range picker
-                Picker("Time Range", selection: $selectedTimeRange) {
-                    ForEach(TimeRange.allCases, id: \.self) { range in
+                Picker("Time Range", selection: $selectedDecisionTimeRange) {
+                    ForEach(DecisionTimeRange.allCases, id: \.self) { range in
                         Text(range.displayName).tag(range)
                     }
                 }
@@ -138,19 +138,22 @@ public struct CognitiveDecisionDashboard: View {
                 CognitiveMetricCard(
                     title: "Total Decisions",
                     value: "\(cognitiveEngine.decisionMetrics.totalDecisions)",
-                    color: .blue
+                    color: .blue,
+                    isActive: true
                 )
                 
                 CognitiveMetricCard(
                     title: "Avg Confidence",
                     value: String(format: "%.1f%%", cognitiveEngine.decisionMetrics.averageConfidence * 100),
-                    color: .green
+                    color: .green,
+                    isActive: true
                 )
                 
                 CognitiveMetricCard(
                     title: "Active Agents",
                     value: "\(cognitiveEngine.decisionMetrics.agentDecisionCounts.count)",
-                    color: .orange
+                    color: .orange,
+                    isActive: true
                 )
             }
         }
@@ -284,12 +287,12 @@ public struct CognitiveDecisionDashboard: View {
     
     private func loadInitialData() async {
         isLoading = true
-        decisionInsights = await cognitiveEngine.getDecisionInsights(timeRange: selectedTimeRange.seconds)
+        decisionInsights = await cognitiveEngine.getDecisionInsights(timeRange: selectedDecisionTimeRange.seconds)
         isLoading = false
     }
     
     private func refreshData() async {
-        decisionInsights = await cognitiveEngine.getDecisionInsights(timeRange: selectedTimeRange.seconds)
+        decisionInsights = await cognitiveEngine.getDecisionInsights(timeRange: selectedDecisionTimeRange.seconds)
     }
 }
 
@@ -312,36 +315,6 @@ struct StatusIndicator: View {
     }
 }
 
-@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-struct CognitiveMetricCard: View {
-    let title: String
-    let value: String
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            Text(value)
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundColor(color)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-.background({
-            #if os(macOS)
-            return Color(NSColor.controlBackgroundColor)
-            #else
-            return Color(.systemBackground)
-            #endif
-        }())
-        .cornerRadius(8)
-        .shadow(radius: 2)
-    }
-}
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 struct AgentPerformanceRow: View {
@@ -488,7 +461,7 @@ struct DecisionListView: View {
 
 // MARK: - Supporting Types
 
-enum TimeRange: CaseIterable {
+enum DecisionTimeRange: CaseIterable {
     case lastHour
     case last6Hours
     case last24Hours

@@ -247,10 +247,7 @@ struct ModelDownloadView: View {
                 ModelDownloadRow(model: $model)
             }
         }
-        .navigationTitle("Model Downloads")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Model Downloads", displayMode: .compact)
     }
 }
 
@@ -263,7 +260,7 @@ struct ModelDownloadInfo: Identifiable, Equatable {
     var progress: Double
 }
 
-class TimerHolder: ObservableObject {
+class TimerHolder: ObservableObject, @unchecked Sendable {
     @Published var timer: Timer?
 }
 
@@ -348,10 +345,7 @@ struct MemoryAnalyticsView: View {
             }
             .padding()
         }
-        .navigationTitle("Memory Analytics")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .glassNavigationTitle("Memory Analytics", displayMode: .compact)
     }
 }
 
@@ -388,10 +382,7 @@ struct UserProfileView: View {
             }
             .padding()
         }
-        .navigationTitle("User Profile")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .glassNavigationTitle("User Profile", displayMode: .compact)
     }
 }
 
@@ -407,10 +398,7 @@ struct ModelPerformanceView: View {
             }
             .padding()
         }
-        .navigationTitle("Model Performance")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .glassNavigationTitle("Model Performance", displayMode: .compact)
     }
 }
 
@@ -434,10 +422,7 @@ struct DebugConsoleView: View {
             }
             .padding()
         }
-        .navigationTitle("Debug Console")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .glassNavigationTitle("Debug Console", displayMode: .compact)
         .toolbar {
             ToolbarItem(placement: {
                 #if os(iOS)
@@ -511,10 +496,7 @@ struct SystemStatusView: View {
                 }
             }
         }
-        .navigationTitle("System Status")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .glassNavigationTitle("System Status", displayMode: .compact)
         .onAppear {
             lastRefresh = Date()
             startRefreshTimer()
@@ -745,10 +727,7 @@ struct AboutView: View {
                 }
                 .padding()
             }
-            .navigationTitle("About")
-            #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+            .glassNavigationTitle("About", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: {
                 #if os(iOS)

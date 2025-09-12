@@ -13,7 +13,7 @@ import SwiftData
 
 /// Base protocol for all cognitive memory layers
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public protocol CognitiveMemoryLayer: AnyObject {
+public protocol CognitiveMemoryLayer: AnyObject, Sendable {
     associatedtype NodeType: CognitiveMemoryNode
     
     var layerType: CognitiveLayerType { get }
@@ -32,7 +32,7 @@ public protocol CognitiveMemoryLayer: AnyObject {
 
 /// Protocol for individual memory nodes within cognitive layers
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public protocol CognitiveMemoryNode: AnyObject {
+public protocol CognitiveMemoryNode: AnyObject, Sendable {
     var id: UUID { get }
     var content: String { get set }
     var timestamp: Date { get set }
@@ -53,7 +53,7 @@ public protocol CognitiveMemoryNode: AnyObject {
 
 /// Protocol for memory objects that support embedding generation
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public protocol EmbeddingCapable: AnyObject {
+public protocol EmbeddingCapable: AnyObject, Sendable {
     var embedding: [Float]? { get set }
     var embeddingTimestamp: Date? { get set }
     var needsEmbedding: Bool { get }
@@ -67,7 +67,7 @@ public protocol EmbeddingCapable: AnyObject {
 
 /// Protocol for objects that can participate in memory fusion operations
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public protocol MemoryFusible: AnyObject {
+public protocol MemoryFusible: AnyObject, Sendable {
     associatedtype FusionResult: MemoryFusible
     
     func canFuseWith(_ other: Self) async -> Bool
@@ -79,7 +79,7 @@ public protocol MemoryFusible: AnyObject {
 
 /// Protocol for components that participate in the cognitive control loop
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public protocol CognitiveControlParticipant: AnyObject {
+public protocol CognitiveControlParticipant: AnyObject, Sendable {
     func reason(query: String, context: CognitiveContext) async throws -> ReasoningResult
     func probe(layers: [any CognitiveMemoryLayer]) async throws -> ProbeResult
     func retrieve(probeResult: ProbeResult) async throws -> RetrievalResult
@@ -90,11 +90,37 @@ public protocol CognitiveControlParticipant: AnyObject {
 // MARK: - Enumerations
 
 /// Types of cognitive memory layers based on ComoRAG architecture
-public enum CognitiveLayerType: String, CaseIterable, Codable {
+public enum CognitiveLayerType: String, CaseIterable, Codable, Sendable {
     case veridical = "veridical"     // Immediate facts and observations
     case semantic = "semantic"       // Consolidated knowledge and concepts
     case episodic = "episodic"       // Experiential memories and contexts
     case fusion = "fusion"           // Cross-layer fusion results
+    
+    public var displayName: String {
+        switch self {
+        case .veridical:
+            return "Veridical Layer"
+        case .semantic:
+            return "Semantic Layer"
+        case .episodic:
+            return "Episodic Layer"
+        case .fusion:
+            return "Fusion Layer"
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .veridical:
+            return "Immediate facts and observations from direct experience"
+        case .semantic:
+            return "Consolidated knowledge and conceptual understanding"
+        case .episodic:
+            return "Experiential memories and contextual information"
+        case .fusion:
+            return "Cross-layer connections and integrated insights"
+        }
+    }
 }
 
 /// Types of cognitive memory nodes
@@ -360,7 +386,7 @@ public struct ReasoningStep: Sendable {
 }
 
 /// Types of reasoning steps
-public enum ReasoningStepType: String, CaseIterable, Codable {
+public enum ReasoningStepType: String, CaseIterable, Codable, Sendable {
     case initial = "initial"
     case retrieval = "retrieval"
     case inference = "inference"

@@ -64,8 +64,7 @@ public struct CognitiveKnowledgeGraphView: View {
                     }
                 }
             }
-            .navigationTitle("Knowledge Graph")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Knowledge Graph", displayMode: .compact)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     cognitiveStatusIndicator
@@ -517,8 +516,7 @@ public struct CognitiveKnowledgeGraphView: View {
     private var filtersSheet: some View {
         NavigationView {
             GraphFiltersView(viewModel: viewModel)
-                .navigationTitle("Graph Filters")
-                .navigationBarTitleDisplayMode(.inline)
+                .glassNavigationTitle("Graph Filters", displayMode: .compact)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
@@ -532,8 +530,7 @@ public struct CognitiveKnowledgeGraphView: View {
     private func entityDetailSheet(_ entity: Entity) -> some View {
         NavigationView {
             CognitiveEntityDetailView(entity: entity)
-                .navigationTitle(entity.name)
-                .navigationBarTitleDisplayMode(.inline)
+                .glassNavigationTitle(entity.name, displayMode: .compact)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
@@ -619,18 +616,6 @@ public struct ConvexHullPath: Shape {
     }
 }
 
-// MARK: - Graph Layout Enum
-
-public enum GraphLayout: String, CaseIterable {
-    case force = "Force"
-    case circular = "Circular"
-    case hierarchical = "Hierarchical"
-    case radial = "Radial"
-    
-    var displayName: String {
-        rawValue
-    }
-}
 
 // MARK: - Preview
 

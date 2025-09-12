@@ -305,9 +305,7 @@ struct DataExportView: View {
                 }
             }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Data Export", displayMode: .compact)
     }
     
     // MARK: - Document Picker

@@ -235,7 +235,7 @@ public final class AppleIntelligenceService: ObservableObject {
         let veridicalCount = system.veridicalLayer.nodes.count
         let semanticCount = system.semanticLayer.nodes.count
         let episodicCount = system.episodicLayer.nodes.count
-        let fusionCount = system.fusionLayer.nodes.count
+        let fusionCount = system.fusionNodes.count
         
         var insights: [String] = []
         var recommendations: [String] = []
@@ -345,12 +345,15 @@ public final class AppleIntelligenceService: ObservableObject {
 // MARK: - Supporting Types
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public enum IntelligenceCapability: String, CaseIterable, Codable {
+public enum IntelligenceCapability: String, CaseIterable, Codable, Identifiable, Sendable {
     case semanticSearch = "semantic_search"
     case contentGeneration = "content_generation"
     case knowledgeExtraction = "knowledge_extraction"
     case insights = "insights"
     case voiceInteraction = "voice_interaction"
+    
+    // Identifiable conformance
+    public var id: String { self.rawValue }
     
     var displayName: String {
         switch self {

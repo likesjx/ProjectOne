@@ -47,7 +47,7 @@ public final class CognitiveKnowledgeGraphViewModel: ObservableObject {
     
     public init(knowledgeGraphService: KnowledgeGraphService) {
         self.knowledgeGraphService = knowledgeGraphService
-        self.isCognitiveEnhanced = knowledgeGraphService.cognitiveAdapter != nil
+        self.isCognitiveEnhanced = knowledgeGraphService.isCognitiveEnhanced
         
         setupBindings()
     }
@@ -227,8 +227,8 @@ public final class CognitiveKnowledgeGraphViewModel: ObservableObject {
         guard let currentPosition = getEntityPosition(entityId, in: canvasSize) else { return }
         
         let newPosition = CGPoint(
-            x: max(25, min(canvasSize.width - 25, currentPosition.x + offset.x)),
-            y: max(25, min(canvasSize.height - 25, currentPosition.y + offset.y))
+            x: max(25, min(canvasSize.width - 25, currentPosition.x + offset.width)),
+            y: max(25, min(canvasSize.height - 25, currentPosition.y + offset.height))
         )
         
         entityPositions[entityId] = newPosition
@@ -423,17 +423,6 @@ public enum CognitiveFilter: String, CaseIterable {
     }
 }
 
-public enum RelationshipCategory: String, CaseIterable {
-    case semantic = "Semantic"
-    case temporal = "Temporal"
-    case spatial = "Spatial"
-    case causal = "Causal"
-    case social = "Social"
-    
-    var displayName: String {
-        rawValue
-    }
-}
 
 public struct GraphFilters {
     public let entityTypes: Set<EntityType>

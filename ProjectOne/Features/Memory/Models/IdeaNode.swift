@@ -20,15 +20,15 @@ public final class IdeaNode {
     
     // MARK: - Identity & Hierarchy
     
-    public let id: UUID
-    public let createdAt: Date
+    public var id: UUID
+    public var createdAt: Date
     public var updatedAt: Date
     
     /// Human-readable title for this idea
     public var title: String
     
-    /// Optional detailed description
-    public var description: String?
+    /// Optional detailed description (renamed to avoid SwiftData conflict)
+    public var ideaDescription: String?
     
     /// Parent node ID (nil for root nodes)
     public var parentID: UUID?
@@ -112,7 +112,7 @@ public final class IdeaNode {
     // MARK: - Initialization
     
     public init(title: String,
-                description: String? = nil,
+                ideaDescription: String? = nil,
                 parentID: UUID? = nil,
                 nodeType: IdeaNodeType = .concept,
                 status: IdeaStatus = .exploring,
@@ -126,7 +126,7 @@ public final class IdeaNode {
         self.createdAt = Date()
         self.updatedAt = Date()
         self.title = title
-        self.description = description
+        self.ideaDescription = ideaDescription
         self.parentID = parentID
         self.childrenIDs = []
         self.depth = 0 // Will be calculated when added to hierarchy

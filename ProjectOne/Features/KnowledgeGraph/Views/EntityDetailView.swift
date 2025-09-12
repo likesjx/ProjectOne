@@ -89,9 +89,7 @@ struct EntityDetailView: View {
         .task {
             await loadRelatedData()
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle(entity.name, displayMode: .compact)
     }
     
     // MARK: - Header Section

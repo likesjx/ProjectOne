@@ -109,14 +109,14 @@ public struct OrchestratorContext: Sendable {
     public let cognitiveCapacity: Double
     public let currentFocus: String?
     public let recentlyCompleted: [String]
-    public let userPreferences: [String: Any]
+    public let userPreferences: [String: String]
     public let environmentalFactors: [String: Double] // stress, energy, etc.
     
     public init(currentWindow: DopamineWindow = .current,
                 cognitiveCapacity: Double? = nil,
                 currentFocus: String? = nil,
                 recentlyCompleted: [String] = [],
-                userPreferences: [String: Any] = [:],
+                userPreferences: [String: String] = [:],
                 environmentalFactors: [String: Double] = [:]) {
         self.currentWindow = currentWindow
         self.cognitiveCapacity = cognitiveCapacity ?? currentWindow.cognitiveCapacity
@@ -136,8 +136,8 @@ public final class BubbleUpItem {
     
     // MARK: - Identity
     
-    public let id: UUID
-    public let createdAt: Date
+    public var id: UUID
+    public var createdAt: Date
     public var updatedAt: Date
     
     // MARK: - Core Content
@@ -722,6 +722,18 @@ public struct LocationRelevance: Codable, Sendable {
     )
 }
 
+/// Coordinates structure for Codable conformance
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public struct Coordinates: Codable, Sendable {
+    public let latitude: Double
+    public let longitude: Double
+    
+    public init(latitude: Double, longitude: Double) {
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
 /// Specific location context for bubble-up items
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 public struct LocationContext: Codable, Sendable {
@@ -735,7 +747,7 @@ public struct LocationContext: Codable, Sendable {
     public let type: LocationType
     
     /// Coordinates if available
-    public let coordinates: (latitude: Double, longitude: Double)?
+    public let coordinates: Coordinates?
     
     /// Time windows when this location is relevant
     public let activeTimeWindows: [DateInterval]
@@ -785,6 +797,16 @@ public enum DopamineTrigger: Codable, Sendable {
     }
 }
 
+/// Dopamine wave phase types for pattern-based processing
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public enum DopamineWavePhase: String, CaseIterable, Codable, Sendable {
+    case routine = "routine"
+    case creative = "creative"
+    case planning = "planning"
+    case emotional = "emotional"
+    case focus = "focus"
+}
+
 /// Cached evaluation result
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 public struct EvaluationResult: Codable, Sendable {
@@ -831,8 +853,8 @@ extension BubbleUpTaskType {
         case .planning: return [.completion, .achievement]
         case .routine: return [.completion]
         case .maintenance: return [.completion]
-        case .action: return [.immediateReward, .achievement]
-        case .implementation: return [.progressVisual, .achievement]
+        case .action: return [.urgency, .achievement]
+        case .implementation: return [.completion, .achievement]
         case .creative: return [.novelty, .curiosity]
         case .reflection: return [.relevance, .social]
         case .preparation: return [.completion]

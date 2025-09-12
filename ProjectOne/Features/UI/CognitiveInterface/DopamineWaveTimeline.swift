@@ -27,11 +27,11 @@ public struct DopamineWaveTimeline: View {
     
     // MARK: - Configuration
     
-    private let timeRange: TimeRange
+    private let timeRange: DopamineTimeRange
     private let onWindowSelected: (DopamineWindow) -> Void
     private let onEventTapped: (TimelineEvent) -> Void
     
-    public init(timeRange: TimeRange = .today,
+    public init(timeRange: DopamineTimeRange = .today,
                 onWindowSelected: @escaping (DopamineWindow) -> Void = { _ in },
                 onEventTapped: @escaping (TimelineEvent) -> Void = { _ in }) {
         self.timeRange = timeRange
@@ -157,7 +157,7 @@ public struct DopamineWaveTimeline: View {
         }
     }
     
-    private func scrollToCurrentTime(proxy: ScrollViewReader) {
+    private func scrollToCurrentTime(proxy: ScrollViewProxy) {
         let currentWindow = DopamineWindow.current
         proxy.scrollTo(currentWindow.rawValue, anchor: .center)
     }
@@ -563,13 +563,13 @@ public struct TimelineEvent: Identifiable, Sendable {
     public let title: String
     public let description: String
     public let timestamp: Date
-    public let type: EventType
+    public let type: CognitiveEventType
     public let cognitiveImpact: Double
     public let duration: TimeInterval
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public enum EventType: String, CaseIterable, Sendable {
+public enum CognitiveEventType: String, CaseIterable, Sendable {
     case focus = "focus"
     case creative = "creative"
     case routine = "routine"
@@ -588,7 +588,7 @@ public enum EventType: String, CaseIterable, Sendable {
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public enum TimeRange {
+public enum DopamineTimeRange {
     case today
     case week
     case custom(DateInterval)

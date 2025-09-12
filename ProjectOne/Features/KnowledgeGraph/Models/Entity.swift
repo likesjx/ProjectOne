@@ -5,7 +5,7 @@ import SwiftUI
 /// Represents a named entity in the knowledge graph (people, organizations, activities, concepts, locations)
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-public final class Entity {
+public final class Entity: SwiftDataEmbeddingCapable {
     public var id: UUID
     public var timestamp: Date
     
@@ -58,7 +58,7 @@ public final class Entity {
     // MARK: - Embedding Fields
     
     /// Vector embedding for semantic similarity search
-    var embedding: Data?
+    public var embedding: Data?
     
     /// Version identifier for the embedding model used
     public var embeddingModelVersion: String?
@@ -143,7 +143,7 @@ public final class Entity {
 
 // MARK: - Supporting Enums
 
-public enum EntityType: String, CaseIterable, Codable {
+public enum EntityType: String, CaseIterable, Codable, Sendable {
     case person = "Person"
     case organization = "Organization"
     case activity = "Activity"

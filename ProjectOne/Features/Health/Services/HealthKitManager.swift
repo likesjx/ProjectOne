@@ -6,7 +6,7 @@ import Combine
 @MainActor
 class HealthKitManager: ObservableObject {
     private let healthStore = HKHealthStore()
-    private var modelContext: ModelContext?
+    public var modelContext: ModelContext?
     
     @Published var authorizationStatus: HKAuthorizationStatus = .notDetermined
     @Published var isAuthorized = false

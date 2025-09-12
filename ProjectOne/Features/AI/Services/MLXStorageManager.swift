@@ -35,7 +35,7 @@ public class MLXStorageManager: ObservableObject {
         // Create cache directory if needed
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
         
-        logger.info("MLX Storage Manager initialized with cache at: \(cacheDirectory.path)")
+        logger.info("MLX Storage Manager initialized with cache at: \(self.cacheDirectory.path)")
         
         // Initial storage calculation
         Task {
@@ -64,7 +64,7 @@ public class MLXStorageManager: ObservableObject {
             }
         }.value
         
-        logger.info("Storage usage calculated: \(formatBytes(storageInfo.totalUsedBytes))")
+        logger.info("Storage usage calculated: \(formatBytes(self.storageInfo.totalUsedBytes))")
     }
     
     private func calculateStorageInfo() -> StorageInfo {

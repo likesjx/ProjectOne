@@ -50,8 +50,7 @@ struct LocationPickerView: View {
                 // Action buttons
                 actionButtons
             }
-            .navigationTitle("Select Target Location")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Select Target Location", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

@@ -232,6 +232,27 @@ extension View {
     ) -> some View {
         modifier(MemoryLayerStyle(layerType: layerType, isActive: isActive))
     }
+    
+    public func glassNavigationTitle(
+        _ title: String,
+        displayMode: GlassNavigationDisplayMode = .adaptive
+    ) -> some View {
+        modifier(GlassNavigationTitle(title: title, displayMode: displayMode))
+    }
+    
+    public func glassToolbar<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        self
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    content()
+                        .modifier(GlassToolbarStyle())
+                }
+            }
+            .toolbarBackground(GlassDesignSystem.Materials.ultraThin, for: .automatic)
+            .toolbarBackgroundVisibility(.visible, for: .automatic)
+    }
 }
 
 // MARK: - Cognitive Component Styles
@@ -282,7 +303,7 @@ public struct CognitiveMetricCard: View {
             if let subtitle = subtitle {
                 Text(subtitle)
                     .font(GlassDesignSystem.Typography.caption2)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(GlassDesignSystem.Spacing.md)
@@ -391,6 +412,74 @@ public struct CognitiveStatusBadge: View {
                 .stroke(status.color.opacity(0.3), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: GlassDesignSystem.CornerRadius.xs))
+    }
+}
+
+// MARK: - Glass Navigation System
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public enum GlassNavigationDisplayMode {
+    case adaptive    // Automatically chooses best for platform
+    case prominent   // Large titles where appropriate
+    case compact     // Inline titles where appropriate
+}
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public struct GlassNavigationTitle: ViewModifier {
+    let title: String
+    let displayMode: GlassNavigationDisplayMode
+    
+    public init(title: String, displayMode: GlassNavigationDisplayMode = .adaptive) {
+        self.title = title
+        self.displayMode = displayMode
+    }
+    
+    public func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .modifier(GlassNavigationTitleStyle(displayMode: displayMode))
+    }
+}
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public struct GlassNavigationTitleStyle: ViewModifier {
+    let displayMode: GlassNavigationDisplayMode
+    
+    public func body(content: Content) -> some View {
+        content
+#if os(iOS)
+            .navigationBarTitleDisplayMode(iosDisplayMode)
+#endif
+    }
+    
+    #if os(iOS)
+    private var iosDisplayMode: NavigationBarItem.TitleDisplayMode {
+        switch displayMode {
+        case .adaptive:
+            return .inline
+        case .prominent:
+            return .large
+        case .compact:
+            return .inline
+        }
+    }
+    #endif
+}
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public struct GlassToolbarStyle: ViewModifier {
+    public init() {}
+    
+    public func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, GlassDesignSystem.Spacing.sm)
+            .padding(.vertical, GlassDesignSystem.Spacing.xs)
+            .background(GlassDesignSystem.Materials.thin, in: RoundedRectangle(cornerRadius: GlassDesignSystem.CornerRadius.sm))
+            .modifier(CognitiveGlow(
+                color: GlassDesignSystem.Colors.cognitiveAccent,
+                radius: 2,
+                isActive: true
+            ))
     }
 }
 

@@ -5,7 +5,7 @@ import SwiftData
 struct MemoryDashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var analyticsService: MemoryAnalyticsService
-    @State private var selectedTimeRange: MemoryTimeRange = .last24Hours
+    @State private var selectedTimeRange: MemoryTimeRange = .day
     @State private var showingDetailedMetrics = false
     @State private var refreshTask: Task<Void, Never>?
     
@@ -505,21 +505,27 @@ enum MetricFormat {
 
 // MARK: - Time Range Enum
 
-enum MemoryTimeRange: String, CaseIterable {
-    case lastHour = "1h"
-    case last24Hours = "24h"
-    case lastWeek = "7d"
-    case lastMonth = "30d"
+public enum MemoryTimeRange: String, CaseIterable {
+    case hour = "1h"
+    case day = "24h"
+    case week = "7d"
+    case month = "30d"
+    
+    // Legacy cases for backward compatibility
+    case lastHour = "1h_legacy"
+    case last24Hours = "24h_legacy"
+    case lastWeek = "7d_legacy"
+    case lastMonth = "30d_legacy"
     
     var displayName: String {
         switch self {
-        case .lastHour:
+        case .hour, .lastHour:
             return "Last Hour"
-        case .last24Hours:
+        case .day, .last24Hours:
             return "Last 24 Hours"
-        case .lastWeek:
+        case .week, .lastWeek:
             return "Last Week"
-        case .lastMonth:
+        case .month, .lastMonth:
             return "Last Month"
         }
     }
@@ -533,17 +539,35 @@ enum MemoryTimeRange: String, CaseIterable {
         let start: Date
         
         switch self {
-        case .lastHour:
+        case .hour, .lastHour:
             start = end.addingTimeInterval(-3600)
-        case .last24Hours:
+        case .day, .last24Hours:
             start = end.addingTimeInterval(-86400)
-        case .lastWeek:
+        case .week, .lastWeek:
             start = end.addingTimeInterval(-604800)
-        case .lastMonth:
+        case .month, .lastMonth:
             start = end.addingTimeInterval(-2592000)
         }
         
         return DateInterval(start: start, end: end)
+    }
+    
+    var timeInterval: TimeInterval {
+        switch self {
+        case .hour, .lastHour: return 3600
+        case .day, .last24Hours: return 24 * 3600
+        case .week, .lastWeek: return 7 * 24 * 3600
+        case .month, .lastMonth: return 30 * 24 * 3600
+        }
+    }
+    
+    var dataPointCount: Int {
+        switch self {
+        case .hour, .lastHour: return 60 // One per minute
+        case .day, .last24Hours: return 96 // Every 15 minutes
+        case .week, .lastWeek: return 168 // Every hour
+        case .month, .lastMonth: return 120 // Every 6 hours
+        }
     }
 }
 

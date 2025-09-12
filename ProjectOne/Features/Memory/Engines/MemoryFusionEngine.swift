@@ -10,6 +10,14 @@ import Foundation
 import SwiftData
 import os.log
 
+// MARK: - Memory Fusion Errors
+
+public enum MemoryFusionError: Error {
+    case fusionCreationFailed(String)
+    case invalidSourceNodes
+    case configurationError(String)
+}
+
 // MARK: - Memory Fusion Engine
 
 /// Engine responsible for identifying and creating memory fusion connections
@@ -331,31 +339,31 @@ public class MemoryFusionEngine: @unchecked Sendable {
     // MARK: - Fusion Node Creation
     
     private func createFusionNode(from candidate: FusionCandidate) async throws -> FusionNode {
-        let fusedLayers = candidate.sourceNodes.map { getNodeLayerType($0) }
-        let sourceNodeIds = candidate.sourceNodes.map { $0.id.uuidString }
-        
         let fusionContent = await generateFusionContent(from: candidate)
         
-        let fusionNode = FusionNode(
-            content: fusionContent,
-            fusedLayers: fusedLayers,
-            sourceNodes: sourceNodeIds,
+        // Use the cognitive system's createFusion method
+        // Convert CognitiveMemoryNode array to BaseCognitiveNode array
+        let baseCognitiveNodes = candidate.sourceNodes.compactMap { $0 as? BaseCognitiveNode }
+        guard !baseCognitiveNodes.isEmpty else {
+            throw MemoryFusionError.invalidSourceNodes
+        }
+        
+        try await cognitiveSystem.createFusion(
+            sourceNodes: baseCognitiveNodes,
             fusionType: candidate.fusionType,
+            content: fusionContent,
             importance: candidate.importance
         )
+        
+        // Find the newly created fusion node to set additional properties
+        guard let fusionNode = cognitiveSystem.fusionNodes.last else {
+            throw MemoryFusionError.fusionCreationFailed("Failed to retrieve created fusion node")
+        }
         
         // Set fusion-specific properties
         fusionNode.coherenceScore = await calculateCoherenceScore(candidate)
         fusionNode.noveltyScore = await calculateNoveltyScore(candidate)
         fusionNode.validationStatus = .pending
-        
-        // Add to cognitive system
-        cognitiveSystem.fusionNodes.append(fusionNode)
-        
-        // Update connections in source nodes
-        for sourceNode in candidate.sourceNodes {
-            await sourceNode.addConnection(to: fusionNode.id.uuidString)
-        }
         
         return fusionNode
     }

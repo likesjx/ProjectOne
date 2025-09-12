@@ -37,8 +37,7 @@ public struct IntelligenceSettingsView: View {
                 unavailableSection
             }
         }
-        .navigationTitle("Apple Intelligence")
-        .navigationBarTitleDisplayMode(.inline)
+        .glassNavigationTitle("Apple Intelligence", displayMode: .adaptive)
         .sheet(isPresented: $showingPrivacyInfo) {
             privacyInfoSheet
         }
@@ -126,7 +125,7 @@ public struct IntelligenceSettingsView: View {
     // MARK: - Capabilities Section
     
     private var capabilitiesSection: some View {
-        Section("Available Capabilities") {
+        Section(content: {
             ForEach(Array(intelligenceService.capabilities), id: \.self) { capability in
                 Button(action: {
                     selectedCapability = capability
@@ -151,13 +150,15 @@ public struct IntelligenceSettingsView: View {
                         
                         Image(systemName: "chevron.right")
                             .font(.caption)
-                            .foregroundColor(.tertiary)
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
-        } footer: {
+        }, header: {
+            Text("Available Capabilities")
+        }, footer: {
             Text("Tap a capability to learn more about how it enhances your cognitive memory system.")
-        }
+        })
     }
     
     private func capabilityIcon(_ capability: IntelligenceCapability) -> String {
@@ -188,7 +189,7 @@ public struct IntelligenceSettingsView: View {
                     
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.tertiary)
+                        .foregroundStyle(.tertiary)
                 }
             }
             
@@ -225,7 +226,7 @@ public struct IntelligenceSettingsView: View {
     // MARK: - Usage Section
     
     private var usageSection: some View {
-        Section("Usage Statistics") {
+        Section(content: {
             HStack {
                 Text("Enhanced Searches")
                 Spacer()
@@ -251,9 +252,11 @@ public struct IntelligenceSettingsView: View {
                 // Reset usage stats
             }
             .foregroundColor(.red)
-        } footer: {
+        }, header: {
+            Text("Usage Statistics")
+        }, footer: {
             Text("Usage statistics are stored locally and help improve your experience.")
-        }
+        })
     }
     
     // MARK: - Unavailable Section
@@ -318,10 +321,9 @@ public struct IntelligenceSettingsView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Privacy Information")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Privacy Information", displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
                         showingPrivacyInfo = false
                     }
@@ -382,10 +384,9 @@ public struct IntelligenceSettingsView: View {
                 }
                 .padding()
             }
-            .navigationTitle(capability.displayName)
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle(capability.displayName, displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
                         selectedCapability = nil
                     }

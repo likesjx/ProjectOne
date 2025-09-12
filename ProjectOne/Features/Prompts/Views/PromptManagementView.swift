@@ -371,9 +371,7 @@ struct CreatePromptTemplateView: View {
             }
             .disabled(isLoading)
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Create Prompt Template", displayMode: .compact)
     }
     
     private func createTemplate() {
@@ -649,10 +647,7 @@ struct PromptDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(template.name)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .glassNavigationTitle(template.name, displayMode: .compact)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Edit") {
@@ -844,10 +839,7 @@ struct EditPromptTemplateView: View {
                     }
                 }
             }
-            .navigationTitle("Edit Template")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("Edit Template", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

@@ -5,7 +5,7 @@ import Combine
 @MainActor
 class HealthEnrichment: ObservableObject {
     private let healthKitManager: HealthKitManager
-    private let modelContext: ModelContext
+    var modelContext: ModelContext
     private var cancellables = Set<AnyCancellable>()
     
     @Published var healthInsights: [HealthInsight] = []
@@ -527,39 +527,6 @@ struct NoteHealthEnrichment {
     let enrichmentScore: Double
 }
 
-@Model
-class NoteHealthCorrelation {
-    var noteId: UUID
-    var noteDate: Date
-    var enrichmentScore: Double
-    var insightsData: Data
-    var suggestionsData: Data
-    var contextData: Data
-    var createdAt: Date
-    
-    init(noteId: UUID, noteDate: Date, enrichmentScore: Double, insights: [HealthInsight], suggestions: [HealthSuggestion], healthContext: HealthContext) {
-        self.noteId = noteId
-        self.noteDate = noteDate
-        self.enrichmentScore = enrichmentScore
-        self.createdAt = Date()
-        
-        self.insightsData = (try? JSONEncoder().encode(insights)) ?? Data()
-        self.suggestionsData = (try? JSONEncoder().encode(suggestions)) ?? Data()
-        self.contextData = (try? JSONEncoder().encode(healthContext)) ?? Data()
-    }
-    
-    var insights: [HealthInsight] {
-        (try? JSONDecoder().decode([HealthInsight].self, from: insightsData)) ?? []
-    }
-    
-    var suggestions: [HealthSuggestion] {
-        (try? JSONDecoder().decode([HealthSuggestion].self, from: suggestionsData)) ?? []
-    }
-    
-    var healthContext: HealthContext {
-        (try? JSONDecoder().decode(HealthContext.self, from: contextData)) ?? HealthContext()
-    }
-}
 
 
 
@@ -575,51 +542,3 @@ struct HealthTrend: Identifiable {
     let unit: String
 }
 
-enum TimeOfDay: String, Codable, CaseIterable {
-    case morning = "Morning"
-    case afternoon = "Afternoon"
-    case evening = "Evening"
-    case night = "Night"
-    case unknown = "Unknown"
-}
-
-enum ActivityLevel: String, Codable, CaseIterable {
-    case low = "Low"
-    case moderate = "Moderate"
-    case high = "High"
-    case unknown = "Unknown"
-}
-
-enum WellnessState: String, Codable, CaseIterable {
-    case poor = "Poor"
-    case neutral = "Neutral"
-    case good = "Good"
-    case unknown = "Unknown"
-}
-
-enum PhysiologicalState: String, Codable, CaseIterable {
-    case stressed = "Stressed"
-    case balanced = "Balanced"
-    case relaxed = "Relaxed"
-    case unknown = "Unknown"
-}
-
-enum InsightType: String, Codable, CaseIterable {
-    case physiological = "Physiological"
-    case activity = "Activity"
-    case sleep = "Sleep"
-    case mental = "Mental"
-    case nutrition = "Nutrition"
-}
-
-enum SuggestionPriority: String, Codable, CaseIterable {
-    case low = "Low"
-    case medium = "Medium"
-    case high = "High"
-}
-
-enum TrendDirection: String, CaseIterable {
-    case increasing = "Increasing"
-    case decreasing = "Decreasing"
-    case stable = "Stable"
-}

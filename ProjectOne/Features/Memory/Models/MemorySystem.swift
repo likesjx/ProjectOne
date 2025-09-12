@@ -6,8 +6,8 @@ import Collections
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-class MemoryItem {
-    var id: UUID
+public class MemoryItem {
+    public var id: UUID
     var timestamp: Date
     var importance: Double // 0.0 - 1.0
     var accessCount: Int
@@ -44,7 +44,7 @@ class MemoryItem {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class ShortTermMemory {
+public final class ShortTermMemory {
     var sessionId: UUID
     var createdAt: Date
     var isActive: Bool
@@ -167,7 +167,7 @@ final class ShortTermMemory {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class WorkingMemoryItem: MemoryItem {
+public final class WorkingMemoryItem: MemoryItem {
     var content: String
     var type: WorkingMemoryType
     var relatedEntityId: String? // Reference to Entity
@@ -216,8 +216,8 @@ enum LegacyWorkingMemoryPriority: String, CaseIterable, Codable {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-final class LongTermMemory {
-    var id: UUID
+public final class LongTermMemory {
+    public var id: UUID
     var createdAt: Date
     
     // Episodic Memory - specific experiences and events

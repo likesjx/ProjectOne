@@ -2121,7 +2121,7 @@ public struct UserPattern: Sendable {
 
 /// Result of memory system consolidation, used to trigger bubble-ups
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public struct MemoryConsolidationResult: Sendable {
+public struct MemoryConsolidationResult {
     public let consolidationTimestamp: Date
     public let memoryPressureReduction: Double // 0.0 to 1.0
     public let newFusionNodes: [FusionNode]

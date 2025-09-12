@@ -97,9 +97,7 @@ struct RelationshipDetailView: View {
         .task {
             await loadEntities()
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Relationship Details", displayMode: .compact)
     }
     
     // MARK: - Header Section

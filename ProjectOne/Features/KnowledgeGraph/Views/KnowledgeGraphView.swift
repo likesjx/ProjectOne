@@ -100,9 +100,7 @@ struct KnowledgeGraphView: View {
                     CreateRelationshipView(modelContext: modelContext, entities: allEntities)
                 }
         }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
+        .glassNavigationTitle("Knowledge Graph", displayMode: .compact)
     }
     
     private var mainContent: some View {
@@ -467,10 +465,7 @@ struct KnowledgeGraphView: View {
                     Button("Select All Relationships", action: selectAllRelationships)
                 }
             }
-            .navigationTitle("Filter Graph")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("Filter Graph", displayMode: .compact)
             .toolbar {
 #if os(iOS)
                 ToolbarItem(placement: .primaryAction) {
@@ -582,7 +577,7 @@ struct KnowledgeGraphView: View {
 
 // MARK: - Graph Layout Enum
 
-enum GraphLayout: String, CaseIterable {
+public enum GraphLayout: String, CaseIterable {
     case force = "force"
     case circular = "circular"
     case hierarchical = "hierarchical"
@@ -650,10 +645,7 @@ struct CreateEntityView: View {
                     TextField("Tags (comma-separated)", text: $tags)
                 }
             }
-            .navigationTitle("New Entity")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
+            .glassNavigationTitle("New Entity", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -745,10 +737,7 @@ struct CreateRelationshipView: View {
                     }
                 }
             }
-            .navigationTitle("New Relationship")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
+            .glassNavigationTitle("New Relationship", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

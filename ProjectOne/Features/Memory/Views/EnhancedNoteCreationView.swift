@@ -93,10 +93,7 @@ struct EnhancedNoteCreationView: View {
     var body: some View {
         NavigationStack {
             adaptiveLayout
-            .navigationTitle(navigationTitle)
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
+            .glassNavigationTitle(navigationTitle, displayMode: .compact)
             .toolbar {
 #if os(iOS)
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -1065,10 +1062,7 @@ struct TagPickerView: View {
                 
                 Spacer()
             }
-            .navigationTitle("Tags")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
+            .glassNavigationTitle("Tags", displayMode: .compact)
             .toolbar {
 #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {

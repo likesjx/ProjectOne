@@ -47,11 +47,37 @@ public enum CoachCardType: String, CaseIterable, Codable, Sendable {
     }
 }
 
+// MARK: - Coach Card Style
+
+/// Visual styling configuration for coach cards
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+public struct CoachCardStyle: Sendable {
+    public let backgroundColor: Color
+    public let borderColor: Color
+    public let textColor: Color
+    public let iconColor: Color
+    public let shadowOpacity: Double
+    
+    public init(
+        backgroundColor: Color,
+        borderColor: Color,
+        textColor: Color = .primary,
+        iconColor: Color? = nil,
+        shadowOpacity: Double = 0.1
+    ) {
+        self.backgroundColor = backgroundColor
+        self.borderColor = borderColor
+        self.textColor = textColor
+        self.iconColor = iconColor ?? borderColor
+        self.shadowOpacity = shadowOpacity
+    }
+}
+
 // MARK: - Coach Card Data Model
 
 /// Data model for a coach card
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-public struct CoachCardData: Identifiable, Codable, Sendable {
+public struct CoachCardData: Identifiable, Sendable {
     public let id: UUID
     public let type: CoachCardType
     public let title: String
@@ -105,6 +131,70 @@ public struct CoachCardData: Identifiable, Codable, Sendable {
         self.relatedItemIDs = relatedItemIDs
         self.customColor = customColor
         self.customIcon = customIcon
+    }
+}
+
+// MARK: - Codable Implementation for CoachCardData
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+extension CoachCardData: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case id, type, title, content, priority, createdAt
+        case interactionCount, lastInteraction, cognitiveLoad
+        case estimatedDuration, optimalWindows, primaryAction
+        case secondaryActions, relatedItemIDs, customColorHex, customIcon
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.type = try container.decode(CoachCardType.self, forKey: .type)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.content = try container.decode(String.self, forKey: .content)
+        self.priority = try container.decode(IdeaPriority.self, forKey: .priority)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+        self.interactionCount = try container.decode(Int.self, forKey: .interactionCount)
+        self.lastInteraction = try container.decodeIfPresent(Date.self, forKey: .lastInteraction)
+        self.cognitiveLoad = try container.decode(Double.self, forKey: .cognitiveLoad)
+        self.estimatedDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration)
+        self.optimalWindows = try container.decode([DopamineWindow].self, forKey: .optimalWindows)
+        self.primaryAction = try container.decodeIfPresent(CoachCardAction.self, forKey: .primaryAction)
+        self.secondaryActions = try container.decode([CoachCardAction].self, forKey: .secondaryActions)
+        self.relatedItemIDs = try container.decode([UUID].self, forKey: .relatedItemIDs)
+        self.customIcon = try container.decodeIfPresent(String.self, forKey: .customIcon)
+        
+        // Handle Color conversion from hex string
+        if let hexString = try container.decodeIfPresent(String.self, forKey: .customColorHex) {
+            self.customColor = Color(hex: hexString)
+        } else {
+            self.customColor = nil
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(type, forKey: .type)
+        try container.encode(title, forKey: .title)
+        try container.encode(content, forKey: .content)
+        try container.encode(priority, forKey: .priority)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(interactionCount, forKey: .interactionCount)
+        try container.encodeIfPresent(lastInteraction, forKey: .lastInteraction)
+        try container.encode(cognitiveLoad, forKey: .cognitiveLoad)
+        try container.encodeIfPresent(estimatedDuration, forKey: .estimatedDuration)
+        try container.encode(optimalWindows, forKey: .optimalWindows)
+        try container.encodeIfPresent(primaryAction, forKey: .primaryAction)
+        try container.encode(secondaryActions, forKey: .secondaryActions)
+        try container.encode(relatedItemIDs, forKey: .relatedItemIDs)
+        try container.encodeIfPresent(customIcon, forKey: .customIcon)
+        
+        // Handle Color conversion to hex string
+        if let color = customColor {
+            try container.encode(color.toHex(), forKey: .customColorHex)
+        }
     }
 }
 
@@ -624,5 +714,47 @@ extension CoachCardType {
         case .context:
             return [.eveningCreative, .morningPeak]
         }
+    }
+}
+
+// MARK: - Color Extensions for Codable Support
+
+@available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
+extension Color {
+    init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            return nil
+        }
+        
+        self.init(
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+    
+    func toHex() -> String {
+        let uiColor = UIColor(self)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        
+        let rgb = Int(red * 255) << 16 | Int(green * 255) << 8 | Int(blue * 255)
+        return String(format: "#%06X", rgb)
     }
 }

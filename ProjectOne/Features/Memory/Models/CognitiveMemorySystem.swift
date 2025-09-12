@@ -58,6 +58,7 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
     @Published public private(set) var lastConsolidation: Date?
     
     // Performance optimization
+    @MainActor
     public private(set) lazy var performanceOptimizer: CognitivePerformanceOptimizer = {
         CognitivePerformanceOptimizer(
             cognitiveSystem: self,
@@ -777,7 +778,7 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
         return totalConnections.isEmpty ? 0.0 : Double(sharedConnections.count) / Double(totalConnections.count)
     }
     
-    private func getCurrentMemoryState() async -> MemorySystemState {
+    public func getCurrentMemoryState() async -> MemorySystemState {
         return MemorySystemState(
             shortTermCount: shortTermMemory?.workingSet.count ?? 0,
             longTermCount: semanticLayer.nodes.count,
@@ -885,18 +886,6 @@ public class CognitiveMemorySystem: ObservableObject, @unchecked Sendable {
 
 // MARK: - Supporting Data Structures
 
-/// Configuration for layer search weighting
-public struct LayerWeights: Sendable {
-    public let veridical: Double
-    public let semantic: Double
-    public let episodic: Double
-    public let fusion: Double
-    
-    public static let `default` = LayerWeights(veridical: 0.2, semantic: 0.4, episodic: 0.3, fusion: 0.1)
-    public static let factFocus = LayerWeights(veridical: 0.5, semantic: 0.3, episodic: 0.1, fusion: 0.1)
-    public static let conceptualFocus = LayerWeights(veridical: 0.1, semantic: 0.6, episodic: 0.2, fusion: 0.1)
-    public static let experientialFocus = LayerWeights(veridical: 0.1, semantic: 0.2, episodic: 0.6, fusion: 0.1)
-}
 
 /// Results from cognitive layer search
 public struct CognitiveSearchResult: Sendable {

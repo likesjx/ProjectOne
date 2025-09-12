@@ -10,7 +10,7 @@ import SwiftData
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-public final class STMEntry {
+public final class STMEntry: SwiftDataEmbeddingCapable {
     public var id: UUID
     var content: String
     var timestamp: Date
@@ -34,7 +34,7 @@ public final class STMEntry {
     // MARK: - Embedding Fields
     
     /// Vector embedding for semantic similarity search
-    var embedding: Data?
+    public var embedding: Data?
     
     /// Version identifier for the embedding model used
     public var embeddingModelVersion: String?
@@ -147,6 +147,20 @@ public final class STMEntry {
     public var embeddingText: String {
         return content
     }
+    
+    // MARK: - SwiftDataEmbeddingCapable Implementation
+    
+    /// Check if this entry has a valid embedding (already implemented above)
+    // hasEmbedding is already implemented at line 111-113
+    
+    /// Set embedding data from float array (already implemented above)
+    // setEmbedding(_:modelVersion:) is already implemented at line 116-120
+    
+    /// Get embedding as float array (already implemented above) 
+    // getEmbedding() is already implemented at line 123-126
+    
+    /// Check if embedding needs update (already implemented above)
+    // needsEmbeddingUpdate(currentModelVersion:maxAge:) is already implemented at line 129-144
 }
 
 enum MemoryType: String, Codable, CaseIterable, Sendable {

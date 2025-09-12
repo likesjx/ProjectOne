@@ -126,7 +126,7 @@ final class UserSpeechProfile {
     
     // Get personalization context for a given situation
     func getPersonalizationContext(
-        timeOfDay: TimeOfDay? = nil,
+        timeOfDay: SpeechTimeOfDay? = nil,
         location: String? = nil,
         context: ContextType? = nil
     ) -> PersonalizationContext {
@@ -238,13 +238,13 @@ struct ContextPattern: Codable {
 }
 
 struct TimePattern: Codable {
-    let timeOfDay: TimeOfDay
+    let timeOfDay: SpeechTimeOfDay
     let commonPhrases: [String]
     let typicalStyle: SpeechStyle
     let energyLevel: Double
 }
 
-enum TimeOfDay: String, CaseIterable, Codable {
+enum SpeechTimeOfDay: String, CaseIterable, Codable {
     case earlyMorning = "early_morning" // 5-9 AM
     case morning = "morning"            // 9-12 PM
     case afternoon = "afternoon"        // 12-5 PM

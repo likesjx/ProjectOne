@@ -14,6 +14,9 @@ import UIKit
 import AppKit
 #endif
 import os.log
+#if canImport(WhisperKit)
+@preconcurrency import WhisperKit
+#endif
 // TODO: Re-enable SwiftWhisperKitMLX when MLX version conflicts are resolved
 // import SwiftWhisperKitMLX
 
@@ -1039,6 +1042,7 @@ extension SpeechEngineFactory {
         return adapter
     }
     fileprivate func createWhisperKitEngine() async throws -> SpeechTranscriptionProtocol {
+        #if canImport(WhisperKit)
         #if targetEnvironment(simulator)
         throw SpeechTranscriptionError.insufficientResources
         #else
@@ -1046,6 +1050,9 @@ extension SpeechEngineFactory {
         let transcriber = try WhisperKitTranscriber(locale: locale, modelSize: .tiny)
         try await transcriber.prepare()
         return transcriber
+        #endif
+        #else
+        throw SpeechTranscriptionError.configurationInvalid
         #endif
     }
 }

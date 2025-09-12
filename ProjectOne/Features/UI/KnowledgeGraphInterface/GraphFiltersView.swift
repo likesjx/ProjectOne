@@ -33,8 +33,7 @@ public struct GraphFiltersView: View {
             
             actionsSection
         }
-        .navigationTitle("Graph Filters")
-        .navigationBarTitleDisplayMode(.inline)
+        .glassNavigationTitle("Graph Filters", displayMode: .compact)
     }
     
     // MARK: - Search Section

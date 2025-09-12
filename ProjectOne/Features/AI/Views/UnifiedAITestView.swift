@@ -295,10 +295,7 @@ struct UnifiedAITestView: View {
                 }
                 .padding()
             }
-            .navigationTitle("AI Provider Testing")
-            #if os(iOS) || os(iPadOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("AI Provider Testing", displayMode: .compact)
             .onAppear {
                 setupProviders()
                 debugProviderAvailability()

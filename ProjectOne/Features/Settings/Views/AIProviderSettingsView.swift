@@ -577,10 +577,7 @@ struct APIKeyInputSheet: View {
                     instructionsForProvider(provider)
                 }
             }
-            .navigationTitle("API Key")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .glassNavigationTitle("API Key", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

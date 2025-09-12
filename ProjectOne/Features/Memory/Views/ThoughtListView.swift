@@ -43,8 +43,7 @@ struct ThoughtListView: View {
                 .searchable(text: $searchText, prompt: "Search thoughts and tags...")
                 .listStyle(PlainListStyle())
             }
-            .navigationTitle("Thoughts (\(filteredThoughts.count))")
-            .navigationBarTitleDisplayMode(.large)
+            .glassNavigationTitle("Thoughts (\(filteredThoughts.count))", displayMode: .prominent)
         }
     }
     
@@ -116,7 +115,7 @@ struct ThoughtListView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
-        .background(Color(.systemGray6))
+        .background(Color.gray.opacity(0.1))
     }
 }
 
@@ -183,29 +182,29 @@ struct ThoughtRowView: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: 4) {
                     if let contextBefore = thought.contextBefore, !contextBefore.isEmpty {
-                        DetailRow(label: "Context Before", value: contextBefore)
+                        ThoughtDetailRow(label: "Context Before", value: contextBefore)
                     }
                     
                     if let contextAfter = thought.contextAfter, !contextAfter.isEmpty {
-                        DetailRow(label: "Context After", value: contextAfter)
+                        ThoughtDetailRow(label: "Context After", value: contextAfter)
                     }
                     
                     if let primaryTag = thought.primaryTag {
-                        DetailRow(label: "Primary Tag", value: "#\(primaryTag)")
+                        ThoughtDetailRow(label: "Primary Tag", value: "#\(primaryTag)")
                     }
                     
-                    DetailRow(label: "Completeness", value: thought.completeness.displayName)
-                    DetailRow(label: "Sequence", value: "\(thought.sequenceIndex + 1)")
+                    ThoughtDetailRow(label: "Completeness", value: thought.completeness.displayName)
+                    ThoughtDetailRow(label: "Sequence", value: "\(thought.sequenceIndex + 1)")
                     
                     if let extractionMethod = thought.extractionMethod {
-                        DetailRow(label: "Extraction", value: extractionMethod)
+                        ThoughtDetailRow(label: "Extraction", value: extractionMethod)
                     }
                 }
                 .padding(.top, 8)
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
@@ -222,7 +221,7 @@ struct ThoughtRowView: View {
 }
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
-struct DetailRow: View {
+private struct ThoughtDetailRow: View {
     let label: String
     let value: String
     

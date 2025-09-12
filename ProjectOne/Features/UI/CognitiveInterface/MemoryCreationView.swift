@@ -94,8 +94,7 @@ public struct MemoryCreationView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Create Memory")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Create Memory", displayMode: .compact)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

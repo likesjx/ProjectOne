@@ -38,7 +38,7 @@ public final class CognitivePerformanceOptimizer: ObservableObject {
     // Background optimization
     private var optimizationTask: Task<Void, Error>?
     
-    public enum OptimizationLevel: String, CaseIterable {
+    public enum OptimizationLevel: String, CaseIterable, Sendable {
         case minimal = "minimal"
         case standard = "standard"
         case aggressive = "aggressive"
@@ -555,14 +555,8 @@ public struct LayerWeights: Sendable {
     )
 }
 
-public struct CognitiveSearchResult: Sendable {
-    public let veridicalNodes: [VeridicalNode]
-    public let semanticNodes: [SemanticNode]
-    public let episodicNodes: [EpisodicNode]
-    public let fusionNodes: [FusionNode]
-    public let processingTime: TimeInterval
-    public let totalRelevance: Double
-    
+// CognitiveSearchResult is defined in CognitiveMemorySystem.swift
+extension CognitiveSearchResult {
     public var relevantNodes: [any CognitiveMemoryNode] {
         var nodes: [any CognitiveMemoryNode] = []
         nodes.append(contentsOf: veridicalNodes)

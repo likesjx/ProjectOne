@@ -1125,9 +1125,21 @@ public class BaseAIProvider: AIModelProvider, ObservableObject, @unchecked Senda
                     }
                     
                     // Wait for remaining operations to complete
+                    #if canImport(Atomics)
                     while activeOperations.load(ordering: .relaxed) > 0 {
                         await Task.yield()
                     }
+                    #else
+                    while true {
+                        activeOperationsLock.lock()
+                        let currentCount = activeOperations
+                        activeOperationsLock.unlock()
+                        if currentCount <= 0 {
+                            break
+                        }
+                        await Task.yield()
+                    }
+                    #endif
                     
                     continuation.finish()
                     

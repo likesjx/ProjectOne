@@ -27,6 +27,10 @@ public final class KnowledgeGraphService: ObservableObject {
     
     private let cognitiveAdapter: KnowledgeGraphCognitiveAdapter?
     
+    public var isCognitiveEnhanced: Bool {
+        return cognitiveAdapter != nil
+    }
+    
     // Force-directed layout parameters
     private let springConstant: Double = 0.01
     private let repulsionConstant: Double = 1000.0
@@ -560,10 +564,10 @@ extension KnowledgeGraphService {
         query: String,
         limit: Int = 10,
         includeTraditionalSearch: Bool = true
-    ) async throws -> CognitiveSearchResult {
+    ) async throws -> KnowledgeGraphSearchResult {
         guard let cognitiveAdapter = cognitiveAdapter else {
             // Fallback to traditional search
-            return CognitiveSearchResult(
+            return KnowledgeGraphSearchResult(
                 query: query,
                 cognitiveMatches: [],
                 traditionalMatches: includeTraditionalSearch ? performTraditionalSearch(query: query, limit: limit) : [],
@@ -591,7 +595,7 @@ extension KnowledgeGraphService {
             traditionalMatches: traditionalMatches
         )
         
-        return CognitiveSearchResult(
+        return KnowledgeGraphSearchResult(
             query: query,
             cognitiveMatches: cognitiveMatches,
             traditionalMatches: traditionalMatches,
@@ -793,7 +797,7 @@ extension KnowledgeGraphService {
 
 // MARK: - Supporting Types for Cognitive Search
 
-public struct CognitiveSearchResult {
+public struct KnowledgeGraphSearchResult {
     public let query: String
     public let cognitiveMatches: [EntityCognitiveMatch]
     public let traditionalMatches: [Entity]

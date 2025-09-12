@@ -16,7 +16,7 @@ enum ConsolidationLevel: String, CaseIterable, Codable {
 
 @available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *)
 @Model
-public final class ProcessedNote {
+public final class ProcessedNote: SwiftDataEmbeddingCapable {
     public var id: UUID
     var timestamp: Date
     var sourceType: NoteSourceType
@@ -29,7 +29,7 @@ public final class ProcessedNote {
     var sentiment: String?
     
     // Vector embedding for semantic search (stored as Data for SwiftData compatibility)
-    var embeddingData: Data?
+    public var embedding: Data?
     
     // Embedding metadata
     public var embeddingModelVersion: String?
@@ -105,19 +105,19 @@ public final class ProcessedNote {
     
     /// Check if the note has a valid embedding
     public var hasEmbedding: Bool {
-        return embeddingData != nil && embeddingModelVersion != nil
+        return embedding != nil && embeddingModelVersion != nil
     }
     
     /// Set the embedding for this note
     public func setEmbedding(_ embeddingVector: [Float], modelVersion: String) {
-        self.embeddingData = EmbeddingUtils.embeddingToData(embeddingVector)
+        self.embedding = EmbeddingUtils.embeddingToData(embeddingVector)
         self.embeddingModelVersion = modelVersion
         self.embeddingGeneratedAt = Date()
     }
     
     /// Get the embedding as a float array for calculations
     public func getEmbedding() -> [Float]? {
-        guard let data = embeddingData else { return nil }
+        guard let data = embedding else { return nil }
         return EmbeddingUtils.dataToEmbedding(data)
     }
     
@@ -144,20 +144,20 @@ public final class ProcessedNote {
         return false
     }
     
-    /// Computed property for backward compatibility
-    var embedding: [Float]? {
+    /// Computed property for backward compatibility with old embedding interface
+    var embeddingVector: [Float]? {
         get {
             return getEmbedding()
         }
         set {
             guard let newValue = newValue else {
-                embeddingData = nil
+                embedding = nil
                 embeddingModelVersion = nil
                 embeddingGeneratedAt = nil
                 return
             }
             // Note: This doesn't set model version, use setEmbedding() method instead
-            embeddingData = EmbeddingUtils.embeddingToData(newValue)
+            embedding = EmbeddingUtils.embeddingToData(newValue)
         }
     }
     
@@ -183,6 +183,11 @@ public final class ProcessedNote {
         let enrichedContent = summary.isEmpty ? "" : " " + summary
         let topicContent = topics.isEmpty ? "" : " " + topics.joined(separator: " ")
         return baseContent + enrichedContent + topicContent
+    }
+    
+    /// Required by SwiftDataEmbeddingCapable protocol
+    public var embeddingText: String {
+        return contentForEmbedding
     }
     
     // MARK: - Processing Status Tracking

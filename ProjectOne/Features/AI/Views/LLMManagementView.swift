@@ -32,7 +32,7 @@ public struct LLMManagementView: View {
                     lastUpdate: managementService.lastUpdate
                 )
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Color.gray.opacity(0.1))
                 
                 // Tab Selection
                 Picker("View", selection: $selectedTab) {
@@ -75,12 +75,13 @@ public struct LLMManagementView: View {
                     MLXStorageManagementView()
                         .tag(3)
                 }
+                #if os(iOS)
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                #endif
             }
-            .navigationTitle("LLM Management")
-            .navigationBarTitleDisplayMode(.large)
+            .glassNavigationTitle("LLM Management", displayMode: .prominent)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Refresh") {
                         managementService.refreshProviderStatuses()
                     }
@@ -144,7 +145,7 @@ struct ProvidersView: View {
     var body: some View {
         List {
             ForEach(providers) { provider in
-                ProviderCard(
+                LLMProviderCard(
                     provider: provider,
                     onUnload: {
                         onUnloadModel(provider.id)
@@ -160,7 +161,7 @@ struct ProvidersView: View {
     }
 }
 
-struct ProviderCard: View {
+struct LLMProviderCard: View {
     let provider: LLMProviderStatus
     let onUnload: () -> Void
     
@@ -243,7 +244,7 @@ struct ProviderCard: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.primary.colorInvert())
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         .sheet(isPresented: $showingDetails) {
@@ -299,7 +300,11 @@ struct ModelsView: View {
                 }
             }
         }
-        .listStyle(InsetGroupedListStyle())
+        #if os(iOS)
+        .listStyle(GroupedListStyle())
+        #else
+        .listStyle(SidebarListStyle())
+        #endif
     }
     
     private func modelsOfType(_ type: LLMProviderType) -> [LLMModelInfo] {
@@ -388,7 +393,11 @@ struct ActivityView: View {
                 }
             }
         }
-        .listStyle(InsetGroupedListStyle())
+        #if os(iOS)
+        .listStyle(GroupedListStyle())
+        #else
+        .listStyle(SidebarListStyle())
+        #endif
     }
     
     private var recentAttempts: [LLMInitializationAttempt] {
@@ -466,19 +475,19 @@ struct ProviderDetailView: View {
         NavigationView {
             List {
                 Section("Status") {
-                    DetailRow("Name", provider.name)
-                    DetailRow("Type", provider.type.displayName)
-                    DetailRow("Status", provider.statusDescription)
-                    DetailRow("Supported", provider.isSupported ? "Yes" : "No")
+                    LLMDetailRow("Name", provider.name)
+                    LLMDetailRow("Type", provider.type.displayName)
+                    LLMDetailRow("Status", provider.statusDescription)
+                    LLMDetailRow("Supported", provider.isSupported ? "Yes" : "No")
                     
                     if let model = provider.currentModel {
-                        DetailRow("Current Model", model)
+                        LLMDetailRow("Current Model", model)
                     }
                     
-                    DetailRow("Memory Usage", provider.estimatedMemoryUsage)
+                    LLMDetailRow("Memory Usage", provider.estimatedMemoryUsage)
                     
                     if !provider.isSupported {
-                        DetailRow("Requirements", provider.deviceRequirements)
+                        LLMDetailRow("Requirements", provider.deviceRequirements)
                     }
                 }
                 
@@ -493,20 +502,19 @@ struct ProviderDetailView: View {
                 
                 if let lastAttempt = provider.lastAttempt {
                     Section("Last Attempt") {
-                        DetailRow("Time", lastAttempt.timestamp.formatted())
-                        DetailRow("Status", lastAttempt.status.displayName)
-                        DetailRow("Model", lastAttempt.modelId)
+                        LLMDetailRow("Time", lastAttempt.timestamp.formatted())
+                        LLMDetailRow("Status", lastAttempt.status.displayName)
+                        LLMDetailRow("Model", lastAttempt.modelId)
                         
                         if let error = lastAttempt.errorMessage {
-                            DetailRow("Error", error)
+                            LLMDetailRow("Error", error)
                         }
                     }
                 }
             }
-            .navigationTitle(provider.name)
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle(provider.name, displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Done") {
                         // Dismiss sheet
                     }
@@ -516,7 +524,7 @@ struct ProviderDetailView: View {
     }
 }
 
-struct DetailRow: View {
+private struct LLMDetailRow: View {
     let label: String
     let value: String
     
@@ -602,10 +610,9 @@ struct ModelLoadingView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Load Model")
-            .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationTitle("Load Model", displayMode: .compact)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Done", action: onDismiss)
                 }
             }
@@ -653,7 +660,7 @@ struct InfoBox: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity)
-        .background(Color(.systemGray6))
+        .background(Color.gray.opacity(0.1))
         .cornerRadius(6)
     }
 }
